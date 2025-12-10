@@ -5,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const ELEVEN_LABS_API_KEY = Deno.env.get("ELEVEN_LABS_API_KEY") || "";
+const ELEVENLABS_API_KEY = Deno.env.get("ELEVENLABS_API_KEY") || "";
 const DEFAULT_VOICE_ID = "JBFqnCBsd6RMkjVDRZzb"; // George
 const MAX_RETRIES = 3;
 const REQUEST_TIMEOUT_MS = 30000;
@@ -134,7 +134,7 @@ serve(async (req) => {
     }
 
     // Mock fallback when API key not configured
-    if (!ELEVEN_LABS_API_KEY) {
+    if (!ELEVENLABS_API_KEY) {
       console.log("ElevenLabs API key not configured, returning mock response");
       const mockResponse: TTSResponse = {
         success: true,
@@ -168,7 +168,7 @@ serve(async (req) => {
     const response = await retryFetch(endpoint, {
       method: "POST",
       headers: {
-        "xi-api-key": ELEVEN_LABS_API_KEY,
+        "xi-api-key": ELEVENLABS_API_KEY,
         "Content-Type": "application/json",
         Accept: "audio/mpeg",
       },

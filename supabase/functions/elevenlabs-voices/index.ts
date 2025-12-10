@@ -5,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const ELEVEN_LABS_API_KEY = Deno.env.get("ELEVEN_LABS_API_KEY") || "";
+const ELEVENLABS_API_KEY = Deno.env.get("ELEVENLABS_API_KEY") || "";
 
 interface Voice {
   voice_id: string;
@@ -59,7 +59,7 @@ serve(async (req) => {
 
   try {
     // If no API key, return default voices
-    if (!ELEVEN_LABS_API_KEY) {
+    if (!ELEVENLABS_API_KEY) {
       console.log("ElevenLabs API key not configured, returning default voices");
       const mockResponse: VoicesResponse = {
         success: true,
@@ -76,7 +76,7 @@ serve(async (req) => {
     const response = await fetch("https://api.elevenlabs.io/v1/voices", {
       method: "GET",
       headers: {
-        "xi-api-key": ELEVEN_LABS_API_KEY,
+        "xi-api-key": ELEVENLABS_API_KEY,
       },
     });
 
