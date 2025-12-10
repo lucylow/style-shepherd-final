@@ -15,7 +15,12 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+      throw new Error(
+        "LOVABLE_API_KEY is not configured. " +
+        "Please set it using: supabase secrets set LOVABLE_API_KEY=your_key " +
+        "or via the Supabase Dashboard → Settings → Edge Functions → Secrets. " +
+        "See SUPABASE_SECRETS_SETUP.md for detailed instructions."
+      );
     }
 
     // If text is already provided (from browser speech recognition), use it directly

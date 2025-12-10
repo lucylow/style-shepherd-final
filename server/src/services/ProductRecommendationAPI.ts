@@ -247,6 +247,14 @@ export class ProductRecommendationAPI {
       
       // If database fails, return empty array (graceful degradation)
       console.error('Fallback recommendations failed:', error);
+      
+      // Log specific error details for debugging
+      if (error instanceof DatabaseError) {
+        console.error('Database error in fallback recommendations:', error.message);
+      } else if (error instanceof Error) {
+        console.error('Unexpected error in fallback recommendations:', error.message, error.stack);
+      }
+      
       return [];
     }
   }
@@ -483,6 +491,16 @@ export class ProductRecommendationAPI {
       
       // Unknown error, return empty array (graceful degradation)
       console.error('Visual search error:', error);
+      
+      // Log error details for debugging
+      if (error instanceof Error) {
+        console.error('Visual search error details:', {
+          message: error.message,
+          name: error.name,
+          stack: error.stack,
+        });
+      }
+      
       return [];
     }
   }
@@ -616,9 +634,18 @@ export class ProductRecommendationAPI {
 
       // Note: Cache invalidation would be implemented with proper cache key tracking
       // For now, cache will expire naturally based on TTL
-    } catch (error) {
+    } catch (error: any) {
+      // Non-critical operation, log but don't throw
       console.error('Failed to record feedback:', error);
-      // Non-critical, don't throw
+      
+      // Log specific error types for monitoring
+      if (error instanceof DatabaseError) {
+        console.warn('Database error when recording feedback - this is non-critical');
+      } else if (error?.code === 'ECONNREFUSED') {
+        console.warn('Database connection refused when recording feedback');
+      }
+      
+      // Don't throw - feedback recording is non-critical for user experience
     }
   }
 
@@ -638,44 +665,48 @@ export class ProductRecommendationAPI {
       return recommendations;
     }
 
-      // Enhance with learning from user's past interactions
+    // Enhance with learning from user's past interactions
+    try {
+      // First check if table exists, if not return base recommendations
+      let userInteractions: any[] = [];
+      let interactionStats: any = null;
       try {
-        // First check if table exists, if not return base recommendations
-        let userInteractions: any[] = [];
-        let interactionStats: any = null;
-        try {
-          // Get detailed interaction data
-          const [interactions, stats] = await Promise.all([
-            vultrPostgres.query(
-              `SELECT product_id, feedback_type, COUNT(*) as interaction_count, MAX(created_at) as last_interaction
-               FROM recommendation_feedback
-               WHERE user_id = $1
-               GROUP BY product_id, feedback_type
-               ORDER BY last_interaction DESC`,
-              [userId]
-            ),
-            vultrPostgres.query(
-              `SELECT 
-                 COUNT(CASE WHEN feedback_type = 'purchase' THEN 1 END) as purchases,
-                 COUNT(CASE WHEN feedback_type = 'click' THEN 1 END) as clicks,
-                 COUNT(CASE WHEN feedback_type = 'view' THEN 1 END) as views,
-                 COUNT(CASE WHEN feedback_type = 'skip' THEN 1 END) as skips,
-                 COUNT(CASE WHEN feedback_type = 'dismiss' THEN 1 END) as dismisses,
-                 COUNT(*) as total_interactions
-               FROM recommendation_feedback
-               WHERE user_id = $1`,
-              [userId]
-            ).catch(() => null)
-          ]);
+        // Get detailed interaction data
+        const [interactions, stats] = await Promise.all([
+          vultrPostgres.query(
+            `SELECT product_id, feedback_type, COUNT(*) as interaction_count, MAX(created_at) as last_interaction
+             FROM recommendation_feedback
+             WHERE user_id = $1
+             GROUP BY product_id, feedback_type
+             ORDER BY last_interaction DESC`,
+            [userId]
+          ),
+          vultrPostgres.query(
+            `SELECT 
+               COUNT(CASE WHEN feedback_type = 'purchase' THEN 1 END) as purchases,
+               COUNT(CASE WHEN feedback_type = 'click' THEN 1 END) as clicks,
+               COUNT(CASE WHEN feedback_type = 'view' THEN 1 END) as views,
+               COUNT(CASE WHEN feedback_type = 'skip' THEN 1 END) as skips,
+               COUNT(CASE WHEN feedback_type = 'dismiss' THEN 1 END) as dismisses,
+               COUNT(*) as total_interactions
+             FROM recommendation_feedback
+             WHERE user_id = $1`,
+            [userId]
+          ).catch(() => null)
+        ]);
 
-          userInteractions = interactions || [];
-          interactionStats = stats?.[0] || null;
+        userInteractions = interactions || [];
+        interactionStats = stats?.[0] || null;
         } catch (tableError: any) {
           // Table might not exist yet, that's okay
-          if (!tableError.message?.includes('does not exist')) {
-            throw tableError;
+          if (!tableError.message?.includes('does not exist') && 
+              !tableError.message?.includes('relation') &&
+              !tableError.message?.includes('table')) {
+            // If it's not a "table doesn't exist" error, log it but continue
+            console.warn('Error fetching user interactions (non-critical):', tableError);
+          } else {
+            console.log('recommendation_feedback table not found, using base recommendations');
           }
-          console.log('recommendation_feedback table not found, using base recommendations');
         }
 
       // Build interaction maps with weights (recent interactions weighted more)
@@ -736,8 +767,17 @@ export class ProductRecommendationAPI {
           ],
         };
       }).sort((a, b) => b.score - a.score); // Re-sort by adjusted score
-    } catch (error) {
+    } catch (error: any) {
+      // Learning enhancement is non-critical, return base recommendations
       console.error('Failed to apply learning, returning base recommendations:', error);
+      
+      // Log error details for debugging
+      if (error instanceof DatabaseError) {
+        console.warn('Database error when applying learning - using base recommendations');
+      } else if (error instanceof Error) {
+        console.error('Learning application error:', error.message);
+      }
+      
       return recommendations;
     }
   }

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Mic, MicOff, Sparkles, ShoppingBag } from 'lucide-react';
+import { Mic, MicOff, Sparkles, ShoppingBag, AlertCircle, X } from 'lucide-react';
 import { VoiceInterface } from '@/components/VoiceInterface';
 import { ProductCard } from '@/components/ProductCard';
 import { ShoppingCart } from '@/components/ShoppingCart';
@@ -24,6 +24,7 @@ const VoiceShop = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [lastCommand, setLastCommand] = useState<string>('');
+  const [error, setError] = useState<string | null>(null);
 
   const { user } = useAuth();
   const userId = user?.id || 'guest';
@@ -39,11 +40,13 @@ const VoiceShop = () => {
 
   const loadInitialProducts = async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const results = await mockProductService.searchProducts({});
       setProducts(results.slice(0, 8)); // Show initial products
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading products:', error);
+      setError('Failed to load products. Please try refreshing the page.');
     } finally {
       setIsLoading(false);
     }
@@ -53,13 +56,16 @@ const VoiceShop = () => {
     try {
       const cartData = await mockCartService.getCart(userId);
       setCartItems(cartData);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading cart:', error);
+      // Cart loading errors are non-critical, user can still shop
+      // Just log the error but don't show to user unless critical
     }
   };
 
   const handleVoiceCommand = async (response: VoiceResponse) => {
     setIsListening(false);
+    setError(null);
     setLastCommand(response.text || 'Command processed');
 
     // If products are directly provided in response
@@ -71,37 +77,47 @@ const VoiceShop = () => {
         // Extract search terms from the response text
         const searchQuery = response.text;
         const results = await mockProductService.searchProducts({ query: searchQuery });
-        setProducts(results);
-      } catch (error) {
+        if (results.length === 0) {
+          setError('No products found. Try a different search term.');
+        } else {
+          setProducts(results);
+        }
+      } catch (error: any) {
         console.error('Error searching products:', error);
+        setError('Failed to search products. Please try again.');
       }
     }
   };
 
   const handleAddToCart = async (product: Product) => {
-    if (userId === 'guest') {
-      setCartItems(prev => {
-        const existingItem = prev.find(item => item.product.id === product.id);
-        if (existingItem) {
-          return prev.map(item =>
-            item.product.id === product.id
-              ? { ...item, quantity: item.quantity + 1 }
-              : item
-          );
-        }
-        return [...prev, { 
-          product, 
-          quantity: 1, 
-          size: product.recommendedSize || product.sizes[0] 
-        }];
-      });
-    } else {
-      const updatedCart = await mockCartService.addToCart(userId, {
-        product,
-        quantity: 1,
-        size: product.recommendedSize || product.sizes[0]
-      });
-      setCartItems(updatedCart);
+    try {
+      if (userId === 'guest') {
+        setCartItems(prev => {
+          const existingItem = prev.find(item => item.product.id === product.id);
+          if (existingItem) {
+            return prev.map(item =>
+              item.product.id === product.id
+                ? { ...item, quantity: item.quantity + 1 }
+                : item
+            );
+          }
+          return [...prev, { 
+            product, 
+            quantity: 1, 
+            size: product.recommendedSize || product.sizes[0] 
+          }];
+        });
+      } else {
+        const updatedCart = await mockCartService.addToCart(userId, {
+          product,
+          quantity: 1,
+          size: product.recommendedSize || product.sizes[0]
+        });
+        setCartItems(updatedCart);
+      }
+    } catch (error: any) {
+      console.error('Error adding to cart:', error);
+      setError('Failed to add item to cart. Please try again.');
     }
   };
 
@@ -136,7 +152,7 @@ const VoiceShop = () => {
                 <div>
                   <h1 className="text-3xl font-bold text-foreground">Voice Shop</h1>
                   <p className="text-sm text-muted-foreground flex items-center gap-1.5 mt-1">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                    <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                     AI Assistant Ready
                   </p>
                 </div>
@@ -213,6 +229,31 @@ const VoiceShop = () => {
           </div>
         </motion.div>
 
+        {/* Error Message */}
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 mb-6 flex items-start justify-between gap-4"
+          >
+            <div className="flex items-start gap-3 flex-1">
+              <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-destructive">Error</p>
+                <p className="text-sm text-muted-foreground mt-1">{error}</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setError(null)}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Dismiss error"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </motion.div>
+        )}
+
         {/* Products Grid */}
         <section>
           <div className="flex items-center justify-between mb-6">
@@ -276,17 +317,27 @@ const VoiceShop = () => {
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
         cartItems={cartItems}
-        onUpdateQuantity={(productId, quantity) => {
-          if (quantity === 0) {
-            setCartItems(prev => prev.filter(item => item.product.id !== productId));
-          } else {
-            setCartItems(prev => prev.map(item =>
-              item.product.id === productId ? { ...item, quantity } : item
-            ));
+        onUpdateQuantity={async (productId, quantity) => {
+          try {
+            if (quantity === 0) {
+              setCartItems(prev => prev.filter(item => item.product.id !== productId));
+            } else {
+              setCartItems(prev => prev.map(item =>
+                item.product.id === productId ? { ...item, quantity } : item
+              ));
+            }
+          } catch (error: any) {
+            console.error('Error updating cart quantity:', error);
+            setError('Failed to update cart. Please try again.');
           }
         }}
         onRemoveItem={(productId) => {
-          setCartItems(prev => prev.filter(item => item.product.id !== productId));
+          try {
+            setCartItems(prev => prev.filter(item => item.product.id !== productId));
+          } catch (error: any) {
+            console.error('Error removing item from cart:', error);
+            setError('Failed to remove item from cart. Please try again.');
+          }
         }}
         onCheckout={() => {
           // Checkout handled in ShoppingCart

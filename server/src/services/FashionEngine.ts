@@ -7,6 +7,14 @@ import { userMemory } from '../lib/raindrop-config.js';
 import { orderSQL } from '../lib/raindrop-config.js';
 import { productRecommendationAPI } from './ProductRecommendationAPI.js';
 import { vultrPostgres } from '../lib/vultr-postgres.js';
+import {
+  NotFoundError,
+  DatabaseError,
+  DatabaseQueryError,
+  CacheError,
+  ErrorCode,
+  AppError,
+} from '../lib/errors.js';
 
 export interface BodyMeasurements {
   height?: number;
@@ -64,9 +72,21 @@ export class FashionEngine {
     }
 
     // Get user profile from SmartMemory
-    const userProfile = await userMemory.get(userId);
-    if (!userProfile) {
-      throw new Error('User profile not found');
+    let userProfile;
+    try {
+      userProfile = await userMemory.get(userId);
+      if (!userProfile) {
+        throw new NotFoundError('User profile', userId, { userId });
+      }
+    } catch (error: any) {
+      if (error instanceof NotFoundError) {
+        throw error;
+      }
+      throw new DatabaseError(
+        'Failed to retrieve user profile',
+        error instanceof Error ? error : new Error(String(error)),
+        { userId }
+      );
     }
 
     // Fetch user data in parallel with timeout
@@ -89,45 +109,78 @@ export class FashionEngine {
         fetchWithTimeout(
           userMemory.get(`${userId}-measurements`) as Promise<BodyMeasurements | null>,
           dataFetchTimeout
-        ).catch(() => null),
+        ).catch((err) => {
+          console.warn(`Failed to fetch measurements for user ${userId}:`, err);
+          return null;
+        }),
         fetchWithTimeout(
           userMemory.get(`${userId}-style-history`) as Promise<any[] | null>,
           dataFetchTimeout
-        ).catch(() => null),
+        ).catch((err) => {
+          console.warn(`Failed to fetch style history for user ${userId}:`, err);
+          return null;
+        }),
         fetchWithTimeout(
           this.getReturnsHistory(userId),
           dataFetchTimeout
-        ).catch(() => []),
+        ).catch((err) => {
+          console.warn(`Failed to fetch returns history for user ${userId}:`, err);
+          return [];
+        }),
       ]);
     } catch (error) {
       console.warn('Some data fetch failed, continuing with available data:', error);
-      // Continue with whatever data we have
+      // Continue with whatever data we have - these are non-critical
     }
 
     // Predict optimal size
-    const size = await this.predictOptimalSize(
-      bodyMeasurements || userProfile.bodyMeasurements,
-      returnsHistory
-    );
+    let size: string;
+    try {
+      size = await this.predictOptimalSize(
+        bodyMeasurements || userProfile.bodyMeasurements,
+        returnsHistory
+      );
+    } catch (error) {
+      console.error('Size prediction failed, using default:', error);
+      size = 'M'; // Safe default
+    }
 
     // Match style rules
-    const style = this.matchStyleRules(
-      userProfile.preferences || {},
-      occasion
-    );
+    let style: string[];
+    try {
+      style = this.matchStyleRules(
+        userProfile.preferences || {},
+        occasion
+      );
+    } catch (error) {
+      console.error('Style matching failed, using default:', error);
+      style = ['versatile']; // Safe default
+    }
 
     // Get product recommendations
-    const recommendations = await productRecommendationAPI.getRecommendations(
-      userProfile.preferences || {},
-      { occasion, budget }
-    );
+    let recommendations: any[];
+    try {
+      recommendations = await productRecommendationAPI.getRecommendations(
+        userProfile.preferences || {},
+        { occasion, budget }
+      );
+    } catch (error) {
+      console.error('Product recommendations failed, using empty array:', error);
+      recommendations = []; // Safe default
+    }
 
     // Calculate return risk
-    const returnRisk = await this.calculateReturnRisk(
-      userId,
-      recommendations,
-      returnsHistory
-    );
+    let returnRisk: number;
+    try {
+      returnRisk = await this.calculateReturnRisk(
+        userId,
+        recommendations,
+        returnsHistory
+      );
+    } catch (error) {
+      console.error('Return risk calculation failed, using default:', error);
+      returnRisk = 0.25; // Safe default (industry average)
+    }
 
     const result: PersonalizedRecommendation = {
       size,
@@ -351,8 +404,10 @@ export class FashionEngine {
             'SELECT COUNT(*) as return_count FROM returns WHERE product_id = $1',
             [r.productId || r.id]
           );
-          return productReturns[0]?.return_count || 0;
-        } catch {
+          return productReturns?.[0]?.return_count || 0;
+        } catch (error) {
+          // Log but don't throw - this is non-critical data
+          console.warn(`Failed to get return rate for product ${r.productId || r.id}:`, error);
           return 0;
         }
       })
@@ -395,13 +450,21 @@ export class FashionEngine {
    */
   private async getReturnsHistory(userId: string): Promise<any[]> {
     try {
-      return await orderSQL.query(
+      const results = await orderSQL.query(
         'SELECT * FROM returns WHERE user_id = ?',
         [userId]
       );
-    } catch (error) {
+      return Array.isArray(results) ? results : [];
+    } catch (error: any) {
+      // Log error but don't throw - returns history is non-critical
       console.error('Failed to get returns history:', error);
-      return [];
+      
+      // If it's a database error, we might want to handle it differently
+      if (error?.code === 'ECONNREFUSED' || error?.code === 'ENOTFOUND') {
+        console.warn('Database connection issue when fetching returns history');
+      }
+      
+      return []; // Return empty array as safe fallback
     }
   }
 
@@ -482,8 +545,34 @@ export class FashionEngine {
     occasion?: string,
     budget?: number
   ): Promise<PersonalizedRecommendation & { trends: ReturnType<typeof this.detectTrends> }> {
-    const baseRecommendation = await this.getPersonalizedRecommendation(userId, occasion, budget);
-    const trends = await this.detectTrends(occasion);
+    let baseRecommendation: PersonalizedRecommendation;
+    try {
+      baseRecommendation = await this.getPersonalizedRecommendation(userId, occasion, budget);
+    } catch (error) {
+      // If base recommendation fails, create a minimal fallback
+      console.error('Failed to get base recommendation, using fallback:', error);
+      baseRecommendation = {
+        size: 'M',
+        style: ['versatile'],
+        budget: budget || 500,
+        confidence: 0.5,
+        products: [],
+        returnRisk: 0.25,
+      };
+    }
+
+    let trends: ReturnType<typeof this.detectTrends>;
+    try {
+      trends = await this.detectTrends(occasion);
+    } catch (error) {
+      console.error('Failed to detect trends, using defaults:', error);
+      trends = {
+        trendingColors: [],
+        trendingStyles: ['versatile'],
+        trendingCategories: [],
+        season: 'all-season',
+      };
+    }
 
     // Enhance style recommendations with trending elements
     const enhancedStyles = [
