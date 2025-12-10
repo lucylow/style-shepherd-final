@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Mic, MicOff, Sparkles, ShoppingBag, AlertCircle, X } from 'lucide-react';
 import { VoiceInterface } from '@/components/VoiceInterface';
@@ -31,14 +31,7 @@ const VoiceShop = () => {
 
   useScrollRestoration();
 
-  useEffect(() => {
-    loadInitialProducts();
-    if (userId !== 'guest') {
-      loadCart();
-    }
-  }, [userId]);
-
-  const loadInitialProducts = async (retryCount = 0) => {
+  const loadInitialProducts = useCallback(async (retryCount = 0) => {
     setIsLoading(true);
     setError(null);
     try {
@@ -73,9 +66,9 @@ const VoiceShop = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const loadCart = async () => {
+  const loadCart = useCallback(async () => {
     try {
       const cartData = await mockCartService.getCart(userId);
       setCartItems(cartData);
@@ -88,7 +81,14 @@ const VoiceShop = () => {
       }
       // Don't set error state - cart can work with local state
     }
-  };
+  }, [userId]);
+
+  useEffect(() => {
+    loadInitialProducts();
+    if (userId !== 'guest') {
+      loadCart();
+    }
+  }, [userId, loadInitialProducts, loadCart]);
 
   const handleVoiceCommand = async (response: VoiceResponse) => {
     setIsListening(false);
@@ -142,14 +142,14 @@ const VoiceShop = () => {
           return [...prev, { 
             product, 
             quantity: 1, 
-            size: product.recommendedSize || product.sizes[0] 
+            size: product.recommendedSize || (product.sizes && product.sizes.length > 0 ? product.sizes[0] : 'M') 
           }];
         });
       } else {
         const updatedCart = await mockCartService.addToCart(userId, {
           product,
           quantity: 1,
-          size: product.recommendedSize || product.sizes[0]
+          size: product.recommendedSize || (product.sizes && product.sizes.length > 0 ? product.sizes[0] : 'M')
         });
         setCartItems(updatedCart);
       }
@@ -171,7 +171,7 @@ const VoiceShop = () => {
           return [...prev, { 
             product, 
             quantity: 1, 
-            size: product.recommendedSize || product.sizes[0] 
+            size: product.recommendedSize || (product.sizes && product.sizes.length > 0 ? product.sizes[0] : 'M') 
           }];
         });
         return; // Don't show error for guest users

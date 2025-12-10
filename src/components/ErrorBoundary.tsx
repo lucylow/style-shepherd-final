@@ -2,7 +2,6 @@ import { Component, ReactNode } from 'react';
 import { Button } from './ui/button';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { useNavigate } from 'react-router-dom';
 
 interface Props {
   children: ReactNode;
@@ -27,7 +26,8 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
-    this.setState({ errorInfo });
+    // Ensure error is set in state (getDerivedStateFromError should have set it, but be defensive)
+    this.setState({ error, errorInfo });
     
     // Log to error reporting service in production
     if (import.meta.env.PROD) {

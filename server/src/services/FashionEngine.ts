@@ -412,7 +412,9 @@ export class FashionEngine {
         }
       })
     );
-    const avgProductReturnRate = productReturnRates.reduce((sum, r) => sum + r, 0) / productReturnRates.length;
+    const avgProductReturnRate = productReturnRates.length > 0 
+      ? productReturnRates.reduce((sum, r) => sum + r, 0) / productReturnRates.length 
+      : 0;
     const productRiskFactor = Math.min(0.1, avgProductReturnRate / 100);
 
     // Combine all factors

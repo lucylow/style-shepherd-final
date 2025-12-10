@@ -38,7 +38,7 @@ export const ProductQuickView = ({
   if (!product) return null;
 
   const handleAddToCart = () => {
-    const size = selectedSize || product.recommendedSize || product.sizes[0];
+    const size = selectedSize || product.recommendedSize || (product.sizes && product.sizes.length > 0 ? product.sizes[0] : 'M');
     onAddToCart(product, size, quantity);
     onClose();
   };

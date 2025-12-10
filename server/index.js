@@ -33,6 +33,14 @@ app.get('/api/ping', (req, res) => {
   });
 });
 
+// 404 for API routes that don't exist (must be before SPA fallback)
+app.use('/api/*', (req, res) => {
+  res.status(404).json({ 
+    error: 'API endpoint not available in simple server mode',
+    path: req.path
+  });
+});
+
 // Serve static files (Vite -> dist)
 const clientDist = path.join(__dirname, '..', 'dist');
 if (existsSync(clientDist)) {
@@ -47,6 +55,7 @@ if (existsSync(clientDist)) {
   
   // SPA fallback: serve index.html for all non-API, non-file routes
   // This catches routes like /dashboard, /products, etc. for client-side routing
+  // Must be after static files and API routes
   app.get('*', (req, res) => {
     // Skip API routes and health check (shouldn't reach here, but safety check)
     if (req.path.startsWith('/api') || req.path === '/health') {
@@ -75,23 +84,16 @@ if (existsSync(clientDist)) {
   });
 }
 
-// 404 for API routes that don't exist
-app.use('/api/*', (req, res) => {
-  res.status(404).json({ 
-    error: 'API endpoint not available in simple server mode',
-    path: req.path
-  });
-});
-
 // Error handling middleware (must be after routes)
 app.use((err, req, res, next) => {
   console.error('Server error:', err);
   if (res.headersSent) {
     return next(err);
   }
-  res.status(err.status || 500).json({ 
+  const status = err.status || err.statusCode || 500;
+  res.status(status).json({ 
     error: 'Internal server error',
-    message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
+    message: process.env.NODE_ENV === 'development' ? (err.message || String(err)) : 'Something went wrong'
   });
 });
 

@@ -67,13 +67,13 @@ const App = () => (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <TooltipProvider>
-          <KeyboardShortcutsProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
+          <BrowserRouter>
+            <KeyboardShortcutsProvider>
+              <Toaster />
+              <Sonner />
               <AppRoutes />
-            </BrowserRouter>
-          </KeyboardShortcutsProvider>
+            </KeyboardShortcutsProvider>
+          </BrowserRouter>
         </TooltipProvider>
       </AuthProvider>
     </QueryClientProvider>

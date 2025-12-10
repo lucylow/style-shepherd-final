@@ -188,7 +188,7 @@ const Dashboard = () => {
         return [...prev, { 
           product, 
           quantity: 1, 
-          size: product.recommendedSize || product.sizes[0] 
+            size: product.recommendedSize || (product.sizes && product.sizes.length > 0 ? product.sizes[0] : 'M')
         }];
       });
     } else {
@@ -196,7 +196,7 @@ const Dashboard = () => {
       const updatedCart = await mockCartService.addToCart(userId, {
         product,
         quantity: 1,
-        size: product.recommendedSize || product.sizes[0]
+            size: product.recommendedSize || (product.sizes && product.sizes.length > 0 ? product.sizes[0] : 'M')
       });
       setCartItems(updatedCart);
     }
