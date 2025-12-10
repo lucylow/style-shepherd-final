@@ -20,6 +20,9 @@ interface Message {
   audioUrl?: string;
 }
 
+// Check for Web Speech API support
+const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
 export const VoiceInterface = ({ onVoiceCommand, userId, className }: VoiceInterfaceProps) => {
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -29,8 +32,10 @@ export const VoiceInterface = ({ onVoiceCommand, userId, className }: VoiceInter
   const [isExpanded, setIsExpanded] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
   const [isTyping, setIsTyping] = useState(false);
+  const [useBrowserSpeech, setUseBrowserSpeech] = useState(!!SpeechRecognition);
   const { toast } = useToast();
   
+  const recognitionRef = useRef<any>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -38,6 +43,17 @@ export const VoiceInterface = ({ onVoiceCommand, userId, className }: VoiceInter
   const animationFrameRef = useRef<number | null>(null);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+
+  // Initialize speech recognition
+  useEffect(() => {
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
+      recognitionRef.current = recognition;
+    }
+  }, []);
 
   // Initialize conversation on mount
   useEffect(() => {
@@ -47,7 +63,7 @@ export const VoiceInterface = ({ onVoiceCommand, userId, className }: VoiceInter
         setIsConnected(true);
       } catch (error) {
         console.error('Failed to initialize conversation:', error);
-        setIsConnected(false);
+        setIsConnected(true); // Still allow usage with browser speech
       }
     };
 
@@ -59,37 +75,31 @@ export const VoiceInterface = ({ onVoiceCommand, userId, className }: VoiceInter
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      // Stop any ongoing recording
       if (mediaRecorderRef.current && isListening) {
         mediaRecorderRef.current.stop();
       }
-
-      // Stop audio stream
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
       }
-
-      // Cleanup audio context
       if (audioContextRef.current) {
         audioContextRef.current.close();
       }
-
-      // Cancel animation frame
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
-
-      // Cleanup audio URLs
       messages.forEach(msg => {
         if (msg.audioUrl) {
           voiceService.revokeAudioUrl(msg.audioUrl);
         }
       });
-
-      // Stop audio playback
       if (audioPlayerRef.current) {
         audioPlayerRef.current.pause();
         audioPlayerRef.current = null;
+      }
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {}
       }
     };
   }, []);
@@ -126,6 +136,7 @@ export const VoiceInterface = ({ onVoiceCommand, userId, className }: VoiceInter
 
   const startListening = async () => {
     try {
+      // Request microphone access for visualization
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
           echoCancellation: true,
@@ -135,61 +146,102 @@ export const VoiceInterface = ({ onVoiceCommand, userId, className }: VoiceInter
       });
       
       streamRef.current = stream;
-      
-      // Start audio visualization
       startAudioVisualization(stream);
       
-      // Determine best audio format
-      const options: MediaRecorderOptions = { 
-        mimeType: 'audio/webm;codecs=opus' 
-      };
-      
-      // Fallback to default if webm not supported
-      if (!MediaRecorder.isTypeSupported(options.mimeType!)) {
-        delete options.mimeType;
-      }
-      
-      const mediaRecorder = new MediaRecorder(stream, options);
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = async () => {
-        if (audioChunksRef.current.length > 0) {
-          const audioBlob = new Blob(audioChunksRef.current, { 
-            type: mediaRecorder.mimeType || 'audio/webm' 
-          });
-          await processAudio(audioBlob);
-        }
-        setAudioLevel(0);
-      };
-
-      mediaRecorder.onerror = (event) => {
-        console.error('MediaRecorder error:', event);
-        toast({
-          title: "Recording Error",
-          description: "Failed to record audio. Please try again.",
-          variant: "destructive"
-        });
-        setIsListening(false);
-      };
-
-      mediaRecorder.start(100); // Collect data every 100ms
       setIsListening(true);
       setIsExpanded(true);
-      
-      toast({
-        title: "Listening...",
-        description: "Speak your fashion request",
-      });
+
+      // Use browser's Web Speech API if available
+      if (useBrowserSpeech && recognitionRef.current) {
+        recognitionRef.current.onresult = async (event: any) => {
+          const transcript = event.results[0][0].transcript;
+          console.log('Speech recognized:', transcript);
+          setIsListening(false);
+          setIsProcessing(true);
+          
+          // Stop stream
+          if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+          }
+          
+          // Process the recognized text
+          await processTextQuery(transcript);
+        };
+
+        recognitionRef.current.onerror = (event: any) => {
+          console.error('Speech recognition error:', event.error);
+          setIsListening(false);
+          
+          if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+          }
+          
+          if (event.error === 'not-allowed') {
+            toast({
+              title: "Microphone Access Denied",
+              description: "Please allow microphone access to use voice commands.",
+              variant: "destructive"
+            });
+          } else {
+            toast({
+              title: "Speech Recognition Error",
+              description: `Error: ${event.error}. Please try again.`,
+              variant: "destructive"
+            });
+          }
+        };
+
+        recognitionRef.current.onend = () => {
+          if (isListening) {
+            setIsListening(false);
+          }
+        };
+
+        recognitionRef.current.start();
+        
+        toast({
+          title: "Listening...",
+          description: "Speak your fashion request",
+        });
+      } else {
+        // Fallback to MediaRecorder for audio capture
+        const options: MediaRecorderOptions = { 
+          mimeType: 'audio/webm;codecs=opus' 
+        };
+        
+        if (!MediaRecorder.isTypeSupported(options.mimeType!)) {
+          delete options.mimeType;
+        }
+        
+        const mediaRecorder = new MediaRecorder(stream, options);
+        mediaRecorderRef.current = mediaRecorder;
+        audioChunksRef.current = [];
+
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            audioChunksRef.current.push(event.data);
+          }
+        };
+
+        mediaRecorder.onstop = async () => {
+          if (audioChunksRef.current.length > 0) {
+            const audioBlob = new Blob(audioChunksRef.current, { 
+              type: mediaRecorder.mimeType || 'audio/webm' 
+            });
+            await processAudio(audioBlob);
+          }
+          setAudioLevel(0);
+        };
+
+        mediaRecorder.start(100);
+        
+        toast({
+          title: "Listening...",
+          description: "Speak your fashion request",
+        });
+      }
     } catch (error: any) {
       console.error('Error accessing microphone:', error);
-      setIsConnected(false);
       toast({
         title: "Microphone Error",
         description: error.message || "Unable to access microphone. Please check permissions.",
@@ -199,24 +251,83 @@ export const VoiceInterface = ({ onVoiceCommand, userId, className }: VoiceInter
   };
 
   const stopListening = () => {
+    if (useBrowserSpeech && recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch {}
+    }
+    
     if (mediaRecorderRef.current && isListening) {
       mediaRecorderRef.current.stop();
       mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
-      setIsListening(false);
-      setIsProcessing(true);
+    }
+    
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+    }
+    
+    setIsListening(false);
+    setIsProcessing(true);
+    
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    setAudioLevel(0);
+  };
+
+  const processTextQuery = async (text: string) => {
+    try {
+      setIsTyping(true);
       
-      // Stop audio visualization
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-        animationFrameRef.current = null;
+      const userMessage: Message = {
+        type: 'user',
+        content: text,
+        timestamp: Date.now(),
+      };
+      
+      setMessages(prev => [...prev, userMessage]);
+      
+      const response = await voiceService.processTextQuery(userId, text);
+      
+      await new Promise(resolve => setTimeout(resolve, 300));
+      setIsTyping(false);
+
+      const assistantMessage: Message = {
+        type: 'assistant',
+        content: response.text,
+        timestamp: Date.now(),
+        audioUrl: response.audioUrl,
+      };
+
+      setMessages(prev => [...prev, assistantMessage]);
+      
+      if (response.audioUrl) {
+        playAudioResponse(response.audioUrl);
       }
-      setAudioLevel(0);
+      
+      onVoiceCommand?.(response);
+    } catch (error: any) {
+      console.error('Error processing text:', error);
+      setIsTyping(false);
+      toast({
+        title: "Processing Error",
+        description: error.message || "Failed to process command. Please try again.",
+        variant: "destructive"
+      });
+      
+      setMessages(prev => [...prev, {
+        type: 'assistant',
+        content: 'Sorry, I encountered an error. Please try again.',
+        timestamp: Date.now(),
+      }]);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   const processAudio = async (audioBlob: Blob) => {
     try {
-      // Show typing indicator
       setIsTyping(true);
       
       const response = await voiceService.processVoiceInput(
@@ -231,7 +342,6 @@ export const VoiceInterface = ({ onVoiceCommand, userId, className }: VoiceInter
         timestamp: Date.now(),
       };
 
-      // Simulate typing delay for better UX
       await new Promise(resolve => setTimeout(resolve, 500));
       setIsTyping(false);
 
@@ -244,7 +354,6 @@ export const VoiceInterface = ({ onVoiceCommand, userId, className }: VoiceInter
 
       setMessages(prev => [...prev, userMessage, assistantMessage]);
       
-      // Auto-play audio response if available
       if (response.audioUrl) {
         playAudioResponse(response.audioUrl);
       }
@@ -259,7 +368,6 @@ export const VoiceInterface = ({ onVoiceCommand, userId, className }: VoiceInter
         variant: "destructive"
       });
       
-      // Add error message to conversation
       setMessages(prev => [...prev, {
         type: 'assistant',
         content: 'Sorry, I encountered an error. Please try again.',
@@ -272,7 +380,6 @@ export const VoiceInterface = ({ onVoiceCommand, userId, className }: VoiceInter
 
   const playAudioResponse = (audioUrl: string) => {
     try {
-      // Stop any currently playing audio
       if (audioPlayerRef.current) {
         audioPlayerRef.current.pause();
         audioPlayerRef.current = null;
@@ -290,7 +397,6 @@ export const VoiceInterface = ({ onVoiceCommand, userId, className }: VoiceInter
 
       audio.onerror = () => {
         setIsPlaying(false);
-        console.error('Audio playback error');
         audioPlayerRef.current = null;
       };
 
@@ -314,7 +420,6 @@ export const VoiceInterface = ({ onVoiceCommand, userId, className }: VoiceInter
   };
 
   const clearMessages = () => {
-    // Cleanup audio URLs before clearing
     messages.forEach(msg => {
       if (msg.audioUrl) {
         voiceService.revokeAudioUrl(msg.audioUrl);
@@ -388,7 +493,6 @@ export const VoiceInterface = ({ onVoiceCommand, userId, className }: VoiceInter
           {/* Voice Button with Audio Visualization */}
           <div className="flex flex-col items-center mb-4">
             <div className="relative mb-4">
-              {/* Audio level indicator */}
               {isListening && (
                 <motion.div
                   className="absolute inset-0 rounded-full border-4 border-primary/30"
@@ -410,7 +514,7 @@ export const VoiceInterface = ({ onVoiceCommand, userId, className }: VoiceInter
               
               <Button
                 onClick={isListening ? stopListening : startListening}
-                disabled={isProcessing || !isConnected}
+                disabled={isProcessing}
                 size="lg"
                 className={cn(
                   "w-20 h-20 rounded-full relative z-10 transition-all",
@@ -499,101 +603,69 @@ export const VoiceInterface = ({ onVoiceCommand, userId, className }: VoiceInter
           <AnimatePresence>
             {isExpanded && (
               <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="space-y-3 max-h-60 overflow-y-auto border-t border-border pt-4 mt-4 scrollbar-thin"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden"
               >
-                {messages.length === 0 && !isTyping && (
-                  <div className="text-center py-4">
-                    <Bot className="w-8 h-8 text-muted-foreground mx-auto mb-2 opacity-50" />
-                    <p className="text-xs text-muted-foreground">
-                      Start a conversation by tapping the microphone
-                    </p>
-                  </div>
-                )}
-                {messages.slice(-5).map((message, index) => (
-                  <motion.div
-                    key={`${message.timestamp}-${index}`}
-                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{ duration: 0.2 }}
-                    className={cn(
-                      "flex items-start gap-3",
-                      message.type === 'user' ? 'flex-row-reverse' : 'flex-row'
-                    )}
-                  >
-                    {/* Avatar */}
-                    <div className={cn(
-                      "w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0",
-                      message.type === 'user' 
-                        ? 'bg-primary/20 text-primary' 
-                        : 'bg-gradient-to-br from-primary to-primary/70 text-white shadow-md'
-                    )}>
-                      {message.type === 'user' ? (
-                        <User className="w-4 h-4" />
-                      ) : (
-                        <Sparkles className="w-4 h-4" />
-                      )}
-                    </div>
-                    
-                    {/* Message Bubble */}
-                    <div className={cn(
-                      "flex-1 rounded-2xl px-4 py-2.5 max-w-[80%]",
-                      message.type === 'user'
-                        ? 'bg-primary text-primary-foreground shadow-sm'
-                        : 'bg-muted text-foreground border border-border/50'
-                    )}>
-                      <div className="text-sm leading-relaxed whitespace-pre-wrap break-words">
-                        {message.content}
-                      </div>
-                      {message.audioUrl && message.type === 'assistant' && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 mt-2 text-xs"
-                          onClick={() => playAudioResponse(message.audioUrl!)}
+                <div className="border-t border-border pt-4 mt-2">
+                  <div className="max-h-60 overflow-y-auto space-y-3">
+                    {messages.length === 0 ? (
+                      <p className="text-xs text-muted-foreground text-center py-4">
+                        No messages yet. Start by tapping the microphone.
+                      </p>
+                    ) : (
+                      messages.map((message, index) => (
+                        <motion.div
+                          key={index}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className={cn(
+                            "flex gap-2",
+                            message.type === 'user' ? 'justify-end' : 'justify-start'
+                          )}
                         >
-                          <Volume2 className="w-3 h-3 mr-1" />
-                          Play audio
-                        </Button>
-                      )}
-                    </div>
-                  </motion.div>
-                ))}
-                
-                {/* Typing Indicator */}
-                {isTyping && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    className="flex items-start gap-3"
-                  >
-                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary to-primary/70 text-white flex items-center justify-center flex-shrink-0 shadow-md">
-                      <Sparkles className="w-4 h-4" />
-                    </div>
-                    <div className="bg-muted rounded-2xl px-4 py-3 border border-border/50">
-                      <div className="flex gap-1">
-                        <motion.div
-                          className="w-2 h-2 bg-foreground/60 rounded-full"
-                          animate={{ y: [0, -4, 0] }}
-                          transition={{ duration: 0.6, repeat: Infinity, delay: 0 }}
-                        />
-                        <motion.div
-                          className="w-2 h-2 bg-foreground/60 rounded-full"
-                          animate={{ y: [0, -4, 0] }}
-                          transition={{ duration: 0.6, repeat: Infinity, delay: 0.2 }}
-                        />
-                        <motion.div
-                          className="w-2 h-2 bg-foreground/60 rounded-full"
-                          animate={{ y: [0, -4, 0] }}
-                          transition={{ duration: 0.6, repeat: Infinity, delay: 0.4 }}
-                        />
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
+                          {message.type === 'assistant' && (
+                            <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                              <Bot className="w-3 h-3 text-primary" />
+                            </div>
+                          )}
+                          <div className={cn(
+                            "rounded-lg px-3 py-2 max-w-[80%] text-sm",
+                            message.type === 'user' 
+                              ? 'bg-primary text-primary-foreground' 
+                              : 'bg-muted text-foreground'
+                          )}>
+                            {message.content}
+                          </div>
+                          {message.type === 'user' && (
+                            <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
+                              <User className="w-3 h-3 text-secondary-foreground" />
+                            </div>
+                          )}
+                        </motion.div>
+                      ))
+                    )}
+                    {isTyping && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="flex gap-2 justify-start"
+                      >
+                        <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                          <Bot className="w-3 h-3 text-primary" />
+                        </div>
+                        <div className="bg-muted rounded-lg px-3 py-2">
+                          <div className="flex gap-1">
+                            <span className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                            <span className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                            <span className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </div>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
