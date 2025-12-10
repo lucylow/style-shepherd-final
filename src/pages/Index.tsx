@@ -1,12 +1,12 @@
-import HeaderNav from "@/components/HeaderNav";
-import MobileBottomNav from "@/components/MobileBottomNav";
-import Hero from "@/components/Hero";
-import Features from "@/components/Features";
-import { ResearchStats } from "@/components/ResearchStats";
-import ReturnsCalculator from "@/components/ReturnsCalculator";
-import Testimonials from "@/components/Testimonials";
-import CTASection from "@/components/CTASection";
-import Footer from "@/components/Footer";
+import HeaderNav from "@/components/layout/HeaderNav";
+import MobileBottomNav from "@/components/layout/MobileBottomNav";
+import Hero from "@/components/common/Hero";
+import Features from "@/components/common/Features";
+import { ResearchStats } from "@/components/agents/ResearchStats";
+import ReturnsCalculator from "@/components/shopping/ReturnsCalculator";
+import Testimonials from "@/components/common/Testimonials";
+import CTASection from "@/components/common/CTASection";
+import Footer from "@/components/layout/Footer";
 
 const Index = () => {
   return (
