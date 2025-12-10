@@ -14,8 +14,8 @@
     "build:all": "npm run build && npm run build:server",
     "lint": "eslint .",
     "preview": "vite preview --port 5173",
-    "start": "node server/index.js",
-    "start:simple": "node server/index.js",
+    "start": "node server/index.cjs",
+    "start:simple": "node server/index.cjs",
     "heroku-postbuild": "npm run build:all",
     "mock:server": "json-server --watch mocks/db.json --port 4000 --host 0.0.0.0",
     "mock:dev": "npm run mock:server"
