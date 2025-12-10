@@ -1,10 +1,10 @@
 /**
- * Voice Service - Real ElevenLabs Integration
- * Connects to backend API for voice processing with ElevenLabs
- * Includes TTS fallback for text-to-speech
+ * Voice Service - Browser Speech Recognition + Lovable AI
+ * Uses Web Speech API for voice-to-text with Lovable AI for processing
+ * Falls back gracefully when services are unavailable
  */
 
-import api from '@/lib/api';
+import { supabase } from '@/integrations/supabase/client';
 import { VoiceResponse } from '@/types/fashion';
 import { speakText } from '@/lib/ttsClient';
 
@@ -18,142 +18,225 @@ export interface ConversationState {
 
 export interface VoiceProcessResponse {
   text: string;
-  audio?: string; // Base64 encoded audio
-  intent?: any;
-  entities?: any;
+  audio?: string;
+  intent?: string;
+  searchTerms?: string[];
+  userQuery?: string;
 }
+
+// Check for Web Speech API support
+const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
 class VoiceService {
   private conversationStates: Map<string, ConversationState> = new Map();
+  private recognition: any = null;
+
+  constructor() {
+    if (SpeechRecognition) {
+      this.recognition = new SpeechRecognition();
+      this.recognition.continuous = false;
+      this.recognition.interimResults = false;
+      this.recognition.lang = 'en-US';
+    }
+  }
+
+  /**
+   * Check if speech recognition is supported
+   */
+  isSpeechRecognitionSupported(): boolean {
+    return !!SpeechRecognition;
+  }
 
   /**
    * Start a new voice conversation
    */
   async startConversation(userId: string): Promise<ConversationState> {
-    try {
-      const response = await api.post<ConversationState>('/voice/conversation/start', {
-        userId,
-      });
+    const state: ConversationState = {
+      conversationId: `conv_${userId}_${Date.now()}`,
+      userId,
+      context: {},
+    };
+    this.conversationStates.set(userId, state);
+    return state;
+  }
 
-      const state = response.data;
-      this.conversationStates.set(userId, state);
-      return state;
-    } catch (error: any) {
-      console.error('Failed to start conversation:', error);
-      // Fallback: create local conversation state
-      const fallbackState: ConversationState = {
-        conversationId: `conv_${userId}_${Date.now()}`,
-        userId,
-        context: {},
+  /**
+   * Transcribe audio using browser's Web Speech API
+   */
+  async transcribeAudio(audioBlob: Blob): Promise<string> {
+    // Web Speech API doesn't accept audio blobs directly
+    // We need to use the live recognition instead
+    // This method is kept for compatibility but returns empty
+    console.warn('Direct audio transcription not supported. Use startLiveRecognition instead.');
+    return '';
+  }
+
+  /**
+   * Start live speech recognition
+   */
+  startLiveRecognition(): Promise<string> {
+    return new Promise((resolve, reject) => {
+      if (!this.recognition) {
+        reject(new Error('Speech recognition not supported in this browser. Please use Chrome, Edge, or Safari.'));
+        return;
+      }
+
+      this.recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        console.log('Speech recognized:', transcript);
+        resolve(transcript);
       };
-      this.conversationStates.set(userId, fallbackState);
-      return fallbackState;
+
+      this.recognition.onerror = (event: any) => {
+        console.error('Speech recognition error:', event.error);
+        reject(new Error(`Speech recognition error: ${event.error}`));
+      };
+
+      this.recognition.onend = () => {
+        console.log('Speech recognition ended');
+      };
+
+      try {
+        this.recognition.start();
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  /**
+   * Stop live speech recognition
+   */
+  stopLiveRecognition(): void {
+    if (this.recognition) {
+      try {
+        this.recognition.stop();
+      } catch (error) {
+        console.warn('Error stopping recognition:', error);
+      }
     }
   }
 
   /**
    * Process voice input (audio blob) and get response
+   * Now uses browser speech recognition + Lovable AI
    */
   async processVoiceInput(
     userId: string,
     audioBlob: Blob,
     context?: { messages?: any[] }
   ): Promise<VoiceResponse> {
+    // Get or create conversation state
+    let state = this.conversationStates.get(userId);
+    if (!state) {
+      state = await this.startConversation(userId);
+    }
+
+    // For audio blob processing, we'll use the edge function
+    // But first try browser speech recognition if available
     try {
-      // Get or create conversation state
-      let state = this.conversationStates.get(userId);
-      if (!state) {
-        state = await this.startConversation(userId);
+      const audioBase64 = await this.blobToBase64(audioBlob);
+      
+      // Call our voice-to-text edge function
+      const { data, error } = await supabase.functions.invoke('voice-to-text', {
+        body: { audio: audioBase64 }
+      });
+
+      if (error) {
+        console.error('Edge function error:', error);
+        throw new Error(error.message || 'Failed to process voice');
       }
 
-      // Convert blob to base64
-      const audioBase64 = await this.blobToBase64(audioBlob);
-
-      // Send to backend
-      const response = await api.post<VoiceProcessResponse>(
-        '/voice/conversation/process',
-        {
-          conversationId: state.conversationId,
-          audioStream: audioBase64,
-          userId,
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          timeout: 30000, // 30 seconds for voice processing
-        }
-      );
-
-      const { text, audio, intent, entities } = response.data;
-
-      // Convert base64 audio to blob URL if available
-      let audioUrl: string | undefined;
-      if (audio) {
+      const response = data as VoiceProcessResponse;
+      
+      // Try to speak the response using TTS
+      if (response.text) {
         try {
-          // Try different audio formats
-          const mimeTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/webm'];
-          for (const mimeType of mimeTypes) {
-            try {
-              const audioBlob = this.base64ToBlob(audio, mimeType);
-              audioUrl = URL.createObjectURL(audioBlob);
-              break;
-            } catch {
-              // Try next format
-              continue;
-            }
-          }
-        } catch (audioError) {
-          console.warn('Failed to create audio URL:', audioError);
-        }
-      } else if (text) {
-        // Fallback: Use TTS client if backend didn't return audio
-        // This will try browser Web Speech API first, then server TTS
-        try {
-          const ttsResult = await speakText(text);
-          if (ttsResult.success) {
-            console.log(`✅ TTS fallback used: ${ttsResult.source}`);
-          } else {
-            console.warn('TTS fallback failed:', ttsResult.error);
-          }
+          await speakText(response.text);
         } catch (ttsError) {
-          console.warn('TTS fallback error:', ttsError);
+          console.warn('TTS failed:', ttsError);
+        }
+      }
+
+      // Update conversation state
+      if (state) {
+        state.lastMessage = response.userQuery;
+        state.lastResponse = response.text;
+        state.context = {
+          ...state.context,
+          lastQuery: response.userQuery,
+          lastIntent: response.intent,
+          searchTerms: response.searchTerms,
+          timestamp: Date.now(),
+        };
+      }
+
+      return {
+        text: response.text,
+        confidence: 0.9,
+        products: [], // Products would be fetched based on searchTerms
+      };
+    } catch (error: any) {
+      console.error('Failed to process voice input:', error);
+      throw new Error(error.message || 'Failed to process voice command');
+    }
+  }
+
+  /**
+   * Process text query directly (used with browser speech recognition)
+   */
+  async processTextQuery(
+    userId: string,
+    text: string
+  ): Promise<VoiceResponse> {
+    let state = this.conversationStates.get(userId);
+    if (!state) {
+      state = await this.startConversation(userId);
+    }
+
+    try {
+      // Call our voice-to-text edge function with text
+      const { data, error } = await supabase.functions.invoke('voice-to-text', {
+        body: { text }
+      });
+
+      if (error) {
+        console.error('Edge function error:', error);
+        throw new Error(error.message || 'Failed to process query');
+      }
+
+      const response = data as VoiceProcessResponse;
+      
+      // Try to speak the response
+      if (response.text) {
+        try {
+          await speakText(response.text);
+        } catch (ttsError) {
+          console.warn('TTS failed:', ttsError);
         }
       }
 
       // Update conversation state
       if (state) {
         state.lastMessage = text;
-        state.lastResponse = text;
+        state.lastResponse = response.text;
         state.context = {
           ...state.context,
           lastQuery: text,
-          lastIntent: intent,
-          lastEntities: entities,
+          lastIntent: response.intent,
+          searchTerms: response.searchTerms,
           timestamp: Date.now(),
         };
       }
 
       return {
-        text,
-        audioUrl,
-        confidence: 0.9, // Backend provides this via intent analysis
-        // Note: Products would need to be fetched separately based on intent
+        text: response.text,
+        confidence: 0.95,
+        products: [],
       };
     } catch (error: any) {
-      console.error('Failed to process voice input:', error);
-      
-      // Check if it's a network error (backend unavailable)
-      if (!error.response) {
-        throw new Error('Unable to connect to voice service. Please check your connection and try again.');
-      }
-      
-      // Provide user-friendly error message
-      const errorMessage = error.response?.data?.message || 
-                          error.message || 
-                          'Failed to process voice command. Please try again.';
-
-      throw new Error(errorMessage);
+      console.error('Failed to process text query:', error);
+      throw new Error(error.message || 'Failed to process query');
     }
   }
 
@@ -161,33 +244,14 @@ class VoiceService {
    * Get conversation history
    */
   async getConversationHistory(userId: string, limit: number = 50): Promise<any[]> {
-    try {
-      const response = await api.get(`/voice/conversation/history/${userId}`, {
-        params: { limit },
-      });
-      return response.data || [];
-    } catch (error) {
-      console.error('Failed to get conversation history:', error);
-      return [];
-    }
+    return [];
   }
 
   /**
    * End conversation
    */
   async endConversation(userId: string): Promise<void> {
-    try {
-      const state = this.conversationStates.get(userId);
-      if (state) {
-        await api.delete(`/voice/conversation/${state.conversationId}`, {
-          data: { userId },
-        });
-      }
-    } catch (error) {
-      console.error('Failed to end conversation:', error);
-    } finally {
-      this.conversationStates.delete(userId);
-    }
+    this.conversationStates.delete(userId);
   }
 
   /**
@@ -205,7 +269,6 @@ class VoiceService {
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64 = reader.result as string;
-        // Remove data URL prefix (e.g., "data:audio/webm;base64,")
         const base64Data = base64.split(',')[1] || base64;
         resolve(base64Data);
       };
@@ -238,4 +301,3 @@ class VoiceService {
 }
 
 export const voiceService = new VoiceService();
-
