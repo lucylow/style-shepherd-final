@@ -996,39 +996,68 @@ docker-compose up -d
 
 ### Lovable Deployment
 
-**Lovable Configuration** (`lovable.yaml`):
+**Quick Local Test for Lovable**:
+```bash
+# 1. Install dependencies
+npm ci
+cd server && npm ci && cd ..
+
+# 2. Build frontend (creates dist/ for Vite)
+npm run build
+
+# 3. Build backend (optional - simple server fallback available)
+cd server && npm run build && cd ..
+
+# 4. Run server (locally)
+npm start
+
+# 5. Healthcheck
+curl http://localhost:3000/health
+# Should return: {"status":"ok","time":"..."}
+
+# 6. Test client
+# Open http://localhost:3000 in browser
+```
+
+**Lovable Configuration** (`lovable.yml`):
 ```yaml
-name: style-shepherd
-type: nextjs
-
 build:
-  command: npm run build
-  output: dist
-
-env:
-  - name: VITE_API_BASE_URL
-    value: https://api.style-shepherd.com
-  - name: VITE_STRIPE_PUBLISHABLE_KEY
-    value: ${STRIPE_PUBLISHABLE_KEY}
-  - name: VITE_WORKOS_CLIENT_ID
-    value: ${WORKOS_CLIENT_ID}
+  framework: vite
+  node_version: 18
+  build_command: "npm run build"
+  output_dir: "dist"
 
 deploy:
-  platform: lovable
-  region: us-east-1
+  start_command: "npm run start"
+
+environment:
+  VITE_API_BASE_URL: "/api"
+  VITE_DEMO_MODE: "true"
+  NODE_ENV: production
+  PORT: 3000
 ```
 
 **Deploy to Lovable**:
-   ```bash
-# Install Lovable CLI
-npm install -g @lovable/cli
+1. **Push to GitHub**: Ensure your repo is pushed to GitHub
+2. **Connect in Lovable UI**: 
+   - Go to Lovable dashboard
+   - Connect your GitHub repository
+   - Lovable will detect `lovable.yml` automatically
+3. **Set Environment Variables** (in Lovable UI):
+   - `VULTR_SERVERLESS_INFERENCE_API_KEY` (optional)
+   - `ELEVENLABS_API_KEY` (optional)
+   - `RAINDROP_API_KEY` (optional)
+   - `DEMO_MODE=true` (to run without external services)
+4. **Deploy**: Click "Deploy" in Lovable dashboard
 
-# Login
-lovable login
+**Lovable Requirements**:
+- ✅ Node.js >= 18 (specified in package.json engines)
+- ✅ Build command: `npm run build` (creates `dist/`)
+- ✅ Start command: `npm run start` (serves static files + API)
+- ✅ Health endpoint: `/health` (for platform health checks)
+- ✅ Server listens on `process.env.PORT` (required for Lovable)
 
-# Deploy
-lovable deploy
-```
+**Note**: The server automatically serves static files from `dist/` in production mode and provides API routes at `/api/*`. Set `DEMO_MODE=true` to run without external API keys.
 
 ### Hosting Considerations
 

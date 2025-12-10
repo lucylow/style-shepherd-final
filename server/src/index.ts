@@ -8,11 +8,17 @@ import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { existsSync } from 'fs';
 import env from './config/env.js';
 import vultrRoutes from './routes/vultr.js';
 import apiRoutes from './routes/api.js';
 import { vultrPostgres } from './lib/vultr-postgres.js';
 import { vultrValkey } from './lib/vultr-valkey.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
@@ -84,8 +90,27 @@ app.get('/health', async (req: express.Request, res: express.Response) => {
 app.use('/api/vultr', vultrRoutes);
 app.use('/api', apiRoutes);
 
-// Root endpoint
+// Serve static files from client build in production
+if (env.NODE_ENV === 'production') {
+  const clientDist = path.join(__dirname, '..', '..', 'dist');
+  if (existsSync(clientDist)) {
+    app.use(express.static(clientDist));
+    console.log(`📦 Serving static files from ${clientDist}`);
+  }
+}
+
+// Root endpoint - serve API info or redirect to client
 app.get('/', (req: express.Request, res: express.Response) => {
+  // If in production and static files exist, serve index.html
+  if (env.NODE_ENV === 'production') {
+    const clientDist = path.join(__dirname, '..', '..', 'dist');
+    const indexHtml = path.join(clientDist, 'index.html');
+    if (existsSync(indexHtml)) {
+      return res.sendFile(indexHtml);
+    }
+  }
+  
+  // Otherwise return API info
   res.json({
     name: 'Style Shepherd API',
     version: '1.0.0',
@@ -135,13 +160,23 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   res.status(error.statusCode).json(error.toJSON());
 });
 
-// 404 handler
+// 404 handler - for SPA routing in production
 app.use((req: express.Request, res: express.Response) => {
+  // If in production and requesting a non-API route, serve index.html for SPA routing
+  if (env.NODE_ENV === 'production' && !req.path.startsWith('/api') && req.path !== '/health') {
+    const clientDist = path.join(__dirname, '..', '..', 'dist');
+    const indexHtml = path.join(clientDist, 'index.html');
+    if (existsSync(indexHtml)) {
+      return res.sendFile(indexHtml);
+    }
+  }
+  
+  // Otherwise return 404 JSON
   res.status(404).json({ error: 'Route not found' });
 });
 
-// Start server
-const PORT = env.PORT || 3001;
+// Start server - use PORT from environment (required for Lovable/Heroku)
+const PORT = process.env.PORT || env.PORT || 3001;
 
 const server = app.listen(PORT, () => {
   console.log(`🚀 Style Shepherd API server running on port ${PORT}`);

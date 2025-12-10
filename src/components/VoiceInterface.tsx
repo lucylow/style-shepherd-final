@@ -61,14 +61,27 @@ export const VoiceInterface = ({ onVoiceCommand, userId, className }: VoiceInter
       try {
         await voiceService.startConversation(userId);
         setIsConnected(true);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to initialize conversation:', error);
-        setIsConnected(true); // Still allow usage with browser speech
+        // Still allow usage with browser speech
+        setIsConnected(false);
+        
+        // Only show error if it's not a network issue (user might be offline)
+        if (error?.message && !error.message.includes('network') && !error.message.includes('fetch')) {
+          toast({
+            title: "Connection Warning",
+            description: "Using local speech recognition. Some features may be limited.",
+            variant: "default"
+          });
+        }
       }
     };
 
     if (userId && userId !== 'guest') {
       initConversation();
+    } else {
+      // Guest users use browser speech only
+      setIsConnected(false);
     }
   }, [userId]);
 
@@ -176,19 +189,43 @@ export const VoiceInterface = ({ onVoiceCommand, userId, className }: VoiceInter
             streamRef.current.getTracks().forEach(track => track.stop());
           }
           
-          if (event.error === 'not-allowed') {
-            toast({
-              title: "Microphone Access Denied",
-              description: "Please allow microphone access to use voice commands.",
-              variant: "destructive"
-            });
-          } else {
-            toast({
-              title: "Speech Recognition Error",
-              description: `Error: ${event.error}. Please try again.`,
-              variant: "destructive"
-            });
+          let errorTitle = "Speech Recognition Error";
+          let errorDescription = "Please try again.";
+          
+          switch (event.error) {
+            case 'not-allowed':
+              errorTitle = "Microphone Access Denied";
+              errorDescription = "Please allow microphone access in your browser settings to use voice commands.";
+              break;
+            case 'no-speech':
+              errorTitle = "No Speech Detected";
+              errorDescription = "No speech was detected. Please speak clearly and try again.";
+              break;
+            case 'audio-capture':
+              errorTitle = "Audio Capture Error";
+              errorDescription = "No microphone was found. Please connect a microphone and try again.";
+              break;
+            case 'network':
+              errorTitle = "Network Error";
+              errorDescription = "Network error occurred. Please check your connection and try again.";
+              break;
+            case 'aborted':
+              errorTitle = "Recognition Aborted";
+              errorDescription = "Speech recognition was interrupted. Please try again.";
+              break;
+            case 'service-not-allowed':
+              errorTitle = "Service Not Allowed";
+              errorDescription = "Speech recognition service is not available. Please try using text input.";
+              break;
+            default:
+              errorDescription = `Error: ${event.error}. Please try again.`;
           }
+          
+          toast({
+            title: errorTitle,
+            description: errorDescription,
+            variant: "destructive"
+          });
         };
 
         recognitionRef.current.onend = () => {
@@ -242,9 +279,41 @@ export const VoiceInterface = ({ onVoiceCommand, userId, className }: VoiceInter
       }
     } catch (error: any) {
       console.error('Error accessing microphone:', error);
+      setIsListening(false);
+      
+      let errorTitle = "Microphone Error";
+      let errorDescription = "Unable to access microphone.";
+      
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        errorTitle = "Microphone Permission Denied";
+        errorDescription = "Please allow microphone access in your browser settings to use voice commands.";
+      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        errorTitle = "No Microphone Found";
+        errorDescription = "No microphone device detected. Please connect a microphone and try again.";
+      } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+        errorTitle = "Microphone In Use";
+        errorDescription = "Microphone is being used by another application. Please close other apps and try again.";
+      } else if (error.name === 'OverconstrainedError') {
+        errorTitle = "Microphone Settings Error";
+        errorDescription = "Your microphone doesn't support the required settings. Trying with basic settings...";
+        // Try again with minimal constraints
+        try {
+          const basicStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          streamRef.current = basicStream;
+          startAudioVisualization(basicStream);
+          setIsListening(true);
+          // Continue with basic setup...
+          return;
+        } catch (retryError) {
+          errorDescription = "Unable to access microphone with any settings.";
+        }
+      } else if (error.message) {
+        errorDescription = error.message;
+      }
+      
       toast({
-        title: "Microphone Error",
-        description: error.message || "Unable to access microphone. Please check permissions.",
+        title: errorTitle,
+        description: errorDescription,
         variant: "destructive"
       });
     }
@@ -310,15 +379,32 @@ export const VoiceInterface = ({ onVoiceCommand, userId, className }: VoiceInter
     } catch (error: any) {
       console.error('Error processing text:', error);
       setIsTyping(false);
+      
+      let errorTitle = "Processing Error";
+      let errorMessage = "Sorry, I encountered an error. Please try again.";
+      
+      if (error?.message?.includes('network') || error?.message?.includes('fetch')) {
+        errorTitle = "Network Error";
+        errorMessage = "I'm having trouble connecting. Please check your internet connection and try again.";
+      } else if (error?.message?.includes('timeout')) {
+        errorTitle = "Request Timeout";
+        errorMessage = "The request took too long. Please try again with a simpler query.";
+      } else if (error?.message?.includes('rate limit') || error?.message?.includes('429')) {
+        errorTitle = "Rate Limit Exceeded";
+        errorMessage = "Too many requests. Please wait a moment and try again.";
+      } else if (error?.message) {
+        errorMessage = `Error: ${error.message}`;
+      }
+      
       toast({
-        title: "Processing Error",
-        description: error.message || "Failed to process command. Please try again.",
+        title: errorTitle,
+        description: errorMessage,
         variant: "destructive"
       });
       
       setMessages(prev => [...prev, {
         type: 'assistant',
-        content: 'Sorry, I encountered an error. Please try again.',
+        content: errorMessage,
         timestamp: Date.now(),
       }]);
     } finally {
@@ -362,15 +448,35 @@ export const VoiceInterface = ({ onVoiceCommand, userId, className }: VoiceInter
     } catch (error: any) {
       console.error('Error processing voice:', error);
       setIsTyping(false);
+      
+      let errorTitle = "Voice Processing Error";
+      let errorMessage = "Sorry, I couldn't process your voice command. Please try again.";
+      
+      if (error?.message?.includes('network') || error?.message?.includes('fetch')) {
+        errorTitle = "Network Error";
+        errorMessage = "I'm having trouble connecting. Please check your internet connection and try again.";
+      } else if (error?.message?.includes('timeout')) {
+        errorTitle = "Request Timeout";
+        errorMessage = "The audio processing took too long. Please try speaking again.";
+      } else if (error?.message?.includes('audio') || error?.message?.includes('format')) {
+        errorTitle = "Audio Format Error";
+        errorMessage = "I couldn't understand the audio. Please try speaking more clearly.";
+      } else if (error?.message?.includes('size') || error?.message?.includes('too large')) {
+        errorTitle = "Audio Too Large";
+        errorMessage = "The audio recording is too long. Please try a shorter command.";
+      } else if (error?.message) {
+        errorMessage = `Error: ${error.message}`;
+      }
+      
       toast({
-        title: "Processing Error",
-        description: error.message || "Failed to process voice command. Please try again.",
+        title: errorTitle,
+        description: errorMessage,
         variant: "destructive"
       });
       
       setMessages(prev => [...prev, {
         type: 'assistant',
-        content: 'Sorry, I encountered an error. Please try again.',
+        content: errorMessage,
         timestamp: Date.now(),
       }]);
     } finally {
@@ -395,15 +501,35 @@ export const VoiceInterface = ({ onVoiceCommand, userId, className }: VoiceInter
         audioPlayerRef.current = null;
       };
 
-      audio.onerror = () => {
+      audio.onerror = (event) => {
+        console.error('Audio playback error:', event);
         setIsPlaying(false);
         audioPlayerRef.current = null;
+        toast({
+          title: "Audio Playback Error",
+          description: "Failed to play audio response. The text response is still available.",
+          variant: "destructive"
+        });
       };
 
       audio.play().catch(error => {
         console.error('Failed to play audio:', error);
         setIsPlaying(false);
         audioPlayerRef.current = null;
+        
+        // Provide specific error messages
+        let errorMessage = "Failed to play audio response.";
+        if (error.name === 'NotAllowedError') {
+          errorMessage = "Audio playback was blocked. Please allow autoplay in your browser settings.";
+        } else if (error.name === 'NotSupportedError') {
+          errorMessage = "Audio format not supported. The text response is still available.";
+        }
+        
+        toast({
+          title: "Audio Playback Error",
+          description: errorMessage,
+          variant: "destructive"
+        });
       });
     } catch (error) {
       console.error('Error playing audio:', error);

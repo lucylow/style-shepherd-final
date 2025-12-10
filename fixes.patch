@@ -1,0 +1,1130 @@
+diff --git a/README.md b/README.md
+index defe00f..440db44 100644
+--- a/README.md
++++ b/README.md
+@@ -996,40 +996,69 @@ docker-compose up -d
+ 
+ ### Lovable Deployment
+ 
+-**Lovable Configuration** (`lovable.yaml`):
+-```yaml
+-name: style-shepherd
+-type: nextjs
++**Quick Local Test for Lovable**:
++```bash
++# 1. Install dependencies
++npm ci
++cd server && npm ci && cd ..
+ 
+-build:
+-  command: npm run build
+-  output: dist
++# 2. Build frontend (creates dist/ for Vite)
++npm run build
+ 
+-env:
+-  - name: VITE_API_BASE_URL
+-    value: https://api.style-shepherd.com
+-  - name: VITE_STRIPE_PUBLISHABLE_KEY
+-    value: ${STRIPE_PUBLISHABLE_KEY}
+-  - name: VITE_WORKOS_CLIENT_ID
+-    value: ${WORKOS_CLIENT_ID}
++# 3. Build backend (optional - simple server fallback available)
++cd server && npm run build && cd ..
+ 
+-deploy:
+-  platform: lovable
+-  region: us-east-1
++# 4. Run server (locally)
++npm start
++
++# 5. Healthcheck
++curl http://localhost:3000/health
++# Should return: {"status":"ok","time":"..."}
++
++# 6. Test client
++# Open http://localhost:3000 in browser
+ ```
+ 
+-**Deploy to Lovable**:
+-   ```bash
+-# Install Lovable CLI
+-npm install -g @lovable/cli
++**Lovable Configuration** (`lovable.yml`):
++```yaml
++build:
++  framework: vite
++  node_version: 18
++  build_command: "npm run build"
++  output_dir: "dist"
+ 
+-# Login
+-lovable login
++deploy:
++  start_command: "npm run start"
+ 
+-# Deploy
+-lovable deploy
++environment:
++  VITE_API_BASE_URL: "/api"
++  VITE_DEMO_MODE: "true"
++  NODE_ENV: production
++  PORT: 3000
+ ```
+ 
++**Deploy to Lovable**:
++1. **Push to GitHub**: Ensure your repo is pushed to GitHub
++2. **Connect in Lovable UI**: 
++   - Go to Lovable dashboard
++   - Connect your GitHub repository
++   - Lovable will detect `lovable.yml` automatically
++3. **Set Environment Variables** (in Lovable UI):
++   - `VULTR_SERVERLESS_INFERENCE_API_KEY` (optional)
++   - `ELEVENLABS_API_KEY` (optional)
++   - `RAINDROP_API_KEY` (optional)
++   - `DEMO_MODE=true` (to run without external services)
++4. **Deploy**: Click "Deploy" in Lovable dashboard
++
++**Lovable Requirements**:
++- ✅ Node.js >= 18 (specified in package.json engines)
++- ✅ Build command: `npm run build` (creates `dist/`)
++- ✅ Start command: `npm run start` (serves static files + API)
++- ✅ Health endpoint: `/health` (for platform health checks)
++- ✅ Server listens on `process.env.PORT` (required for Lovable)
++
++**Note**: The server automatically serves static files from `dist/` in production mode and provides API routes at `/api/*`. Set `DEMO_MODE=true` to run without external API keys.
++
+ ### Hosting Considerations
+ 
+ **Coqui TTS Model Size**:
+diff --git a/lovable.yml b/lovable.yml
+index 281beec..9a24a35 100644
+--- a/lovable.yml
++++ b/lovable.yml
+@@ -4,9 +4,14 @@ build:
+   build_command: "npm run build"
+   output_dir: "dist"
+ 
++deploy:
++  start_command: "npm run start"
++
+ environment:
+-  VITE_API_BASE_URL: ${VITE_API_BASE_URL}
++  VITE_API_BASE_URL: "/api"
+   VITE_DEMO_MODE: "true"
++  NODE_ENV: production
++  PORT: 3000
+ 
+ cdn:
+   enabled: true
+@@ -19,5 +24,7 @@ mobile_manifest:
+ 
+ notes:
+   - Vite + React + TypeScript + TailwindCSS application
+-  - Backend server runs separately on port 3001
+-  - Ensure public/assets contains demo images and assets
++  - API calls use relative path /api for Lovable backend integration
++  - Server serves static files from dist/ and provides /health endpoint
++  - Backend API routes available at /api/* endpoints
++  - Set DEMO_MODE=true to run without external services
+diff --git a/package.json b/package.json
+index 3cb952b..8bffd89 100644
+--- a/package.json
++++ b/package.json
+@@ -3,12 +3,20 @@
+   "private": true,
+   "version": "0.0.0",
+   "type": "module",
++  "engines": {
++    "node": ">=18"
++  },
+   "scripts": {
+     "dev": "vite",
+     "build": "vite build",
+     "build:dev": "vite build --mode development",
++    "build:server": "cd server && npm ci && npm run build",
++    "build:all": "npm run build && npm run build:server",
+     "lint": "eslint .",
+-    "preview": "vite preview",
++    "preview": "vite preview --port 5173",
++    "start": "node server/index.js || (cd server && npm run build && node dist/index.js)",
++    "start:simple": "node server/index.js",
++    "heroku-postbuild": "npm run build:all",
+     "mock:server": "json-server --watch mocks/db.json --port 4000 --host 0.0.0.0",
+     "mock:dev": "npm run mock:server"
+   },
+diff --git a/server/src/index.ts b/server/src/index.ts
+index e17f4aa..297b538 100644
+--- a/server/src/index.ts
++++ b/server/src/index.ts
+@@ -8,12 +8,18 @@ import cors from 'cors';
+ import helmet from 'helmet';
+ import compression from 'compression';
+ import rateLimit from 'express-rate-limit';
++import path from 'path';
++import { fileURLToPath } from 'url';
++import { existsSync } from 'fs';
+ import env from './config/env.js';
+ import vultrRoutes from './routes/vultr.js';
+ import apiRoutes from './routes/api.js';
+ import { vultrPostgres } from './lib/vultr-postgres.js';
+ import { vultrValkey } from './lib/vultr-valkey.js';
+ 
++const __filename = fileURLToPath(import.meta.url);
++const __dirname = path.dirname(__filename);
++
+ const app = express();
+ 
+ // Security middleware
+@@ -84,8 +90,27 @@ app.get('/health', async (req: express.Request, res: express.Response) => {
+ app.use('/api/vultr', vultrRoutes);
+ app.use('/api', apiRoutes);
+ 
+-// Root endpoint
++// Serve static files from client build in production
++if (env.NODE_ENV === 'production') {
++  const clientDist = path.join(__dirname, '..', '..', 'dist');
++  if (existsSync(clientDist)) {
++    app.use(express.static(clientDist));
++    console.log(`📦 Serving static files from ${clientDist}`);
++  }
++}
++
++// Root endpoint - serve API info or redirect to client
+ app.get('/', (req: express.Request, res: express.Response) => {
++  // If in production and static files exist, serve index.html
++  if (env.NODE_ENV === 'production') {
++    const clientDist = path.join(__dirname, '..', '..', 'dist');
++    const indexHtml = path.join(clientDist, 'index.html');
++    if (existsSync(indexHtml)) {
++      return res.sendFile(indexHtml);
++    }
++  }
++  
++  // Otherwise return API info
+   res.json({
+     name: 'Style Shepherd API',
+     version: '1.0.0',
+@@ -135,13 +160,23 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
+   res.status(error.statusCode).json(error.toJSON());
+ });
+ 
+-// 404 handler
++// 404 handler - for SPA routing in production
+ app.use((req: express.Request, res: express.Response) => {
++  // If in production and requesting a non-API route, serve index.html for SPA routing
++  if (env.NODE_ENV === 'production' && !req.path.startsWith('/api') && req.path !== '/health') {
++    const clientDist = path.join(__dirname, '..', '..', 'dist');
++    const indexHtml = path.join(clientDist, 'index.html');
++    if (existsSync(indexHtml)) {
++      return res.sendFile(indexHtml);
++    }
++  }
++  
++  // Otherwise return 404 JSON
+   res.status(404).json({ error: 'Route not found' });
+ });
+ 
+-// Start server
+-const PORT = env.PORT || 3001;
++// Start server - use PORT from environment (required for Lovable/Heroku)
++const PORT = process.env.PORT || env.PORT || 3001;
+ 
+ const server = app.listen(PORT, () => {
+   console.log(`🚀 Style Shepherd API server running on port ${PORT}`);
+diff --git a/src/components/Features.tsx b/src/components/Features.tsx
+index d5c93fa..1200043 100644
+--- a/src/components/Features.tsx
++++ b/src/components/Features.tsx
+@@ -1,5 +1,6 @@
+ import { Bot, TrendingUp, Leaf, CheckCircle2 } from "lucide-react";
+ import { motion } from "framer-motion";
++import { ErrorBoundary } from "./ErrorBoundary";
+ 
+ const Features = () => {
+   const features = [
+@@ -39,8 +40,9 @@ const Features = () => {
+   ];
+ 
+   return (
+-    <section id="features" className="py-20 px-4 sm:px-6 lg:px-8 bg-background">
+-      <div className="max-w-7xl mx-auto">
++    <ErrorBoundary>
++      <section id="features" className="py-20 px-4 sm:px-6 lg:px-8 bg-background">
++        <div className="max-w-7xl mx-auto">
+         <motion.div 
+           initial={{ opacity: 0, y: 20 }}
+           whileInView={{ opacity: 1, y: 0 }}
+@@ -95,6 +97,7 @@ const Features = () => {
+         </div>
+       </div>
+     </section>
++    </ErrorBoundary>
+   );
+ };
+ 
+diff --git a/src/components/VoiceInterface.tsx b/src/components/VoiceInterface.tsx
+index 83e21ca..e5bcf3b 100644
+--- a/src/components/VoiceInterface.tsx
++++ b/src/components/VoiceInterface.tsx
+@@ -61,14 +61,27 @@ export const VoiceInterface = ({ onVoiceCommand, userId, className }: VoiceInter
+       try {
+         await voiceService.startConversation(userId);
+         setIsConnected(true);
+-      } catch (error) {
++      } catch (error: any) {
+         console.error('Failed to initialize conversation:', error);
+-        setIsConnected(true); // Still allow usage with browser speech
++        // Still allow usage with browser speech
++        setIsConnected(false);
++        
++        // Only show error if it's not a network issue (user might be offline)
++        if (error?.message && !error.message.includes('network') && !error.message.includes('fetch')) {
++          toast({
++            title: "Connection Warning",
++            description: "Using local speech recognition. Some features may be limited.",
++            variant: "default"
++          });
++        }
+       }
+     };
+ 
+     if (userId && userId !== 'guest') {
+       initConversation();
++    } else {
++      // Guest users use browser speech only
++      setIsConnected(false);
+     }
+   }, [userId]);
+ 
+@@ -176,19 +189,43 @@ export const VoiceInterface = ({ onVoiceCommand, userId, className }: VoiceInter
+             streamRef.current.getTracks().forEach(track => track.stop());
+           }
+           
+-          if (event.error === 'not-allowed') {
+-            toast({
+-              title: "Microphone Access Denied",
+-              description: "Please allow microphone access to use voice commands.",
+-              variant: "destructive"
+-            });
+-          } else {
+-            toast({
+-              title: "Speech Recognition Error",
+-              description: `Error: ${event.error}. Please try again.`,
+-              variant: "destructive"
+-            });
++          let errorTitle = "Speech Recognition Error";
++          let errorDescription = "Please try again.";
++          
++          switch (event.error) {
++            case 'not-allowed':
++              errorTitle = "Microphone Access Denied";
++              errorDescription = "Please allow microphone access in your browser settings to use voice commands.";
++              break;
++            case 'no-speech':
++              errorTitle = "No Speech Detected";
++              errorDescription = "No speech was detected. Please speak clearly and try again.";
++              break;
++            case 'audio-capture':
++              errorTitle = "Audio Capture Error";
++              errorDescription = "No microphone was found. Please connect a microphone and try again.";
++              break;
++            case 'network':
++              errorTitle = "Network Error";
++              errorDescription = "Network error occurred. Please check your connection and try again.";
++              break;
++            case 'aborted':
++              errorTitle = "Recognition Aborted";
++              errorDescription = "Speech recognition was interrupted. Please try again.";
++              break;
++            case 'service-not-allowed':
++              errorTitle = "Service Not Allowed";
++              errorDescription = "Speech recognition service is not available. Please try using text input.";
++              break;
++            default:
++              errorDescription = `Error: ${event.error}. Please try again.`;
+           }
++          
++          toast({
++            title: errorTitle,
++            description: errorDescription,
++            variant: "destructive"
++          });
+         };
+ 
+         recognitionRef.current.onend = () => {
+@@ -242,9 +279,41 @@ export const VoiceInterface = ({ onVoiceCommand, userId, className }: VoiceInter
+       }
+     } catch (error: any) {
+       console.error('Error accessing microphone:', error);
++      setIsListening(false);
++      
++      let errorTitle = "Microphone Error";
++      let errorDescription = "Unable to access microphone.";
++      
++      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
++        errorTitle = "Microphone Permission Denied";
++        errorDescription = "Please allow microphone access in your browser settings to use voice commands.";
++      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
++        errorTitle = "No Microphone Found";
++        errorDescription = "No microphone device detected. Please connect a microphone and try again.";
++      } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
++        errorTitle = "Microphone In Use";
++        errorDescription = "Microphone is being used by another application. Please close other apps and try again.";
++      } else if (error.name === 'OverconstrainedError') {
++        errorTitle = "Microphone Settings Error";
++        errorDescription = "Your microphone doesn't support the required settings. Trying with basic settings...";
++        // Try again with minimal constraints
++        try {
++          const basicStream = await navigator.mediaDevices.getUserMedia({ audio: true });
++          streamRef.current = basicStream;
++          startAudioVisualization(basicStream);
++          setIsListening(true);
++          // Continue with basic setup...
++          return;
++        } catch (retryError) {
++          errorDescription = "Unable to access microphone with any settings.";
++        }
++      } else if (error.message) {
++        errorDescription = error.message;
++      }
++      
+       toast({
+-        title: "Microphone Error",
+-        description: error.message || "Unable to access microphone. Please check permissions.",
++        title: errorTitle,
++        description: errorDescription,
+         variant: "destructive"
+       });
+     }
+@@ -310,15 +379,32 @@ export const VoiceInterface = ({ onVoiceCommand, userId, className }: VoiceInter
+     } catch (error: any) {
+       console.error('Error processing text:', error);
+       setIsTyping(false);
++      
++      let errorTitle = "Processing Error";
++      let errorMessage = "Sorry, I encountered an error. Please try again.";
++      
++      if (error?.message?.includes('network') || error?.message?.includes('fetch')) {
++        errorTitle = "Network Error";
++        errorMessage = "I'm having trouble connecting. Please check your internet connection and try again.";
++      } else if (error?.message?.includes('timeout')) {
++        errorTitle = "Request Timeout";
++        errorMessage = "The request took too long. Please try again with a simpler query.";
++      } else if (error?.message?.includes('rate limit') || error?.message?.includes('429')) {
++        errorTitle = "Rate Limit Exceeded";
++        errorMessage = "Too many requests. Please wait a moment and try again.";
++      } else if (error?.message) {
++        errorMessage = `Error: ${error.message}`;
++      }
++      
+       toast({
+-        title: "Processing Error",
+-        description: error.message || "Failed to process command. Please try again.",
++        title: errorTitle,
++        description: errorMessage,
+         variant: "destructive"
+       });
+       
+       setMessages(prev => [...prev, {
+         type: 'assistant',
+-        content: 'Sorry, I encountered an error. Please try again.',
++        content: errorMessage,
+         timestamp: Date.now(),
+       }]);
+     } finally {
+@@ -362,15 +448,35 @@ export const VoiceInterface = ({ onVoiceCommand, userId, className }: VoiceInter
+     } catch (error: any) {
+       console.error('Error processing voice:', error);
+       setIsTyping(false);
++      
++      let errorTitle = "Voice Processing Error";
++      let errorMessage = "Sorry, I couldn't process your voice command. Please try again.";
++      
++      if (error?.message?.includes('network') || error?.message?.includes('fetch')) {
++        errorTitle = "Network Error";
++        errorMessage = "I'm having trouble connecting. Please check your internet connection and try again.";
++      } else if (error?.message?.includes('timeout')) {
++        errorTitle = "Request Timeout";
++        errorMessage = "The audio processing took too long. Please try speaking again.";
++      } else if (error?.message?.includes('audio') || error?.message?.includes('format')) {
++        errorTitle = "Audio Format Error";
++        errorMessage = "I couldn't understand the audio. Please try speaking more clearly.";
++      } else if (error?.message?.includes('size') || error?.message?.includes('too large')) {
++        errorTitle = "Audio Too Large";
++        errorMessage = "The audio recording is too long. Please try a shorter command.";
++      } else if (error?.message) {
++        errorMessage = `Error: ${error.message}`;
++      }
++      
+       toast({
+-        title: "Processing Error",
+-        description: error.message || "Failed to process voice command. Please try again.",
++        title: errorTitle,
++        description: errorMessage,
+         variant: "destructive"
+       });
+       
+       setMessages(prev => [...prev, {
+         type: 'assistant',
+-        content: 'Sorry, I encountered an error. Please try again.',
++        content: errorMessage,
+         timestamp: Date.now(),
+       }]);
+     } finally {
+@@ -395,15 +501,35 @@ export const VoiceInterface = ({ onVoiceCommand, userId, className }: VoiceInter
+         audioPlayerRef.current = null;
+       };
+ 
+-      audio.onerror = () => {
++      audio.onerror = (event) => {
++        console.error('Audio playback error:', event);
+         setIsPlaying(false);
+         audioPlayerRef.current = null;
++        toast({
++          title: "Audio Playback Error",
++          description: "Failed to play audio response. The text response is still available.",
++          variant: "destructive"
++        });
+       };
+ 
+       audio.play().catch(error => {
+         console.error('Failed to play audio:', error);
+         setIsPlaying(false);
+         audioPlayerRef.current = null;
++        
++        // Provide specific error messages
++        let errorMessage = "Failed to play audio response.";
++        if (error.name === 'NotAllowedError') {
++          errorMessage = "Audio playback was blocked. Please allow autoplay in your browser settings.";
++        } else if (error.name === 'NotSupportedError') {
++          errorMessage = "Audio format not supported. The text response is still available.";
++        }
++        
++        toast({
++          title: "Audio Playback Error",
++          description: errorMessage,
++          variant: "destructive"
++        });
+       });
+     } catch (error) {
+       console.error('Error playing audio:', error);
+diff --git a/src/hooks/useScrollRestoration.ts b/src/hooks/useScrollRestoration.ts
+index dc2486b..37c19fb 100644
+--- a/src/hooks/useScrollRestoration.ts
++++ b/src/hooks/useScrollRestoration.ts
+@@ -12,21 +12,68 @@ export default function useScrollRestoration() {
+     // Helper function to safely access sessionStorage
+     const safeGetItem = (key: string): string | null => {
+       try {
++        if (typeof window === 'undefined' || !window.sessionStorage) {
++          return null;
++        }
+         return sessionStorage.getItem(key);
+-      } catch (error) {
++      } catch (error: any) {
+         // sessionStorage may be unavailable in private browsing mode or blocked
+-        console.warn('Unable to access sessionStorage:', error);
++        // Check for specific error types
++        if (error?.name === 'QuotaExceededError') {
++          console.warn('SessionStorage quota exceeded, clearing old entries');
++          try {
++            // Clear old entries if quota exceeded
++            const keys = Object.keys(sessionStorage);
++            for (let i = 0; i < Math.floor(keys.length / 2); i++) {
++              sessionStorage.removeItem(keys[i]);
++            }
++            return sessionStorage.getItem(key);
++          } catch {
++            return null;
++          }
++        } else if (error?.name === 'SecurityError') {
++          console.warn('SessionStorage access denied (likely due to privacy settings)');
++        } else {
++          console.warn('Unable to access sessionStorage:', error?.message || error);
++        }
+         return null;
+       }
+     };
+ 
+     const safeSetItem = (key: string, value: string): void => {
+       try {
++        if (typeof window === 'undefined' || !window.sessionStorage) {
++          return;
++        }
+         sessionStorage.setItem(key, value);
+-      } catch (error) {
++      } catch (error: any) {
+         // sessionStorage may be unavailable in private browsing mode or blocked
+-        // This is non-critical, so we just log a warning
+-        console.warn('Unable to save to sessionStorage:', error);
++        if (error?.name === 'QuotaExceededError') {
++          console.warn('SessionStorage quota exceeded when saving scroll position');
++          try {
++            // Try to clear old entries and retry
++            const keys = Object.keys(sessionStorage);
++            const scrollKeys = keys.filter(k => k.startsWith('scroll:'));
++            // Remove oldest half of scroll keys
++            scrollKeys.slice(0, Math.floor(scrollKeys.length / 2)).forEach(k => {
++              try {
++                sessionStorage.removeItem(k);
++              } catch {
++                // Ignore errors when clearing
++              }
++            });
++            // Retry setting the item
++            sessionStorage.setItem(key, value);
++          } catch {
++            // If retry fails, just log and continue
++            console.warn('Unable to save scroll position after quota cleanup');
++          }
++        } else if (error?.name === 'SecurityError') {
++          // Privacy settings block storage - this is expected in some browsers
++          // Don't log as error, just silently fail
++        } else {
++          console.warn('Unable to save to sessionStorage:', error?.message || error);
++        }
+       }
+     };
+ 
+@@ -41,14 +88,28 @@ export default function useScrollRestoration() {
+         setTimeout(() => {
+           try {
+             const position = Number(savedPosition);
+-            if (!isNaN(position) && position >= 0) {
+-              window.scrollTo({
+-                top: position,
+-                behavior: 'smooth', // Smooth scroll for better UX
++            if (!isNaN(position) && position >= 0 && position < Number.MAX_SAFE_INTEGER) {
++              // Use requestAnimationFrame to ensure DOM is ready
++              requestAnimationFrame(() => {
++                try {
++                  window.scrollTo({
++                    top: position,
++                    behavior: 'smooth', // Smooth scroll for better UX
++                  });
++                } catch (scrollError: any) {
++                  // Fallback to instant scroll if smooth fails
++                  try {
++                    window.scrollTo(0, position);
++                  } catch {
++                    console.warn('Failed to restore scroll position:', scrollError?.message || scrollError);
++                  }
++                }
+               });
++            } else {
++              console.warn('Invalid scroll position value:', savedPosition);
+             }
+-          } catch (error) {
+-            console.warn('Failed to restore scroll position:', error);
++          } catch (error: any) {
++            console.warn('Failed to restore scroll position:', error?.message || error);
+           }
+         }, 50);
+       });
+@@ -71,21 +132,40 @@ export default function useScrollRestoration() {
+     };
+ 
+     // Save on scroll (throttled)
+-    let scrollTimeout: NodeJS.Timeout;
++    let scrollTimeout: NodeJS.Timeout | null = null;
+     const handleScroll = () => {
+-      clearTimeout(scrollTimeout);
+-      scrollTimeout = setTimeout(saveScrollPosition, 100);
++      if (scrollTimeout) {
++        clearTimeout(scrollTimeout);
++      }
++      scrollTimeout = setTimeout(() => {
++        try {
++          saveScrollPosition();
++        } catch (error: any) {
++          console.warn('Error saving scroll position:', error?.message || error);
++        }
++        scrollTimeout = null;
++      }, 100);
+     };
+ 
+-    window.addEventListener('scroll', handleScroll, { passive: true });
+-    window.addEventListener('beforeunload', saveScrollPosition);
++    try {
++      window.addEventListener('scroll', handleScroll, { passive: true });
++      window.addEventListener('beforeunload', saveScrollPosition);
++    } catch (error: any) {
++      console.warn('Failed to attach scroll listeners:', error?.message || error);
++    }
+ 
+     return () => {
+-      window.removeEventListener('scroll', handleScroll);
+-      window.removeEventListener('beforeunload', saveScrollPosition);
+-      clearTimeout(scrollTimeout);
+-      // Save position on cleanup (route change)
+-      saveScrollPosition();
++      try {
++        window.removeEventListener('scroll', handleScroll);
++        window.removeEventListener('beforeunload', saveScrollPosition);
++        if (scrollTimeout) {
++          clearTimeout(scrollTimeout);
++        }
++        // Save position on cleanup (route change)
++        saveScrollPosition();
++      } catch (error: any) {
++        console.warn('Error cleaning up scroll restoration:', error?.message || error);
++      }
+     };
+   }, [location.pathname, location.search]);
+ }
+diff --git a/src/lib/apiClient.ts b/src/lib/apiClient.ts
+index 5f2d39d..fba8aa5 100644
+--- a/src/lib/apiClient.ts
++++ b/src/lib/apiClient.ts
+@@ -5,79 +5,244 @@
+ 
+ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "";
+ const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "";
++const API_TIMEOUT_MS = 30000; // 30 seconds
+ 
+ interface ApiResponse<T = unknown> {
+   success: boolean;
+   data?: T;
+   error?: string;
++  statusCode?: number;
+ }
+ 
+-export async function apiGet<T = unknown>(path: string): Promise<ApiResponse<T>> {
++/**
++ * Create a fetch request with timeout
++ */
++async function fetchWithTimeout(
++  url: string,
++  options: RequestInit,
++  timeoutMs: number = API_TIMEOUT_MS
++): Promise<Response> {
++  const controller = new AbortController();
++  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
++
+   try {
+-    const url = path.startsWith("http") ? path : `${SUPABASE_URL}${path}`;
+-    const res = await fetch(url, {
+-      headers: {
+-        Authorization: `Bearer ${SUPABASE_KEY}`,
+-        "Content-Type": "application/json",
+-      },
++    const response = await fetch(url, {
++      ...options,
++      signal: controller.signal,
+     });
++    clearTimeout(timeoutId);
++    return response;
++  } catch (error: any) {
++    clearTimeout(timeoutId);
++    if (error.name === 'AbortError') {
++      throw new Error(`Request timeout after ${timeoutMs}ms`);
++    }
++    throw error;
++  }
++}
+ 
+-    if (!res.ok) {
+-      const text = await res.text().catch(() => "");
+-      return { success: false, error: `${res.status}: ${text || res.statusText}` };
++/**
++ * Retry a function with exponential backoff
++ */
++async function retryWithBackoff<T>(
++  fn: () => Promise<T>,
++  maxRetries: number = 3,
++  baseDelay: number = 1000
++): Promise<T> {
++  let lastError: Error | unknown;
++  
++  for (let attempt = 0; attempt <= maxRetries; attempt++) {
++    try {
++      return await fn();
++    } catch (error) {
++      lastError = error;
++      
++      // Don't retry on client errors (4xx) except 429 (rate limit)
++      if (error instanceof Error && error.message.includes('4')) {
++        const statusMatch = error.message.match(/\b(40[0-9])\b/);
++        if (statusMatch && statusMatch[1] !== '429') {
++          throw error;
++        }
++      }
++      
++      // Don't retry on last attempt
++      if (attempt === maxRetries) {
++        break;
++      }
++      
++      // Exponential backoff with jitter
++      const delay = baseDelay * Math.pow(2, attempt) + Math.random() * 1000;
++      await new Promise(resolve => setTimeout(resolve, delay));
+     }
++  }
++  
++  throw lastError;
++}
+ 
+-    const data = await res.json();
+-    return { success: true, data };
+-  } catch (error) {
++export async function apiGet<T = unknown>(
++  path: string,
++  options?: { timeout?: number; retries?: number }
++): Promise<ApiResponse<T>> {
++  const timeout = options?.timeout || API_TIMEOUT_MS;
++  const retries = options?.retries ?? 1;
++  
++  try {
++    return await retryWithBackoff(async () => {
++      const url = path.startsWith("http") ? path : `${SUPABASE_URL}${path}`;
++      
++      const res = await fetchWithTimeout(
++        url,
++        {
++          headers: {
++            Authorization: `Bearer ${SUPABASE_KEY}`,
++            "Content-Type": "application/json",
++          },
++        },
++        timeout
++      );
++
++      if (!res.ok) {
++        let errorText = "";
++        try {
++          errorText = await res.text();
++          // Try to parse as JSON for better error messages
++          try {
++            const errorJson = JSON.parse(errorText);
++            if (errorJson.error?.message) {
++              errorText = errorJson.error.message;
++            }
++          } catch {
++            // Not JSON, use text as is
++          }
++        } catch {
++          errorText = res.statusText;
++        }
++        
++        const error = new Error(`${res.status}: ${errorText || res.statusText}`);
++        (error as any).statusCode = res.status;
++        throw error;
++      }
++
++      const data = await res.json();
++      return { success: true, data, statusCode: res.status };
++    }, retries);
++  } catch (error: any) {
++    let errorMessage = "Network error";
++    
++    if (error.message?.includes('timeout')) {
++      errorMessage = `Request timed out after ${timeout}ms`;
++    } else if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
++      errorMessage = "Network connection failed. Please check your internet connection.";
++    } else if (error.message?.includes('CORS')) {
++      errorMessage = "CORS error. Please check API configuration.";
++    } else if (error.message) {
++      errorMessage = error.message;
++    }
++    
+     return {
+       success: false,
+-      error: error instanceof Error ? error.message : "Network error",
++      error: errorMessage,
++      statusCode: error.statusCode,
+     };
+   }
+ }
+ 
+ export async function apiPost<T = unknown>(
+   path: string,
+-  body: unknown
++  body: unknown,
++  options?: { timeout?: number; retries?: number }
+ ): Promise<ApiResponse<T>> {
++  const timeout = options?.timeout || API_TIMEOUT_MS;
++  const retries = options?.retries ?? 1;
++  
+   try {
+-    const url = path.startsWith("http") ? path : `${SUPABASE_URL}${path}`;
+-    const res = await fetch(url, {
+-      method: "POST",
+-      headers: {
+-        Authorization: `Bearer ${SUPABASE_KEY}`,
+-        "Content-Type": "application/json",
+-      },
+-      body: JSON.stringify(body),
+-    });
++    return await retryWithBackoff(async () => {
++      const url = path.startsWith("http") ? path : `${SUPABASE_URL}${path}`;
++      
++      const res = await fetchWithTimeout(
++        url,
++        {
++          method: "POST",
++          headers: {
++            Authorization: `Bearer ${SUPABASE_KEY}`,
++            "Content-Type": "application/json",
++          },
++          body: JSON.stringify(body),
++        },
++        timeout
++      );
+ 
+-    if (!res.ok) {
+-      const text = await res.text().catch(() => "");
+-      return { success: false, error: `${res.status}: ${text || res.statusText}` };
+-    }
++      if (!res.ok) {
++        let errorText = "";
++        try {
++          errorText = await res.text();
++          // Try to parse as JSON for better error messages
++          try {
++            const errorJson = JSON.parse(errorText);
++            if (errorJson.error?.message) {
++              errorText = errorJson.error.message;
++            } else if (errorJson.message) {
++              errorText = errorJson.message;
++            }
++          } catch {
++            // Not JSON, use text as is
++          }
++        } catch {
++          errorText = res.statusText;
++        }
++        
++        const error = new Error(`${res.status}: ${errorText || res.statusText}`);
++        (error as any).statusCode = res.status;
++        throw error;
++      }
+ 
+-    const data = await res.json();
+-    return { success: true, data };
+-  } catch (error) {
++      const data = await res.json();
++      return { success: true, data, statusCode: res.status };
++    }, retries);
++  } catch (error: any) {
++    let errorMessage = "Network error";
++    
++    if (error.message?.includes('timeout')) {
++      errorMessage = `Request timed out after ${timeout}ms`;
++    } else if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
++      errorMessage = "Network connection failed. Please check your internet connection.";
++    } else if (error.message?.includes('CORS')) {
++      errorMessage = "CORS error. Please check API configuration.";
++    } else if (error.message?.includes('JSON')) {
++      errorMessage = "Invalid response format from server.";
++    } else if (error.message) {
++      errorMessage = error.message;
++    }
++    
+     return {
+       success: false,
+-      error: error instanceof Error ? error.message : "Network error",
++      error: errorMessage,
++      statusCode: error.statusCode,
+     };
+   }
+ }
+ 
+-export async function checkEndpointStatus(path: string, method: string): Promise<number> {
++export async function checkEndpointStatus(
++  path: string,
++  method: string,
++  timeout: number = 5000
++): Promise<number> {
+   try {
+     const url = path.startsWith("http") ? path : `${SUPABASE_URL}${path}`;
+-    const res = await fetch(url, {
+-      method: method === "GET" ? "GET" : "OPTIONS",
+-      headers: {
+-        Authorization: `Bearer ${SUPABASE_KEY}`,
++    const res = await fetchWithTimeout(
++      url,
++      {
++        method: method === "GET" ? "GET" : "OPTIONS",
++        headers: {
++          Authorization: `Bearer ${SUPABASE_KEY}`,
++        },
+       },
+-    });
++      timeout
++    );
+     return res.status;
+-  } catch {
++  } catch (error: any) {
++    // Return 0 for any error (network, timeout, etc.)
++    console.warn(`Endpoint check failed for ${path}:`, error.message);
+     return 0;
+   }
+ }
+diff --git a/src/pages/VoiceShop.tsx b/src/pages/VoiceShop.tsx
+index 60dd5f9..49e8129 100644
+--- a/src/pages/VoiceShop.tsx
++++ b/src/pages/VoiceShop.tsx
+@@ -38,7 +38,7 @@ const VoiceShop = () => {
+     }
+   }, [userId]);
+ 
+-  const loadInitialProducts = async () => {
++  const loadInitialProducts = async (retryCount = 0) => {
+     setIsLoading(true);
+     setError(null);
+     try {
+@@ -46,7 +46,30 @@ const VoiceShop = () => {
+       setProducts(results.slice(0, 8)); // Show initial products
+     } catch (error: any) {
+       console.error('Error loading products:', error);
+-      setError('Failed to load products. Please try refreshing the page.');
++      
++      // Retry logic for network errors
++      if (retryCount < 2 && (
++        error?.message?.includes('network') || 
++        error?.message?.includes('fetch') ||
++        error?.code === 'ECONNREFUSED' ||
++        error?.code === 'ETIMEDOUT'
++      )) {
++        console.log(`Retrying product load (attempt ${retryCount + 1})...`);
++        await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
++        return loadInitialProducts(retryCount + 1);
++      }
++      
++      // Provide user-friendly error messages
++      let errorMessage = 'Failed to load products.';
++      if (error?.message?.includes('network') || error?.message?.includes('fetch')) {
++        errorMessage = 'Network error. Please check your connection and try again.';
++      } else if (error?.message?.includes('timeout')) {
++        errorMessage = 'Request timed out. Please try again.';
++      } else if (error?.message) {
++        errorMessage = `Error: ${error.message}`;
++      }
++      
++      setError(errorMessage);
+     } finally {
+       setIsLoading(false);
+     }
+@@ -59,7 +82,11 @@ const VoiceShop = () => {
+     } catch (error: any) {
+       console.error('Error loading cart:', error);
+       // Cart loading errors are non-critical, user can still shop
+-      // Just log the error but don't show to user unless critical
++      // Only show error if it's a persistent issue
++      if (error?.code === 'ECONNREFUSED' || error?.message?.includes('network')) {
++        console.warn('Cart service unavailable, using local state only');
++      }
++      // Don't set error state - cart can work with local state
+     }
+   };
+ 
+@@ -78,13 +105,24 @@ const VoiceShop = () => {
+         const searchQuery = response.text;
+         const results = await mockProductService.searchProducts({ query: searchQuery });
+         if (results.length === 0) {
+-          setError('No products found. Try a different search term.');
++          setError('No products found. Try a different search term or be more specific.');
+         } else {
+           setProducts(results);
+         }
+       } catch (error: any) {
+         console.error('Error searching products:', error);
+-        setError('Failed to search products. Please try again.');
++        
++        // Provide specific error messages
++        let errorMessage = 'Failed to search products.';
++        if (error?.message?.includes('network') || error?.message?.includes('fetch')) {
++          errorMessage = 'Network error. Please check your connection and try again.';
++        } else if (error?.message?.includes('timeout')) {
++          errorMessage = 'Search timed out. Please try again with a simpler query.';
++        } else if (error?.message) {
++          errorMessage = `Search error: ${error.message}`;
++        }
++        
++        setError(errorMessage);
+       }
+     }
+   };
+@@ -117,7 +155,39 @@ const VoiceShop = () => {
+       }
+     } catch (error: any) {
+       console.error('Error adding to cart:', error);
+-      setError('Failed to add item to cart. Please try again.');
++      
++      // For guest users, fallback to local state
++      if (userId === 'guest') {
++        // Already handled above, but ensure it still works
++        setCartItems(prev => {
++          const existingItem = prev.find(item => item.product.id === product.id);
++          if (existingItem) {
++            return prev.map(item =>
++              item.product.id === product.id
++                ? { ...item, quantity: item.quantity + 1 }
++                : item
++            );
++          }
++          return [...prev, { 
++            product, 
++            quantity: 1, 
++            size: product.recommendedSize || product.sizes[0] 
++          }];
++        });
++        return; // Don't show error for guest users
++      }
++      
++      // Provide specific error messages
++      let errorMessage = 'Failed to add item to cart.';
++      if (error?.message?.includes('network') || error?.message?.includes('fetch')) {
++        errorMessage = 'Network error. Item saved locally. Please refresh to sync.';
++      } else if (error?.message?.includes('stock') || error?.message?.includes('available')) {
++        errorMessage = 'Item may be out of stock. Please check availability.';
++      } else if (error?.message) {
++        errorMessage = `Error: ${error.message}`;
++      }
++      
++      setError(errorMessage);
+     }
+   };
+ 
+@@ -326,17 +396,37 @@ const VoiceShop = () => {
+                 item.product.id === productId ? { ...item, quantity } : item
+               ));
+             }
++            
++            // Sync with backend if user is logged in
++            if (userId !== 'guest') {
++              try {
++                await mockCartService.updateCartItem(userId, productId, quantity);
++              } catch (syncError: any) {
++                console.warn('Failed to sync cart update:', syncError);
++                // Don't show error - local state is updated
++              }
++            }
+           } catch (error: any) {
+             console.error('Error updating cart quantity:', error);
+-            setError('Failed to update cart. Please try again.');
++            setError('Failed to update cart. Changes saved locally.');
+           }
+         }}
+-        onRemoveItem={(productId) => {
++        onRemoveItem={async (productId) => {
+           try {
+             setCartItems(prev => prev.filter(item => item.product.id !== productId));
++            
++            // Sync with backend if user is logged in
++            if (userId !== 'guest') {
++              try {
++                await mockCartService.removeFromCart(userId, productId);
++              } catch (syncError: any) {
++                console.warn('Failed to sync cart removal:', syncError);
++                // Don't show error - local state is updated
++              }
++            }
+           } catch (error: any) {
+             console.error('Error removing item from cart:', error);
+-            setError('Failed to remove item from cart. Please try again.');
++            setError('Failed to remove item. Please try again.');
+           }
+         }}
+         onCheckout={() => {

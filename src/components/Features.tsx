@@ -1,5 +1,6 @@
 import { Bot, TrendingUp, Leaf, CheckCircle2 } from "lucide-react";
 import { motion } from "framer-motion";
+import { ErrorBoundary } from "./ErrorBoundary";
 
 const Features = () => {
   const features = [
@@ -39,8 +40,9 @@ const Features = () => {
   ];
 
   return (
-    <section id="features" className="py-20 px-4 sm:px-6 lg:px-8 bg-background">
-      <div className="max-w-7xl mx-auto">
+    <ErrorBoundary>
+      <section id="features" className="py-20 px-4 sm:px-6 lg:px-8 bg-background">
+        <div className="max-w-7xl mx-auto">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -95,6 +97,7 @@ const Features = () => {
         </div>
       </div>
     </section>
+    </ErrorBoundary>
   );
 };
 

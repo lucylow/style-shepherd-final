@@ -38,7 +38,7 @@ const VoiceShop = () => {
     }
   }, [userId]);
 
-  const loadInitialProducts = async () => {
+  const loadInitialProducts = async (retryCount = 0) => {
     setIsLoading(true);
     setError(null);
     try {
@@ -46,7 +46,30 @@ const VoiceShop = () => {
       setProducts(results.slice(0, 8)); // Show initial products
     } catch (error: any) {
       console.error('Error loading products:', error);
-      setError('Failed to load products. Please try refreshing the page.');
+      
+      // Retry logic for network errors
+      if (retryCount < 2 && (
+        error?.message?.includes('network') || 
+        error?.message?.includes('fetch') ||
+        error?.code === 'ECONNREFUSED' ||
+        error?.code === 'ETIMEDOUT'
+      )) {
+        console.log(`Retrying product load (attempt ${retryCount + 1})...`);
+        await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+        return loadInitialProducts(retryCount + 1);
+      }
+      
+      // Provide user-friendly error messages
+      let errorMessage = 'Failed to load products.';
+      if (error?.message?.includes('network') || error?.message?.includes('fetch')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (error?.message?.includes('timeout')) {
+        errorMessage = 'Request timed out. Please try again.';
+      } else if (error?.message) {
+        errorMessage = `Error: ${error.message}`;
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -59,7 +82,11 @@ const VoiceShop = () => {
     } catch (error: any) {
       console.error('Error loading cart:', error);
       // Cart loading errors are non-critical, user can still shop
-      // Just log the error but don't show to user unless critical
+      // Only show error if it's a persistent issue
+      if (error?.code === 'ECONNREFUSED' || error?.message?.includes('network')) {
+        console.warn('Cart service unavailable, using local state only');
+      }
+      // Don't set error state - cart can work with local state
     }
   };
 
@@ -78,13 +105,24 @@ const VoiceShop = () => {
         const searchQuery = response.text;
         const results = await mockProductService.searchProducts({ query: searchQuery });
         if (results.length === 0) {
-          setError('No products found. Try a different search term.');
+          setError('No products found. Try a different search term or be more specific.');
         } else {
           setProducts(results);
         }
       } catch (error: any) {
         console.error('Error searching products:', error);
-        setError('Failed to search products. Please try again.');
+        
+        // Provide specific error messages
+        let errorMessage = 'Failed to search products.';
+        if (error?.message?.includes('network') || error?.message?.includes('fetch')) {
+          errorMessage = 'Network error. Please check your connection and try again.';
+        } else if (error?.message?.includes('timeout')) {
+          errorMessage = 'Search timed out. Please try again with a simpler query.';
+        } else if (error?.message) {
+          errorMessage = `Search error: ${error.message}`;
+        }
+        
+        setError(errorMessage);
       }
     }
   };
@@ -117,7 +155,39 @@ const VoiceShop = () => {
       }
     } catch (error: any) {
       console.error('Error adding to cart:', error);
-      setError('Failed to add item to cart. Please try again.');
+      
+      // For guest users, fallback to local state
+      if (userId === 'guest') {
+        // Already handled above, but ensure it still works
+        setCartItems(prev => {
+          const existingItem = prev.find(item => item.product.id === product.id);
+          if (existingItem) {
+            return prev.map(item =>
+              item.product.id === product.id
+                ? { ...item, quantity: item.quantity + 1 }
+                : item
+            );
+          }
+          return [...prev, { 
+            product, 
+            quantity: 1, 
+            size: product.recommendedSize || product.sizes[0] 
+          }];
+        });
+        return; // Don't show error for guest users
+      }
+      
+      // Provide specific error messages
+      let errorMessage = 'Failed to add item to cart.';
+      if (error?.message?.includes('network') || error?.message?.includes('fetch')) {
+        errorMessage = 'Network error. Item saved locally. Please refresh to sync.';
+      } else if (error?.message?.includes('stock') || error?.message?.includes('available')) {
+        errorMessage = 'Item may be out of stock. Please check availability.';
+      } else if (error?.message) {
+        errorMessage = `Error: ${error.message}`;
+      }
+      
+      setError(errorMessage);
     }
   };
 
@@ -326,17 +396,37 @@ const VoiceShop = () => {
                 item.product.id === productId ? { ...item, quantity } : item
               ));
             }
+            
+            // Sync with backend if user is logged in
+            if (userId !== 'guest') {
+              try {
+                await mockCartService.updateCartItem(userId, productId, quantity);
+              } catch (syncError: any) {
+                console.warn('Failed to sync cart update:', syncError);
+                // Don't show error - local state is updated
+              }
+            }
           } catch (error: any) {
             console.error('Error updating cart quantity:', error);
-            setError('Failed to update cart. Please try again.');
+            setError('Failed to update cart. Changes saved locally.');
           }
         }}
-        onRemoveItem={(productId) => {
+        onRemoveItem={async (productId) => {
           try {
             setCartItems(prev => prev.filter(item => item.product.id !== productId));
+            
+            // Sync with backend if user is logged in
+            if (userId !== 'guest') {
+              try {
+                await mockCartService.removeFromCart(userId, productId);
+              } catch (syncError: any) {
+                console.warn('Failed to sync cart removal:', syncError);
+                // Don't show error - local state is updated
+              }
+            }
           } catch (error: any) {
             console.error('Error removing item from cart:', error);
-            setError('Failed to remove item from cart. Please try again.');
+            setError('Failed to remove item. Please try again.');
           }
         }}
         onCheckout={() => {
