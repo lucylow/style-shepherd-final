@@ -51,6 +51,7 @@ import MemoryCard from '@/components/MemoryCard';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { getApiBaseUrl } from '@/lib/api-config';
+import InteractiveIntegrationPanel from '@/components/integrations/InteractiveIntegrationPanel';
 
 type MemoryType = 'working' | 'semantic' | 'episodic' | 'procedural';
 
@@ -549,6 +550,11 @@ export default function AIMemory() {
               </CardContent>
             </Card>
           )}
+
+          {/* Interactive Integration Panel */}
+          <div className="mt-8">
+            <InteractiveIntegrationPanel userId="demo_user" />
+          </div>
         </div>
       </main>
 
