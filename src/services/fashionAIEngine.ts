@@ -112,7 +112,7 @@ class FashionAIEngine {
       case 'product_search':
         return this.handleProductSearch(intent, userProfile);
       
-      default:
+      default: {
         const response = await this.handleGeneralQuery(intent, userProfile);
         // Store assistant response in SmartMemory
         if (userProfile) {
@@ -123,6 +123,7 @@ class FashionAIEngine {
           });
         }
         return response;
+      }
     }
   }
 

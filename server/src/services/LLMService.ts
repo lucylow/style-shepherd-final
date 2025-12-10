@@ -554,18 +554,20 @@ User preferences: ${preferences ? JSON.stringify(preferences).substring(0, 200) 
     const { intent, entities } = intentAnalysis;
 
     switch (intent) {
-      case 'search_product':
+      case 'search_product': {
         const productDesc = [];
         if (entities.color) productDesc.push(entities.color);
         if (entities.category) productDesc.push(entities.category);
         const searchDesc = productDesc.length > 0 ? productDesc.join(' ') : 'items';
         return `I'll help you find ${searchDesc}${entities.occasion ? ` for ${entities.occasion}` : ''}. Let me search our collection for you, ${userName}!`;
+      }
 
-      case 'get_recommendations':
+      case 'get_recommendations': {
         const prefText = preferences?.stylePreferences?.length
           ? ` based on your preference for ${preferences.stylePreferences.join(' and ')}`
           : '';
         return `Based on your style preferences${prefText}${entities.occasion ? ` and the ${entities.occasion} occasion` : ''}, I have some great recommendations for you!`;
+      }
 
       case 'ask_about_size':
         return `I can help you find the perfect size! ${entities.size ? `You mentioned size ${entities.size}. ` : ''}Would you like me to check your measurements and recommend the best fit?`;

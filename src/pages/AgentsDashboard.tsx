@@ -112,7 +112,7 @@ const AgentsDashboard = () => {
         }
       });
 
-      let filtered = sorted.filter(agent => {
+      const filtered = sorted.filter(agent => {
         const nameMatch = agent.name.toLowerCase().includes(searchTerm.toLowerCase());
         const purposeMatch = agent.purpose?.toLowerCase().includes(searchTerm.toLowerCase()) || false;
         const searchMatches = nameMatch || purposeMatch;

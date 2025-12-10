@@ -48,7 +48,8 @@ function getMockDataSync(): AIMockData {
   // Try to import directly (works in Node.js/TypeScript with resolveJsonModule: true)
   // This is a best-effort approach - if it fails, use async loading
   try {
-    // @ts-ignore - Dynamic import of JSON - may not work in all environments
+    // @ts-expect-error - Dynamic import of JSON - may not work in all environments
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const data = require('./ai-mock-data.json');
     mockDataCache = data as AIMockData;
     return mockDataCache;

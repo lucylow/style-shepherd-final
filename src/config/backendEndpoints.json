@@ -33,5 +33,47 @@
     "method": "POST",
     "path": "/functions/v1/style-recommendations",
     "description": "Get personalized style recommendations based on preferences"
+  },
+  {
+    "id": "size-prediction",
+    "name": "Size Prediction",
+    "method": "POST",
+    "path": "/functions/v1/size-prediction",
+    "description": "Predict optimal size across brands with cross-brand normalization"
+  },
+  {
+    "id": "return-risk-prediction",
+    "name": "Return Risk Prediction",
+    "method": "POST",
+    "path": "/functions/v1/return-risk-prediction",
+    "description": "Predict return risk for purchases using 55+ features"
+  },
+  {
+    "id": "product-search",
+    "name": "Product Search",
+    "method": "POST",
+    "path": "/functions/v1/product-search",
+    "description": "AI-powered semantic product search with intent extraction"
+  },
+  {
+    "id": "outfit-builder",
+    "name": "Outfit Builder",
+    "method": "POST",
+    "path": "/functions/v1/outfit-builder",
+    "description": "Build complete, cohesive outfits from products or suggestions"
+  },
+  {
+    "id": "trend-analysis",
+    "name": "Trend Analysis",
+    "method": "POST",
+    "path": "/functions/v1/trend-analysis",
+    "description": "Analyze current fashion trends and provide market insights"
+  },
+  {
+    "id": "size-comparison",
+    "name": "Size Comparison",
+    "method": "POST",
+    "path": "/functions/v1/size-comparison",
+    "description": "Compare sizes across multiple brands with variance analysis"
   }
 ]

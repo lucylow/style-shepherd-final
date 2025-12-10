@@ -88,10 +88,11 @@ const Dashboard = () => {
           return b.price - a.price;
         case 'rating':
           return (b.rating || 0) - (a.rating || 0);
-        case 'return-risk':
+        case 'return-risk': {
           const aRisk = a.returnRisk || (a.returnRiskScore ? a.returnRiskScore / 100 : 0);
           const bRisk = b.returnRisk || (b.returnRiskScore ? b.returnRiskScore / 100 : 0);
           return aRisk - bRisk;
+        }
         default:
           return 0;
       }

@@ -47,8 +47,10 @@ const AgentsSidebar: React.FC = () => {
     if (item.exact) {
       return location.pathname === item.url;
     }
-    return location.pathname.startsWith(item.url.split('?')[0]) && 
-           (location.search === item.url.split('?')[1] ? `?${item.url.split('?')[1]}` : false || !item.url.includes('?'));
+    const urlParts = item.url.split('?');
+    const pathMatch = location.pathname.startsWith(urlParts[0]);
+    const queryMatch = urlParts[1] ? location.search === `?${urlParts[1]}` : !item.url.includes('?');
+    return pathMatch && queryMatch;
   };
 
   return (

@@ -389,7 +389,7 @@ export const SimulationSteps = ({
 
   const renderStepContent = () => {
     switch (currentStep) {
-      case 0:
+      case 0: {
         if (isGenerating) {
           return (
             <div className="space-y-8 py-4 animate-fade-in">
@@ -622,8 +622,9 @@ export const SimulationSteps = ({
             </div>
           </div>
         );
+      }
 
-      case 1:
+      case 1: {
         const finalTotals = calculateTotals();
         return (
           <div className="space-y-6">
@@ -664,6 +665,7 @@ export const SimulationSteps = ({
             </div>
           </div>
         );
+      }
     }
   };
 

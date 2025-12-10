@@ -112,7 +112,9 @@ export const VoiceInterface = ({ onVoiceCommand, userId, className }: VoiceInter
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
-        } catch {}
+        } catch {
+          // Ignore errors when stopping recognition
+        }
       }
     };
   }, []);
@@ -323,7 +325,9 @@ export const VoiceInterface = ({ onVoiceCommand, userId, className }: VoiceInter
     if (useBrowserSpeech && recognitionRef.current) {
       try {
         recognitionRef.current.stop();
-      } catch {}
+      } catch {
+        // Ignore errors when stopping recognition
+      }
     }
     
     if (mediaRecorderRef.current && isListening) {

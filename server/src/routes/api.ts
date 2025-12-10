@@ -171,7 +171,7 @@ router.post(
       // Get size recommendation with detailed reasoning
       let recommendedSize = 'M';
       let confidence = 0.75;
-      let reasoning: string[] = [];
+      const reasoning: string[] = [];
 
       if (measurements) {
         const result = await productRecommendationAPI.predictOptimalSize(
