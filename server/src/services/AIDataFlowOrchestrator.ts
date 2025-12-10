@@ -593,27 +593,48 @@ export class AIDataFlowOrchestrator {
   }
 
   /**
-   * Get performance metrics
+   * Get performance metrics with enhanced observability
    */
   getMetrics() {
     const sortedP50 = [...this.metrics.latency.p50].sort((a, b) => a - b);
     const sortedP95 = [...this.metrics.latency.p95].sort((a, b) => a - b);
     const sortedP99 = [...this.metrics.latency.p99].sort((a, b) => a - b);
 
+    const totalRequests = this.metrics.requests.total;
+    const cacheHitRate = this.metrics.cache.hits / (this.metrics.cache.hits + this.metrics.cache.misses) || 0;
+    const failureRate = totalRequests > 0 ? this.metrics.requests.failed / totalRequests : 0;
+    const batchEfficiency = totalRequests > 0 ? this.metrics.requests.batched / totalRequests : 0;
+
     return {
-      requests: { ...this.metrics.requests },
+      requests: { 
+        ...this.metrics.requests,
+        successRate: totalRequests > 0 ? (totalRequests - this.metrics.requests.failed) / totalRequests : 1,
+        failureRate,
+        batchEfficiency,
+      },
       latency: {
         p50: sortedP50[Math.floor(sortedP50.length * 0.5)] || 0,
         p95: sortedP95[Math.floor(sortedP95.length * 0.95)] || 0,
         p99: sortedP99[Math.floor(sortedP99.length * 0.99)] || 0,
+        min: sortedP50[0] || 0,
+        max: sortedP50[sortedP50.length - 1] || 0,
+        avg: sortedP50.length > 0 
+          ? sortedP50.reduce((sum, val) => sum + val, 0) / sortedP50.length 
+          : 0,
       },
       cache: {
         ...this.metrics.cache,
-        hitRate: this.metrics.cache.hits / (this.metrics.cache.hits + this.metrics.cache.misses) || 0,
+        hitRate: cacheHitRate,
+        missRate: 1 - cacheHitRate,
+        efficiency: cacheHitRate > 0.6 ? 'excellent' : cacheHitRate > 0.4 ? 'good' : 'needs-improvement',
       },
       queue: {
         size: this.requestQueue.length,
         activeWorkers: this.activeWorkers,
+        utilization: this.queueConfig.maxConcurrency > 0 
+          ? this.activeWorkers / this.queueConfig.maxConcurrency 
+          : 0,
+        health: this.requestQueue.length < this.queueConfig.maxQueueSize * 0.8 ? 'healthy' : 'congested',
       },
       circuitBreakers: Object.fromEntries(
         Array.from(this.circuitBreakers.entries()).map(([name, state]) => [
@@ -622,10 +643,48 @@ export class AIDataFlowOrchestrator {
             state: state.state,
             failures: state.failures,
             successes: state.successes,
+            health: state.state === CircuitState.CLOSED ? 'healthy' : 
+                   state.state === CircuitState.OPEN ? 'failing' : 'recovering',
+            lastFailureTime: state.lastFailureTime,
+            lastSuccessTime: state.lastSuccessTime,
           },
         ])
       ),
+      performance: {
+        overall: failureRate < 0.05 && cacheHitRate > 0.5 ? 'excellent' :
+                failureRate < 0.1 && cacheHitRate > 0.3 ? 'good' : 'needs-attention',
+        recommendations: this.generateRecommendations(cacheHitRate, failureRate, batchEfficiency),
+      },
     };
+  }
+
+  /**
+   * Generate performance recommendations
+   */
+  private generateRecommendations(
+    cacheHitRate: number,
+    failureRate: number,
+    batchEfficiency: number
+  ): string[] {
+    const recommendations: string[] = [];
+
+    if (cacheHitRate < 0.3) {
+      recommendations.push('Consider increasing cache TTL or improving cache key strategy');
+    }
+
+    if (failureRate > 0.1) {
+      recommendations.push('High failure rate detected - review circuit breaker thresholds');
+    }
+
+    if (batchEfficiency < 0.1 && this.metrics.requests.total > 100) {
+      recommendations.push('Low batch efficiency - consider implementing request batching');
+    }
+
+    if (this.requestQueue.length > this.queueConfig.maxQueueSize * 0.7) {
+      recommendations.push('Queue approaching capacity - consider scaling up workers');
+    }
+
+    return recommendations.length > 0 ? recommendations : ['System performing optimally'];
   }
 
   /**
