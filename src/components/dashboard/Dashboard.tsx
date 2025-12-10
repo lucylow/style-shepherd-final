@@ -4,7 +4,7 @@ import { StyleRecommendations } from './StyleRecommendations';
 import { MemoryPanel } from './MemoryPanel';
 import { QuickActions } from './QuickActions';
 import { RecentActivity } from './RecentActivity';
-import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 
 export function Dashboard() {
   return (

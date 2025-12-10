@@ -1,5 +1,5 @@
-import Navigation from '@/components/Navigation';
-import Footer from '@/components/Footer';
+import Navigation from '@/components/layout/Navigation';
+import Footer from '@/components/layout/Footer';
 import { CriterionCard } from '@/components/idea-quality/CriterionCard';
 import { JudgingCriteriaSummary } from '@/components/idea-quality/JudgingCriteriaSummary';
 import { IdeaQualityAssessor } from '@/services/judging-criteria/idea-quality-assessor';

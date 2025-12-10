@@ -1,6 +1,6 @@
-import { JudgeDemo } from '@/components/JudgeDemo';
-import HeaderNav from '@/components/HeaderNav';
-import Footer from '@/components/Footer';
+import { JudgeDemo } from '@/components/demo/JudgeDemo';
+import HeaderNav from '@/components/layout/HeaderNav';
+import Footer from '@/components/layout/Footer';
 
 export default function JudgeDemoPage() {
   return (

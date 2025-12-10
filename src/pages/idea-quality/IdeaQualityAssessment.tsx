@@ -1,5 +1,5 @@
-import Navigation from '@/components/Navigation';
-import Footer from '@/components/Footer';
+import Navigation from '@/components/layout/Navigation';
+import Footer from '@/components/layout/Footer';
 import { IdeaQualitySummary } from '@/components/idea-quality/IdeaQualitySummary';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { IdeaQualityScoringEngine } from '@/services/idea-quality-scoring-service';

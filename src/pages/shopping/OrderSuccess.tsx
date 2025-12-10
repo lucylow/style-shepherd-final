@@ -3,7 +3,7 @@ import { useSearchParams, Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, Package, Home } from 'lucide-react';
-import { mockOrderService, Order } from '@/services/mockOrders';
+import { mockOrderService, Order } from '@/services/mocks/mockOrders';
 import { useAuth } from '@/contexts/AuthContext';
 
 const OrderSuccess = () => {

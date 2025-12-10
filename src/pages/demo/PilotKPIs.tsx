@@ -1,6 +1,6 @@
 import { PilotKPIDashboard } from '@/components/PilotKPIDashboard';
-import HeaderNav from '@/components/HeaderNav';
-import Footer from '@/components/Footer';
+import HeaderNav from '@/components/layout/HeaderNav';
+import Footer from '@/components/layout/Footer';
 
 export default function PilotKPIsPage() {
   return (

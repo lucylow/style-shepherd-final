@@ -8,8 +8,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/use-toast";
-import { LiveTranscription } from "@/components/LiveTranscription";
-import { AgentConfigSidebar } from "@/components/AgentConfigSidebar";
+import { LiveTranscription } from "@/components/voice/LiveTranscription";
+import { AgentConfigSidebar } from "@/components/agents/AgentConfigSidebar";
 
 const AgentCreate = () => {
   const navigate = useNavigate();

@@ -10,7 +10,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { AgentType } from "@/types/agent";
 import { Mic, PhoneOutgoing, PhoneIncoming, MessageSquare, Bot, Rocket, ArrowUp } from "lucide-react";
-import { LiveTranscription } from "@/components/LiveTranscription";
+import { LiveTranscription } from "@/components/voice/LiveTranscription";
 
 interface TestAgentSidebarProps {
   open: boolean;

@@ -34,10 +34,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { AgentType, AgentStatus, AgentChannelConfig } from "@/types/agent";
 import { useAgents } from "@/hooks/useAgents";
-import { AgentToggle } from "@/components/AgentToggle";
-import { AgentChannels } from "@/components/AgentChannels";
-import { AgentStats } from "@/components/AgentStats";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { AgentToggle } from "@/components/agents/AgentToggle";
+import { AgentChannels } from "@/components/agents/AgentChannels";
+import { AgentStats } from "@/components/agents/AgentStats";
+import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { useTheme } from "@/hooks/useTheme";
 
 const randomNames = ["Aria", "Mike", "Yuki", "Misty", "Nova", "Zephyr", "Echo", "Luna", "Orion", "Iris"];

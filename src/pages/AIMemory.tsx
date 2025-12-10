@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import HeaderNav from '@/components/HeaderNav';
+import HeaderNav from '@/components/layout/HeaderNav';
 import { 
   Brain, 
   Search, 

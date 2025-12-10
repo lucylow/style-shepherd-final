@@ -1,5 +1,5 @@
-import Navigation from '@/components/Navigation';
-import Footer from '@/components/Footer';
+import Navigation from '@/components/layout/Navigation';
+import Footer from '@/components/layout/Footer';
 import { ProblemSeverityDashboard } from '@/components/idea-quality/ProblemSeverityDashboard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ProblemAnalysisFramework } from '@/services/problem-validation-service';

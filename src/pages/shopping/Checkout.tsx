@@ -10,7 +10,7 @@ import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/AuthContext';
 import { CartItem } from '@/types/fashion';
 import { stripeService } from '@/services/stripeService';
-import { mockCartService } from '@/services/mockCart';
+import { mockCartService } from '@/services/mocks/mockCart';
 import { useCartCalculations } from '@/hooks/useCartCalculations';
 import { toast } from 'sonner';
 import { ArrowLeft, CreditCard, Lock, CheckCircle } from 'lucide-react';

@@ -1,5 +1,5 @@
 import React from 'react';
-import HeaderNav from '@/components/HeaderNav';
+import HeaderNav from '@/components/layout/HeaderNav';
 import { Dashboard } from '@/components/dashboard/Dashboard';
 
 export default function DashboardPage() {

@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import debounce from 'lodash/debounce';
-import { AgentChannels } from '@/components/AgentChannels';
+import { AgentChannels } from '@/components/agents/AgentChannels';
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";

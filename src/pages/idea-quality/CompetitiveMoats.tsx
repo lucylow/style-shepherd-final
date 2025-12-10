@@ -1,5 +1,5 @@
-import Navigation from '@/components/Navigation';
-import Footer from '@/components/Footer';
+import Navigation from '@/components/layout/Navigation';
+import Footer from '@/components/layout/Footer';
 import { CompetitiveMoatsPanel } from '@/components/idea-quality/CompetitiveMoatsPanel';
 
 export default function CompetitiveMoats() {
