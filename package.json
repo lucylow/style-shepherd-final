@@ -43,7 +43,7 @@
     "@radix-ui/react-tooltip": "^1.2.7",
     "@stripe/react-stripe-js": "^5.4.1",
     "@stripe/stripe-js": "^8.5.3",
-    "@supabase/supabase-js": "^2.81.1",
+    "@supabase/supabase-js": "^2.87.1",
     "@tanstack/react-query": "^5.83.0",
     "@workos-inc/authkit-react": "^0.13.0",
     "axios": "^1.13.2",
