@@ -7,6 +7,8 @@ import { ShoppingCart } from '@/components/ShoppingCart';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { SkeletonLoader } from '@/components/ui/SkeletonLoader';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { CartItem, Product } from '@/types/fashion';
 import { useAuth } from '@/contexts/AuthContext';
 import { productService } from '@/services/productService';
@@ -289,19 +291,8 @@ const Products = () => {
           </div>
 
           {isLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6" data-cy="product-list">
-              {[...Array(8)].map((_, i) => (
-                <div key={i} className="bg-card rounded-xl shadow-sm border border-border animate-pulse">
-                  <div className="aspect-[3/4] bg-muted rounded-t-xl" />
-                  <div className="p-4 space-y-2">
-                    <div className="h-4 bg-muted rounded" />
-                    <div className="h-3 bg-muted rounded w-3/4" />
-                    <div className="h-4 bg-muted rounded w-1/2" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
+            <SkeletonLoader variant="product" count={8} data-cy="product-list" />
+          ) : products.length > 0 ? (
             <motion.div
               layout
               className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
@@ -322,12 +313,27 @@ const Products = () => {
                 </motion.div>
               ))}
             </motion.div>
-          )}
-
-          {!isLoading && products.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground">No products found. Try adjusting your filters.</p>
-            </div>
+          ) : (
+            <EmptyState
+              icon={Search}
+              title="No products found"
+              description={
+                searchQuery
+                  ? `We couldn't find any products matching "${searchQuery}". Try adjusting your search or filters.`
+                  : "We couldn't find any products. Try adjusting your filters or check back later."
+              }
+              action={
+                searchQuery
+                  ? {
+                      label: 'Clear Search',
+                      onClick: () => {
+                        setSearchParams({});
+                        setSearchQuery('');
+                      },
+                    }
+                  : undefined
+              }
+            />
           )}
         </section>
       </main>

@@ -70,70 +70,124 @@ const Hero = () => {
   };
 
   return (
-    <section className="pt-24 pb-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#667eea] to-[#764ba2] text-white">
-      <div className="max-w-7xl mx-auto">
+    <section className="pt-24 pb-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#667eea] via-[#764ba2] to-[#667eea] text-white relative overflow-hidden">
+      {/* Animated background elements */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-white/10 rounded-full blur-3xl animate-pulse-slow" />
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-white/10 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '2s' }} />
+      </div>
+      
+      <div className="max-w-7xl mx-auto relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-          <div className="space-y-8 animate-fade-in">
+          <motion.div 
+            initial={{ opacity: 0, x: -30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6 }}
+            className="space-y-8"
+          >
             <div className="space-y-4">
-              <div className="inline-flex items-center space-x-2 bg-white/20 rounded-full px-4 py-2 backdrop-blur-sm">
-                <Mic className="w-4 h-4 text-fashion-gold" />
+              <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="inline-flex items-center space-x-2 bg-white/20 rounded-full px-4 py-2 backdrop-blur-md border border-white/30 shadow-lg"
+            >
+                <Mic className="w-4 h-4 text-fashion-gold animate-pulse" />
                 <span className="text-xs sm:text-sm font-medium">AI-Powered Fashion Assistant</span>
-              </div>
+              </motion.div>
 
-              <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold leading-tight">
+              <motion.h1 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="text-4xl sm:text-5xl md:text-6xl font-bold leading-tight"
+              >
                 Your Personal
-                <span className="text-fashion-gold block">Fashion</span>
+                <span className="text-fashion-gold block drop-shadow-lg">Fashion</span>
                 AI Stylist
-              </h1>
+              </motion.h1>
 
-              <p className="text-lg sm:text-xl text-blue-100 max-w-2xl">
+              <motion.p 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="text-lg sm:text-xl text-blue-100 max-w-2xl leading-relaxed"
+              >
                 Stop guessing sizes and dealing with returns. Style Shepherd uses advanced AI to predict your perfect fit and reduce returns by up to 90%.
-              </p>
+              </motion.p>
             </div>
 
-            <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-6">
-              <Button
-                size="lg"
-                className="bg-fashion-gold text-gray-900 hover:bg-fashion-gold/90 font-bold shadow-2xl"
-                asChild
-              >
-                <Link to="/dashboard">
-                  <Mic className="mr-2 h-5 w-5" />
-                  Try Voice Assistant
-                </Link>
-              </Button>
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+              className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-6"
+            >
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button
+                  size="lg"
+                  className="bg-fashion-gold text-gray-900 hover:bg-fashion-gold/90 font-bold shadow-2xl hover:shadow-glow transition-all"
+                  asChild
+                >
+                  <Link to="/dashboard">
+                    <Mic className="mr-2 h-5 w-5" />
+                    Try Voice Assistant
+                  </Link>
+                </Button>
+              </motion.div>
 
-              <Button
-                size="lg"
-                variant="outline"
-                className="border-2 border-white text-gray-900 bg-white hover:bg-gray-100"
-                asChild
-              >
-                <Link to="/dashboard">
-                  <PlayCircle className="mr-2 h-5 w-5" />
-                  Watch Demo
-                </Link>
-              </Button>
-            </div>
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="border-2 border-white/90 text-white bg-white/10 backdrop-blur-sm hover:bg-white/20 hover:border-white font-semibold shadow-lg"
+                  asChild
+                >
+                  <Link to="/dashboard">
+                    <PlayCircle className="mr-2 h-5 w-5" />
+                    Watch Demo
+                  </Link>
+                </Button>
+              </motion.div>
+            </motion.div>
 
-            <div className="grid grid-cols-3 gap-4 sm:gap-8 pt-8">
-              <div className="text-center">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+              className="grid grid-cols-3 gap-4 sm:gap-8 pt-8"
+            >
+              <motion.div 
+                whileHover={{ scale: 1.1, y: -5 }}
+                className="text-center p-4 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all"
+              >
                 <div className="text-2xl sm:text-3xl font-bold">{stats.returns}%</div>
-                <div className="text-blue-200 text-xs sm:text-sm">Returns Reduced</div>
-              </div>
-              <div className="text-center">
+                <div className="text-blue-200 text-xs sm:text-sm mt-1">Returns Reduced</div>
+              </motion.div>
+              <motion.div 
+                whileHover={{ scale: 1.1, y: -5 }}
+                className="text-center p-4 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all"
+              >
                 <div className="text-2xl sm:text-3xl font-bold">{stats.timeSaved}%</div>
-                <div className="text-blue-200 text-xs sm:text-sm">Time Saved</div>
-              </div>
-              <div className="text-center">
+                <div className="text-blue-200 text-xs sm:text-sm mt-1">Time Saved</div>
+              </motion.div>
+              <motion.div 
+                whileHover={{ scale: 1.1, y: -5 }}
+                className="text-center p-4 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all"
+              >
                 <div className="text-2xl sm:text-3xl font-bold">{stats.rating}</div>
-                <div className="text-blue-200 text-xs sm:text-sm">User Rating</div>
-              </div>
-            </div>
-          </div>
+                <div className="text-blue-200 text-xs sm:text-sm mt-1">User Rating</div>
+              </motion.div>
+            </motion.div>
+          </motion.div>
 
-          <div className="relative animate-scale-in">
-            <div className="bg-white rounded-2xl shadow-2xl p-8 relative z-10 border border-gray-100">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9, x: 30 }}
+            animate={{ opacity: 1, scale: 1, x: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="relative"
+          >
+            <div className="bg-white rounded-2xl shadow-2xl p-8 relative z-10 border border-gray-100/50 backdrop-blur-sm">
               <div className="text-center mb-6">
                 <motion.div
                   initial={{ scale: 0 }}
@@ -230,12 +284,34 @@ const Hero = () => {
               </div>
             </div>
 
-            <div className="absolute -top-4 -right-4 w-24 h-24 bg-fashion-gold rounded-full opacity-20 animate-float"></div>
-            <div
-              className="absolute -bottom-4 -left-4 w-32 h-32 bg-primary rounded-full opacity-20 animate-float"
-              style={{ animationDelay: "2s" }}
-            ></div>
-          </div>
+            <motion.div 
+              animate={{ 
+                y: [0, -20, 0],
+                scale: [1, 1.1, 1],
+                opacity: [0.2, 0.3, 0.2]
+              }}
+              transition={{ 
+                duration: 4, 
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+              className="absolute -top-4 -right-4 w-24 h-24 bg-fashion-gold rounded-full blur-xl"
+            />
+            <motion.div
+              animate={{ 
+                y: [0, 20, 0],
+                scale: [1, 1.1, 1],
+                opacity: [0.2, 0.3, 0.2]
+              }}
+              transition={{ 
+                duration: 4, 
+                repeat: Infinity,
+                ease: "easeInOut",
+                delay: 2
+              }}
+              className="absolute -bottom-4 -left-4 w-32 h-32 bg-primary rounded-full blur-xl"
+            />
+          </motion.div>
         </div>
       </div>
     </section>

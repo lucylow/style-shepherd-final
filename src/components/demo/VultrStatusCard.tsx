@@ -2,13 +2,14 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Server } from 'lucide-react';
+import { getApiBaseUrl } from '@/lib/api-config';
 
 export function VultrStatusCard() {
   const [status, setStatus] = useState<'checking' | 'live' | 'mock'>('checking');
 
   useEffect(() => {
     // Check status by making a minimal test call
-    fetch('/api/vultr/status')
+    fetch(`${getApiBaseUrl()}/vultr/status`)
       .then(r => r.json())
       .then(data => setStatus(data?.live ? 'live' : 'mock'))
       .catch(() => setStatus('mock'));

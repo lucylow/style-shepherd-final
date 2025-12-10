@@ -350,6 +350,7 @@ export class MultiAgentOrchestrator {
 
   /**
    * Invoke agents in parallel with intelligent batching
+   * Enhanced with better error recovery and timeout handling
    */
   private async invokeAgentsInParallel(
     query: AgentQuery,
@@ -370,18 +371,39 @@ export class MultiAgentOrchestrator {
     };
 
     const promises: Promise<void>[] = [];
+    const AGENT_TIMEOUT = 10000; // 10 seconds per agent
+
+    // Helper to add timeout to agent calls
+    const withTimeout = <T>(promise: Promise<T>, timeoutMs: number, agentName: string): Promise<T> => {
+      return Promise.race([
+        promise,
+        new Promise<T>((_, reject) => 
+          setTimeout(() => reject(new Error(`${agentName} timeout after ${timeoutMs}ms`)), timeoutMs)
+        ),
+      ]);
+    };
 
     // Size Oracle
     if (agents.includes('sizeOracle') && (query.entities.brand || query.entities.category)) {
       promises.push(
-        this.invokeSizeOracle(
-          query.userId,
-          query.entities.brand,
-          query.entities.category
+        withTimeout(
+          this.invokeSizeOracle(
+            query.userId,
+            query.entities.brand,
+            query.entities.category
+          ),
+          AGENT_TIMEOUT,
+          'SizeOracle'
         ).then((result) => {
           results.sizeOracle = result;
         }).catch((error) => {
           console.error('Size Oracle invocation failed:', error);
+          // Set fallback result
+          results.sizeOracle = {
+            recommendedSize: query.entities.size || 'M',
+            confidence: 0.4,
+            reasoning: 'Size prediction unavailable due to error',
+          };
         })
       );
     }
@@ -389,14 +411,23 @@ export class MultiAgentOrchestrator {
     // Personal Stylist
     if (agents.includes('personalStylist')) {
       promises.push(
-        this.invokePersonalStylist(
-          query.userId,
-          query.entities,
-          query.entities.occasion
+        withTimeout(
+          this.invokePersonalStylist(
+            query.userId,
+            query.entities,
+            query.entities.occasion
+          ),
+          AGENT_TIMEOUT,
+          'PersonalStylist'
         ).then((result) => {
           results.personalStylist = result;
         }).catch((error) => {
           console.error('Personal Stylist invocation failed:', error);
+          // Set fallback result
+          results.personalStylist = {
+            recommendations: [],
+            styleConfidence: 0.5,
+          };
         })
       );
     }
@@ -408,14 +439,26 @@ export class MultiAgentOrchestrator {
         : undefined;
 
       promises.push(
-        this.invokeReturnsProphet(
-          query.userId,
-          query.entities.productIds,
-          sizeMap
+        withTimeout(
+          this.invokeReturnsProphet(
+            query.userId,
+            query.entities.productIds,
+            sizeMap
+          ),
+          AGENT_TIMEOUT,
+          'ReturnsProphet'
         ).then((result) => {
           results.returnsProphet = result;
         }).catch((error) => {
           console.error('Returns Prophet invocation failed:', error);
+          // Set fallback result
+          results.returnsProphet = {
+            riskScore: 0.25,
+            riskLevel: 'medium',
+            primaryFactors: ['Insufficient data'],
+            mitigationStrategies: ['Review product details carefully'],
+            confidence: 0.5,
+          };
         })
       );
     }

@@ -5,7 +5,7 @@ build:
   output_dir: "dist"
 
 environment:
-  VITE_API_URL: ${VITE_API_URL}
+  VITE_API_BASE_URL: ${VITE_API_BASE_URL}
   VITE_DEMO_MODE: "true"
 
 cdn:

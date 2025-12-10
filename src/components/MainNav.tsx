@@ -136,14 +136,20 @@ export default function MainNav() {
                       to={item.href}
                       onClick={() => setMobileOpen(false)}
                       className={cn(
-                        "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                        "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-200 relative group",
                         isActive(item.href)
-                          ? "bg-primary text-primary-foreground"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                          ? "bg-primary text-primary-foreground shadow-sm"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground hover:translate-x-1"
                       )}
                     >
-                      <item.icon className="h-4 w-4 shrink-0" />
-                      {!collapsed && <span>{item.label}</span>}
+                      {isActive(item.href) && (
+                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary-foreground rounded-r-full" />
+                      )}
+                      <item.icon className={cn(
+                        "h-4 w-4 shrink-0 transition-transform",
+                        isActive(item.href) ? "scale-110" : "group-hover:scale-110"
+                      )} />
+                      {!collapsed && <span className="font-medium">{item.label}</span>}
                     </Link>
                   </li>
                 ))}
@@ -178,7 +184,7 @@ export default function MainNav() {
       {/* Mobile sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-64 bg-card border-r border-border transform transition-transform md:hidden",
+          "fixed inset-y-0 left-0 z-50 w-64 bg-card/95 backdrop-blur-xl border-r border-border transform transition-transform duration-300 ease-out md:hidden shadow-elevated-lg",
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -188,7 +194,7 @@ export default function MainNav() {
       {/* Desktop sidebar */}
       <aside
         className={cn(
-          "hidden md:flex flex-col border-r border-border bg-card transition-all",
+          "hidden md:flex flex-col border-r border-border bg-card/95 backdrop-blur-sm transition-all shadow-elevated",
           collapsed ? "w-16" : "w-64"
         )}
       >

@@ -104,8 +104,9 @@ export const ProductCard = memo(({
 
   return (
     <motion.div
-      whileHover={{ y: -4 }}
-      className="bg-card rounded-xl shadow-sm border border-border overflow-hidden group"
+      whileHover={{ y: -6, scale: 1.02 }}
+      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+      className="bg-card rounded-xl shadow-elevated border border-border/50 overflow-hidden group card-hover"
     >
       {/* Product Image */}
       <div className="relative aspect-[3/4] overflow-hidden bg-muted">
@@ -174,24 +175,26 @@ export const ProductCard = memo(({
         )}
 
         {/* Action Buttons */}
-        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col space-y-2 z-10">
+        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col space-y-2 z-10">
           {onToggleWishlist && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <button
+                  <motion.button
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={(e) => {
                       e.stopPropagation();
                       onToggleWishlist(product);
                     }}
-                    className="p-2 bg-background rounded-full shadow-md hover:shadow-lg transition-all hover:scale-110"
+                    className="p-2.5 bg-background/95 backdrop-blur-sm rounded-full shadow-elevated hover:shadow-elevated-lg transition-all"
                   >
                     <Heart
                       className={`w-4 h-4 transition-all ${
-                        isInWishlist ? 'fill-red-500 text-red-500' : 'text-muted-foreground'
+                        isInWishlist ? 'fill-red-500 text-red-500' : 'text-muted-foreground hover:text-red-500'
                       }`}
                     />
-                  </button>
+                  </motion.button>
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>{isInWishlist ? 'Remove from wishlist' : 'Add to wishlist'}</p>
@@ -203,15 +206,17 @@ export const ProductCard = memo(({
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <button
+                  <motion.button
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={(e) => {
                       e.stopPropagation();
                       onImageZoom(product, 0);
                     }}
-                    className="p-2 bg-background rounded-full shadow-md hover:shadow-lg transition-all hover:scale-110"
+                    className="p-2.5 bg-background/95 backdrop-blur-sm rounded-full shadow-elevated hover:shadow-elevated-lg transition-all"
                   >
-                    <ZoomIn className="w-4 h-4 text-muted-foreground" />
-                  </button>
+                    <ZoomIn className="w-4 h-4 text-muted-foreground hover:text-primary" />
+                  </motion.button>
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>Zoom image</p>
@@ -223,19 +228,21 @@ export const ProductCard = memo(({
 
         {/* Quick View Button */}
         {onQuickView && (
-          <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+          <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-all duration-300 z-10">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <button
+                  <motion.button
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={(e) => {
                       e.stopPropagation();
                       onQuickView(product);
                     }}
-                    className="p-2 bg-background rounded-full shadow-md hover:shadow-lg transition-all hover:scale-110"
+                    className="p-2.5 bg-background/95 backdrop-blur-sm rounded-full shadow-elevated hover:shadow-elevated-lg transition-all"
                   >
-                    <Eye className="w-4 h-4 text-muted-foreground" />
-                  </button>
+                    <Eye className="w-4 h-4 text-muted-foreground hover:text-primary" />
+                  </motion.button>
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>Quick view</p>
@@ -246,44 +253,60 @@ export const ProductCard = memo(({
         )}
 
         {/* Quick Actions Overlay */}
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity space-y-2">
-          <Button
-            onClick={(e) => {
-              e.stopPropagation();
-              onAddToCart(product);
-            }}
-            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-            size="sm"
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-all duration-300 space-y-2 backdrop-blur-sm">
+          <motion.div
+            initial={{ y: 10, opacity: 0 }}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
           >
-            <ShoppingBag className="w-4 h-4 mr-2" />
-            Add to Cart
-          </Button>
-          {onQuickView && (
             <Button
               onClick={(e) => {
                 e.stopPropagation();
-                onQuickView(product);
+                onAddToCart(product);
               }}
-              variant="secondary"
-              className="w-full"
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-glow-primary transition-all"
               size="sm"
             >
-              <Eye className="w-4 h-4 mr-2" />
-              Quick View
+              <ShoppingBag className="w-4 h-4 mr-2" />
+              Add to Cart
             </Button>
+          </motion.div>
+          {onQuickView && (
+            <motion.div
+              initial={{ y: 10, opacity: 0 }}
+              transition={{ delay: 0.05 }}
+            >
+              <Button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onQuickView(product);
+                }}
+                variant="secondary"
+                className="w-full bg-background/95 backdrop-blur-sm hover:bg-background"
+                size="sm"
+              >
+                <Eye className="w-4 h-4 mr-2" />
+                Quick View
+              </Button>
+            </motion.div>
           )}
           {onCompare && (
-            <Button
-              onClick={(e) => {
-                e.stopPropagation();
-                onCompare(product);
-              }}
-              variant="outline"
-              className="w-full bg-background/90 hover:bg-background"
-              size="sm"
+            <motion.div
+              initial={{ y: 10, opacity: 0 }}
+              transition={{ delay: 0.1 }}
             >
-              Compare
-            </Button>
+              <Button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCompare(product);
+                }}
+                variant="outline"
+                className="w-full bg-background/95 backdrop-blur-sm hover:bg-background border-border/50"
+                size="sm"
+              >
+                Compare
+              </Button>
+            </motion.div>
           )}
         </div>
       </div>

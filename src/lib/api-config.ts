@@ -56,13 +56,20 @@ export function getRaindropBaseUrl(): string {
 
 /**
  * Check if running in Lovable/Raindrop environment
+ * Safely handles SSR/Node.js contexts where window is not available
  */
 export function isLovableEnvironment(): boolean {
-  return !!(
-    import.meta.env.VITE_RAINDROP_API_KEY ||
-    import.meta.env.VITE_RAINDROP_PROJECT_ID ||
-    window.location.hostname.includes('lovable') ||
-    window.location.hostname.includes('raindrop')
-  );
+  // Check environment variables first (works in all contexts)
+  if (import.meta.env.VITE_RAINDROP_API_KEY || import.meta.env.VITE_RAINDROP_PROJECT_ID) {
+    return true;
+  }
+
+  // Check hostname only in browser context
+  if (typeof window !== 'undefined' && window.location) {
+    const hostname = window.location.hostname.toLowerCase();
+    return hostname.includes('lovable') || hostname.includes('raindrop');
+  }
+
+  return false;
 }
 

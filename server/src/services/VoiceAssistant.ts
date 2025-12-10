@@ -634,6 +634,21 @@ export class VoiceAssistant {
         
         // Sanitize response text
         responseText = this.sanitizeText(responseText);
+
+        // Add proactive suggestions if appropriate
+        if (userId && userProfile && conversationHistory.length > 0) {
+          const proactiveSuggestions = this.generateProactiveSuggestions(
+            intentAnalysis,
+            userProfile,
+            conversationHistory
+          );
+          
+          if (proactiveSuggestions.length > 0 && !responseText.includes('?')) {
+            // Add the most relevant suggestion naturally
+            const suggestion = proactiveSuggestions[0];
+            responseText += ` ${suggestion}`;
+          }
+        }
       } catch (error) {
         const appError = toAppError(error);
         throw new ExternalServiceError(
@@ -2105,7 +2120,7 @@ export class VoiceAssistant {
   }
 
   /**
-   * Get suggested actions based on intent
+   * Get suggested actions based on intent with proactive suggestions
    */
   private getSuggestedActions(intent: string, entities: Record<string, any>): string[] {
     const actions: string[] = [];
@@ -2114,18 +2129,91 @@ export class VoiceAssistant {
       case 'search_product':
         if (!entities.category) actions.push('ask_category');
         if (!entities.color) actions.push('ask_color');
+        if (!entities.occasion) actions.push('ask_occasion');
+        actions.push('show_similar_items');
+        actions.push('filter_by_price');
         break;
       case 'ask_about_size':
         actions.push('provide_size_guidance');
         actions.push('check_return_policy');
+        actions.push('show_size_chart');
+        actions.push('recommend_alternative_size');
         break;
       case 'get_recommendations':
         actions.push('show_recommendations');
         actions.push('explain_reasoning');
+        actions.push('show_outfit_ideas');
+        actions.push('suggest_accessories');
         break;
+      case 'add_to_cart':
+        actions.push('suggest_complementary_items');
+        actions.push('check_size_availability');
+        actions.push('show_similar_products');
+        break;
+      case 'track_order':
+        actions.push('provide_shipping_updates');
+        actions.push('show_order_details');
+        actions.push('suggest_tracking_alerts');
+        break;
+      case 'return_product':
+        actions.push('initiate_return_process');
+        actions.push('suggest_exchange_options');
+        actions.push('explain_return_policy');
+        break;
+      default:
+        actions.push('provide_more_info');
+        actions.push('suggest_alternatives');
     }
     
     return actions;
+  }
+
+  /**
+   * Generate proactive suggestions based on conversation context and user profile
+   */
+  private generateProactiveSuggestions(
+    intentAnalysis: IntentAnalysis,
+    userProfile: any,
+    conversationHistory: any[]
+  ): string[] {
+    const suggestions: string[] = [];
+
+    // Analyze conversation patterns
+    const recentIntents = conversationHistory
+      .slice(-5)
+      .filter((m: any) => m.intent)
+      .map((m: any) => m.intent);
+
+    // Suggest based on user behavior patterns
+    if (recentIntents.includes('search_product') && !recentIntents.includes('get_recommendations')) {
+      suggestions.push('Would you like personalized recommendations based on your search?');
+    }
+
+    if (recentIntents.includes('get_recommendations') && !recentIntents.includes('add_to_cart')) {
+      suggestions.push('I can help you add any of these items to your cart!');
+    }
+
+    // Suggest based on user profile
+    if (userProfile?.preferences?.favoriteColors && intentAnalysis.entities?.color) {
+      const mentionedColor = intentAnalysis.entities.color.toLowerCase();
+      const favoriteColors = (userProfile.preferences.favoriteColors || []).map((c: string) => c.toLowerCase());
+      if (!favoriteColors.includes(mentionedColor)) {
+        suggestions.push(`I noticed you like ${favoriteColors.join(' and ')}. Would you like to see items in those colors too?`);
+      }
+    }
+
+    // Suggest based on occasion
+    if (intentAnalysis.entities?.occasion && !recentIntents.includes('get_style_advice')) {
+      suggestions.push(`For a ${intentAnalysis.entities.occasion}, I can suggest complete outfit ideas!`);
+    }
+
+    // Suggest size help if user frequently asks about sizes
+    const sizeQuestions = recentIntents.filter((i: string) => i === 'ask_about_size').length;
+    if (sizeQuestions >= 2 && !userProfile?.sizePreferences) {
+      suggestions.push('Would you like me to remember your size preferences to make future recommendations easier?');
+    }
+
+    return suggestions;
   }
 
   /**

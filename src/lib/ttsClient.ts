@@ -3,6 +3,8 @@
  * Tries browser Web Speech API first, then falls back to server TTS endpoint
  */
 
+import { getApiBaseUrl } from './api-config';
+
 export type TTSSource = 'browser' | 'server' | 'none';
 
 export interface TTSResult {
@@ -78,12 +80,12 @@ export async function speakText(text: string): Promise<TTSResult> {
     }
   }
 
-  // 2) Fallback: call server /api/tts endpoint
+  // 2) Fallback: call server TTS endpoint
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout for server TTS
 
-    const res = await fetch('/api/tts', {
+    const res = await fetch(`${getApiBaseUrl()}/tts`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       signal: controller.signal,
@@ -150,7 +152,7 @@ export async function getAvailableTTSSources(): Promise<{
 
   let serverAvailable = false;
   try {
-    const res = await fetch('/api/tts/sources', {
+    const res = await fetch(`${getApiBaseUrl()}/tts/sources`, {
       method: 'GET',
       signal: AbortSignal.timeout(3000), // 3s timeout
     });

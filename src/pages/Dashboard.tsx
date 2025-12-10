@@ -13,6 +13,8 @@ import { ProductComparison } from '@/components/ProductComparison';
 import { Wishlist } from '@/components/Wishlist';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { SkeletonLoader } from '@/components/ui/SkeletonLoader';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { CartItem, Product, VoiceResponse } from '@/types/fashion';
 import { useAuth } from '@/contexts/AuthContext';
 import { mockProductService } from '@/services/mockProducts';
@@ -330,7 +332,7 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-card shadow-sm border-b border-border sticky top-0 z-30 backdrop-blur-sm bg-background/95">
+      <header className="bg-card/95 backdrop-blur-xl shadow-elevated border-b border-border/50 sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
@@ -424,7 +426,7 @@ const Dashboard = () => {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent rounded-2xl p-8 mb-8 border border-primary/20 relative overflow-hidden"
+          className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent rounded-2xl p-8 mb-8 border border-primary/20 relative overflow-hidden shadow-elevated backdrop-blur-sm"
         >
           {/* Decorative background elements */}
           <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
@@ -532,19 +534,8 @@ const Dashboard = () => {
           </div>
 
           {isLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {[...Array(8)].map((_, i) => (
-                <div key={i} className="bg-card rounded-xl shadow-sm border border-border animate-pulse">
-                  <div className="aspect-[3/4] bg-muted rounded-t-xl" />
-                  <div className="p-4 space-y-2">
-                    <div className="h-4 bg-muted rounded" />
-                    <div className="h-3 bg-muted rounded w-3/4" />
-                    <div className="h-4 bg-muted rounded w-1/2" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
+            <SkeletonLoader variant="product" count={8} />
+          ) : products.length > 0 ? (
             <motion.div
               layout
               className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
@@ -568,12 +559,12 @@ const Dashboard = () => {
                 </motion.div>
               ))}
             </motion.div>
-          )}
-
-          {!isLoading && products.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground">No products found. Try a different search.</p>
-            </div>
+          ) : (
+            <EmptyState
+              icon={Search}
+              title="No products found"
+              description="We couldn't find any products matching your criteria. Try adjusting your search or filters."
+            />
           )}
         </section>
       </div>

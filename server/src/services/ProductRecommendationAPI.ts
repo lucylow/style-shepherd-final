@@ -106,9 +106,15 @@ export class ProductRecommendationAPI {
 
       const results = await response.json() as RecommendationResult[];
 
-      // Cache results for 30 minutes (non-critical)
+      // Cache results with adaptive TTL based on result quality
+      // Higher quality results get longer cache time
+      const avgScore = results.length > 0 
+        ? results.reduce((sum, r) => sum + r.score, 0) / results.length 
+        : 0;
+      const cacheTTL = avgScore > 0.7 ? 3600 : 1800; // 1 hour for high-quality, 30 min for others
+      
       try {
-        await vultrValkey.set(cacheKey, results, 1800);
+        await vultrValkey.set(cacheKey, results, cacheTTL);
       } catch (cacheError) {
         console.warn('Failed to cache recommendations:', cacheError);
       }
@@ -309,7 +315,7 @@ export class ProductRecommendationAPI {
   }
 
   /**
-   * Generate human-readable reasons for recommendation
+   * Generate human-readable reasons for recommendation with enhanced explainability
    */
   private generateReasons(
     product: {
@@ -318,28 +324,80 @@ export class ProductRecommendationAPI {
       rating?: number;
       price?: number;
       category?: string;
+      style?: string;
+      score?: number;
     },
     preferences: UserPreferences
   ): string[] {
     const reasons: string[] = [];
+    const scoreBreakdown: string[] = [];
 
+    // Color match explanation
     if (product.color && preferences.favoriteColors?.includes(product.color)) {
       reasons.push(`Matches your preferred color: ${product.color}`);
+      scoreBreakdown.push('Color preference match (+30%)');
+    } else if (product.color) {
+      scoreBreakdown.push(`Color: ${product.color} (not in preferences)`);
     }
 
+    // Brand match explanation
     if (product.brand && preferences.preferredBrands?.includes(product.brand)) {
       reasons.push(`From your favorite brand: ${product.brand}`);
+      scoreBreakdown.push('Brand preference match (+20%)');
+    } else if (product.brand) {
+      scoreBreakdown.push(`Brand: ${product.brand}`);
     }
 
-    if (product.rating && product.rating >= 4.0) {
-      reasons.push(`Highly rated (${product.rating.toFixed(1)}/5.0)`);
+    // Rating explanation with context
+    if (product.rating) {
+      if (product.rating >= 4.5) {
+        reasons.push(`Highly rated (${product.rating.toFixed(1)}/5.0) - Excellent reviews`);
+        scoreBreakdown.push(`Rating: ${product.rating.toFixed(1)}/5.0 (+25%)`);
+      } else if (product.rating >= 4.0) {
+        reasons.push(`Well-rated (${product.rating.toFixed(1)}/5.0) - Good reviews`);
+        scoreBreakdown.push(`Rating: ${product.rating.toFixed(1)}/5.0 (+20%)`);
+      } else if (product.rating >= 3.5) {
+        reasons.push(`Decent rating (${product.rating.toFixed(1)}/5.0)`);
+        scoreBreakdown.push(`Rating: ${product.rating.toFixed(1)}/5.0 (+15%)`);
+      } else {
+        scoreBreakdown.push(`Rating: ${product.rating.toFixed(1)}/5.0 (lower)`);
+      }
     }
 
+    // Price value explanation
     if (product.price && preferences.bodyMeasurements) {
       reasons.push('Good value for money');
+      scoreBreakdown.push('Price value score (+10%)');
     }
 
-    return reasons.length > 0 ? reasons : ['Recommended based on preferences'];
+    // Style match explanation
+    if (product.style && preferences.preferredStyles) {
+      const matchingStyles = preferences.preferredStyles.filter((style: string) =>
+        product.style?.toLowerCase().includes(style.toLowerCase()) ||
+        style.toLowerCase().includes(product.style?.toLowerCase() || '')
+      );
+      if (matchingStyles.length > 0) {
+        reasons.push(`Matches your style preferences: ${matchingStyles.join(', ')}`);
+        scoreBreakdown.push('Style match (+15%)');
+      }
+    }
+
+    // Overall score explanation
+    if (product.score !== undefined) {
+      const scorePercent = Math.round(product.score * 100);
+      if (scorePercent >= 80) {
+        reasons.push(`Strong match (${scorePercent}% compatibility)`);
+      } else if (scorePercent >= 60) {
+        reasons.push(`Good match (${scorePercent}% compatibility)`);
+      }
+    }
+
+    // Add detailed breakdown for transparency
+    if (scoreBreakdown.length > 0 && reasons.length < 3) {
+      reasons.push(`Score breakdown: ${scoreBreakdown.slice(0, 2).join(', ')}`);
+    }
+
+    return reasons.length > 0 ? reasons : ['Recommended based on your preferences and our analysis'];
   }
 
   /**
@@ -480,20 +538,46 @@ export class ProductRecommendationAPI {
 
   /**
    * Batch get recommendations for multiple users (optimized for performance)
+   * Enhanced with better caching and parallel processing
    */
   async batchGetRecommendations(
     requests: Array<{ userPreferences: UserPreferences; context: RecommendationContext; userId?: string }>
   ): Promise<RecommendationResult[][]> {
     // Process in parallel with concurrency limit
     const BATCH_SIZE = 10;
+    const CONCURRENCY_LIMIT = 5; // Process 5 batches concurrently
     const results: RecommendationResult[][] = [];
 
+    // Split into batches
+    const batches: Array<typeof requests> = [];
     for (let i = 0; i < requests.length; i += BATCH_SIZE) {
-      const batch = requests.slice(i, i + BATCH_SIZE);
+      batches.push(requests.slice(i, i + BATCH_SIZE));
+    }
+
+    // Process batches with concurrency limit
+    for (let i = 0; i < batches.length; i += CONCURRENCY_LIMIT) {
+      const concurrentBatches = batches.slice(i, i + CONCURRENCY_LIMIT);
       const batchResults = await Promise.all(
-        batch.map((req) => this.getRecommendations(req.userPreferences, req.context))
+        concurrentBatches.map(async (batch) => {
+          // Process batch items in parallel
+          const batchResults = await Promise.all(
+            batch.map((req) => {
+              // Check cache first for each request
+              const cacheKey = `recommendations:${JSON.stringify({ userPreferences: req.userPreferences, context: req.context })}`;
+              return vultrValkey.get<RecommendationResult[]>(cacheKey)
+                .then(cached => {
+                  if (cached) {
+                    return cached;
+                  }
+                  return this.getRecommendations(req.userPreferences, req.context);
+                })
+                .catch(() => this.getRecommendations(req.userPreferences, req.context));
+            })
+          );
+          return batchResults;
+        })
       );
-      results.push(...batchResults);
+      results.push(...batchResults.flat());
     }
 
     return results;
@@ -536,6 +620,7 @@ export class ProductRecommendationAPI {
 
   /**
    * Get personalized recommendations with learning from past interactions
+   * Enhanced with real-time learning and explainability
    */
   async getRecommendationsWithLearning(
     userPreferences: UserPreferences,
@@ -553,14 +638,34 @@ export class ProductRecommendationAPI {
       try {
         // First check if table exists, if not return base recommendations
         let userInteractions: any[] = [];
+        let interactionStats: any = null;
         try {
-          userInteractions = await vultrPostgres.query(
-            `SELECT product_id, feedback_type, COUNT(*) as interaction_count
-             FROM recommendation_feedback
-             WHERE user_id = $1
-             GROUP BY product_id, feedback_type`,
-            [userId]
-          );
+          // Get detailed interaction data
+          const [interactions, stats] = await Promise.all([
+            vultrPostgres.query(
+              `SELECT product_id, feedback_type, COUNT(*) as interaction_count, MAX(created_at) as last_interaction
+               FROM recommendation_feedback
+               WHERE user_id = $1
+               GROUP BY product_id, feedback_type
+               ORDER BY last_interaction DESC`,
+              [userId]
+            ),
+            vultrPostgres.query(
+              `SELECT 
+                 COUNT(CASE WHEN feedback_type = 'purchase' THEN 1 END) as purchases,
+                 COUNT(CASE WHEN feedback_type = 'click' THEN 1 END) as clicks,
+                 COUNT(CASE WHEN feedback_type = 'view' THEN 1 END) as views,
+                 COUNT(CASE WHEN feedback_type = 'skip' THEN 1 END) as skips,
+                 COUNT(CASE WHEN feedback_type = 'dismiss' THEN 1 END) as dismisses,
+                 COUNT(*) as total_interactions
+               FROM recommendation_feedback
+               WHERE user_id = $1`,
+              [userId]
+            ).catch(() => null)
+          ]);
+
+          userInteractions = interactions || [];
+          interactionStats = stats?.[0] || null;
         } catch (tableError: any) {
           // Table might not exist yet, that's okay
           if (!tableError.message?.includes('does not exist')) {
@@ -569,38 +674,61 @@ export class ProductRecommendationAPI {
           console.log('recommendation_feedback table not found, using base recommendations');
         }
 
-      // Boost scores for products with positive feedback
-      const positiveProducts = new Set(
-        userInteractions
-          .filter((i: any) => i.feedback_type === 'purchase' || i.feedback_type === 'click')
-          .map((i: any) => i.product_id)
-      );
+      // Build interaction maps with weights (recent interactions weighted more)
+      const positiveProducts = new Map<string, number>();
+      const negativeProducts = new Map<string, number>();
 
-      // Lower scores for products with negative feedback
-      const negativeProducts = new Set(
-        userInteractions
-          .filter((i: any) => i.feedback_type === 'skip' || i.feedback_type === 'dismiss')
-          .map((i: any) => i.product_id)
-      );
+      userInteractions.forEach((i: any) => {
+        const productId = i.product_id;
+        const weight = this.calculateInteractionWeight(i.last_interaction, i.interaction_count);
+        
+        if (i.feedback_type === 'purchase' || i.feedback_type === 'click') {
+          const currentWeight = positiveProducts.get(productId) || 0;
+          positiveProducts.set(productId, currentWeight + weight);
+        } else if (i.feedback_type === 'skip' || i.feedback_type === 'dismiss') {
+          const currentWeight = negativeProducts.get(productId) || 0;
+          negativeProducts.set(productId, currentWeight + weight);
+        }
+      });
 
-      // Apply learning adjustments
+      // Calculate learning strength based on interaction history
+      const learningStrength = this.calculateLearningStrength(interactionStats);
+
+      // Apply learning adjustments with explainability
       return recommendations.map((rec) => {
         let adjustedScore = rec.score;
+        const learningReasons: string[] = [];
         
-        if (positiveProducts.has(rec.productId)) {
-          adjustedScore *= 1.2; // Boost positive products
+        const positiveWeight = positiveProducts.get(rec.productId) || 0;
+        const negativeWeight = negativeProducts.get(rec.productId) || 0;
+
+        if (positiveWeight > 0) {
+          // Boost based on positive interactions, scaled by learning strength
+          const boost = 1 + (positiveWeight * 0.15 * learningStrength);
+          adjustedScore *= boost;
+          learningReasons.push(`Boosted based on your past positive interactions (${Math.round(positiveWeight * 100)}% confidence)`);
         }
         
-        if (negativeProducts.has(rec.productId)) {
-          adjustedScore *= 0.7; // Reduce negative products
+        if (negativeWeight > 0) {
+          // Reduce based on negative interactions
+          const reduction = 1 - (negativeWeight * 0.2 * learningStrength);
+          adjustedScore *= Math.max(0.5, reduction); // Don't reduce below 50%
+          learningReasons.push(`Adjusted based on your past preferences`);
+        }
+
+        // Add learning explanation if we have enough data
+        if (interactionStats && interactionStats.total_interactions > 5) {
+          const personalizationLevel = Math.min(100, Math.round(learningStrength * 100));
+          learningReasons.push(`Personalized using ${interactionStats.total_interactions} past interactions (${personalizationLevel}% confidence)`);
         }
 
         return {
           ...rec,
           score: Math.min(1.0, adjustedScore),
+          confidence: Math.min(0.95, rec.confidence + (learningStrength * 0.1)), // Boost confidence with learning
           reasons: [
             ...rec.reasons,
-            ...(positiveProducts.has(rec.productId) ? ['Based on your past positive interactions'] : []),
+            ...learningReasons,
           ],
         };
       }).sort((a, b) => b.score - a.score); // Re-sort by adjusted score
@@ -608,6 +736,90 @@ export class ProductRecommendationAPI {
       console.error('Failed to apply learning, returning base recommendations:', error);
       return recommendations;
     }
+  }
+
+  /**
+   * Calculate interaction weight based on recency and frequency
+   */
+  private calculateInteractionWeight(lastInteraction: string | Date, count: number): number {
+    const now = Date.now();
+    const interactionTime = typeof lastInteraction === 'string' 
+      ? new Date(lastInteraction).getTime() 
+      : lastInteraction.getTime();
+    
+    const daysSince = (now - interactionTime) / (1000 * 60 * 60 * 24);
+    
+    // Recency decay: more recent = higher weight
+    const recencyWeight = Math.max(0.3, 1 - (daysSince / 90)); // Decay over 90 days
+    
+    // Frequency boost: more interactions = higher confidence
+    const frequencyWeight = Math.min(1.0, count / 5); // Cap at 5 interactions
+    
+    return recencyWeight * frequencyWeight;
+  }
+
+  /**
+   * Calculate learning strength based on user interaction history
+   */
+  private calculateLearningStrength(stats: any): number {
+    if (!stats || !stats.total_interactions) {
+      return 0.3; // Low confidence for new users
+    }
+
+    const total = stats.total_interactions;
+    const positive = (stats.purchases || 0) + (stats.clicks || 0);
+    const negative = (stats.skips || 0) + (stats.dismisses || 0);
+    
+    // More interactions = higher learning strength
+    const volumeStrength = Math.min(1.0, total / 20); // Cap at 20 interactions
+    
+    // Balanced positive/negative ratio = higher confidence
+    const ratioStrength = total > 0 
+      ? 1 - Math.abs((positive - negative) / total) // Closer to balanced = better
+      : 0.5;
+    
+    return (volumeStrength * 0.7) + (ratioStrength * 0.3);
+  }
+
+  /**
+   * Normalize user preferences for better cache hits
+   */
+  private normalizePreferences(prefs: UserPreferences): UserPreferences {
+    return {
+      favoriteColors: prefs.favoriteColors?.map(c => c.toLowerCase().trim()).sort(),
+      preferredBrands: prefs.preferredBrands?.map(b => b.toLowerCase().trim()).sort(),
+      preferredStyles: prefs.preferredStyles?.map(s => s.toLowerCase().trim()).sort(),
+      preferredSizes: prefs.preferredSizes?.map(s => s.toUpperCase().trim()).sort(),
+      bodyMeasurements: prefs.bodyMeasurements ? {
+        height: prefs.bodyMeasurements.height ? Math.round(prefs.bodyMeasurements.height) : undefined,
+        weight: prefs.bodyMeasurements.weight ? Math.round(prefs.bodyMeasurements.weight) : undefined,
+        chest: prefs.bodyMeasurements.chest ? Math.round(prefs.bodyMeasurements.chest) : undefined,
+        waist: prefs.bodyMeasurements.waist ? Math.round(prefs.bodyMeasurements.waist) : undefined,
+        hips: prefs.bodyMeasurements.hips ? Math.round(prefs.bodyMeasurements.hips) : undefined,
+      } : undefined,
+    };
+  }
+
+  /**
+   * Normalize context for better cache hits
+   */
+  private normalizeContext(context: RecommendationContext): RecommendationContext {
+    return {
+      occasion: context.occasion?.toLowerCase().trim(),
+      budget: context.budget ? Math.round(context.budget / 10) * 10 : undefined, // Round to nearest $10
+      sessionType: context.sessionType,
+      recentViews: context.recentViews?.slice(0, 10).sort(), // Limit and sort
+      searchQuery: context.searchQuery?.toLowerCase().trim(),
+    };
+  }
+
+  /**
+   * Hash cache key for consistent lookups
+   */
+  private hashCacheKey(data: any): string {
+    const { createHash } = require('crypto');
+    const str = JSON.stringify(data);
+    return createHash('sha256').update(str).digest('hex').substring(0, 16);
   }
 }
 

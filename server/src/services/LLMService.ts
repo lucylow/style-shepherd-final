@@ -27,6 +27,23 @@ export class LLMService {
   private readonly FALLBACK_MODEL = 'gpt-3.5-turbo';
   private readonly MAX_TOKENS = 500;
   private readonly MAX_CONTEXT_MESSAGES = 20;
+  
+  // Token usage tracking
+  private tokenUsage: {
+    totalInputTokens: number;
+    totalOutputTokens: number;
+    totalRequests: number;
+    costEstimate: number; // USD
+  } = {
+    totalInputTokens: 0,
+    totalOutputTokens: 0,
+    totalRequests: 0,
+    costEstimate: 0,
+  };
+  
+  // Cost per 1M tokens (approximate for gpt-4o-mini)
+  private readonly INPUT_COST_PER_MILLION = 0.15; // $0.15 per 1M input tokens
+  private readonly OUTPUT_COST_PER_MILLION = 0.60; // $0.60 per 1M output tokens
 
   constructor() {
     const apiKey = env.OPENAI_API_KEY;
@@ -59,22 +76,47 @@ export class LLMService {
     }
 
     try {
-      const systemPrompt = `You are an AI assistant for a fashion e-commerce platform. Analyze user queries and extract:
-1. Intent (one of: search_product, get_recommendations, ask_about_size, check_availability, add_to_cart, get_style_advice, return_product, track_order, save_preference, general_question)
-2. Entities: color, category, size, brand, occasion, priceRange, style
-3. Sentiment: positive, neutral, or negative
-4. Confidence score (0-1)
+      // Enhanced system prompt with better entity extraction
+      const systemPrompt = `You are an AI assistant for a fashion e-commerce platform. Analyze user queries and extract detailed information.
+
+INTENTS (choose the most specific one):
+- search_product: User wants to find specific products
+- get_recommendations: User wants personalized style recommendations
+- ask_about_size: User has questions about sizing or fit
+- check_availability: User wants to know if items are in stock
+- add_to_cart: User wants to purchase/add items
+- get_style_advice: User wants fashion/style guidance
+- return_product: User wants to return or exchange items
+- track_order: User wants order status/shipping info
+- save_preference: User wants to save preferences (size, style, etc.)
+- general_question: General inquiries
+
+ENTITIES to extract:
+- color: Any color mentioned (red, blue, navy, etc.)
+- category: Clothing type (dress, shirt, pants, shoes, etc.)
+- size: Size mentioned (XS, S, M, L, XL, or numeric sizes)
+- brand: Brand names mentioned
+- occasion: Event type (wedding, party, casual, business, etc.)
+- priceRange: Price range with min and max
+- style: Style descriptors (casual, formal, trendy, etc.)
+- productId: Specific product IDs mentioned
+
+SENTIMENT: positive, neutral, or negative
+
+CONFIDENCE: 0-1 score based on how clear the intent is
 
 Respond with valid JSON only:
 {
   "intent": "string",
-  "entities": { "color": "string", "category": "string", "size": "string", "brand": "string", "occasion": "string", "priceRange": { "min": number, "max": number } },
+  "entities": { "color": "string", "category": "string", "size": "string", "brand": "string", "occasion": "string", "priceRange": { "min": number, "max": number }, "style": "string", "productId": "string" },
   "confidence": number,
-  "sentiment": "positive|neutral|negative"
+  "sentiment": "positive|neutral|negative",
+  "context": {}
 }`;
 
+      // Build richer context from conversation history
       const userContext = conversationHistory 
-        ? `Previous conversation context:\n${conversationHistory.slice(-3).map((m: any) => `${m.type}: ${m.message}`).join('\n')}`
+        ? `Previous conversation context:\n${conversationHistory.slice(-3).map((m: any) => `${m.type}: ${m.message}`).join('\n')}\n\nUser profile context: ${userProfile ? JSON.stringify(userProfile).substring(0, 150) : 'None'}`
         : '';
 
       const response = await this.client.chat.completions.create({
@@ -83,7 +125,7 @@ Respond with valid JSON only:
           { role: 'system', content: systemPrompt },
           { role: 'user', content: `${userContext}\n\nUser query: "${text}"` }
         ],
-        temperature: 0.3,
+        temperature: 0.2, // Lower temperature for more consistent extraction
         max_tokens: this.MAX_TOKENS,
         response_format: { type: 'json_object' },
       });
@@ -94,12 +136,37 @@ Respond with valid JSON only:
       }
 
       const parsed = JSON.parse(content);
+      
+      // Enhanced entity normalization
+      const normalizedEntities: Record<string, any> = {};
+      if (parsed.entities) {
+        // Normalize colors
+        if (parsed.entities.color) {
+          normalizedEntities.color = parsed.entities.color.toLowerCase();
+        }
+        // Normalize sizes
+        if (parsed.entities.size) {
+          const size = parsed.entities.size.toUpperCase();
+          normalizedEntities.size = size;
+        }
+        // Normalize categories
+        if (parsed.entities.category) {
+          normalizedEntities.category = parsed.entities.category.toLowerCase();
+        }
+        // Copy other entities as-is
+        Object.keys(parsed.entities).forEach(key => {
+          if (!normalizedEntities[key]) {
+            normalizedEntities[key] = parsed.entities[key];
+          }
+        });
+      }
+
       return {
         intent: parsed.intent || 'general_question',
-        entities: parsed.entities || {},
+        entities: normalizedEntities,
         confidence: Math.min(0.95, Math.max(0.5, parsed.confidence || 0.7)),
         sentiment: parsed.sentiment || 'neutral',
-        context: parsed.context,
+        context: parsed.context || {},
       };
     } catch (error) {
       console.warn('LLM intent extraction failed, using fallback:', error);
@@ -123,25 +190,41 @@ Respond with valid JSON only:
     }
 
     try {
-      const systemPrompt = `You are a friendly and helpful fashion shopping assistant named Style Shepherd. 
+      // Enhanced system prompt with better context awareness
+      const systemPrompt = `You are Style Shepherd, a friendly and knowledgeable fashion shopping assistant. 
+
 Your personality:
-- Warm, conversational, and enthusiastic about fashion
-- Proactive in offering style advice
-- Remember user preferences and reference them naturally
-- Keep responses concise (1-2 sentences for voice, 2-3 for text)
-- Use the user's name when available
-- Be helpful but not pushy
+- Warm, conversational, and genuinely enthusiastic about helping people find their perfect style
+- Proactive in offering personalized style advice based on user preferences and context
+- Remember user preferences, past purchases, and style history - reference them naturally
+- Keep responses concise (1-2 sentences for voice, 2-3 for text) but informative
+- Use the user's name when available to create a personal connection
+- Be helpful and supportive, never pushy or salesy
+- Anticipate follow-up questions and provide complete but concise answers
+- When recommending products, explain WHY they're a good fit (style match, occasion appropriateness, etc.)
+
+Context awareness:
+- Consider the user's intent: ${intentAnalysis.intent}
+- Detected entities: ${JSON.stringify(intentAnalysis.entities)}
+- User sentiment: ${intentAnalysis.sentiment || 'neutral'}
+- Confidence: ${intentAnalysis.confidence}
 
 User profile: ${userProfile ? JSON.stringify(userProfile).substring(0, 200) : 'New user'}
-User preferences: ${preferences ? JSON.stringify(preferences).substring(0, 200) : 'None yet'}`;
+User preferences: ${preferences ? JSON.stringify(preferences).substring(0, 200) : 'None yet'}
 
-      // Build conversation context (last 5 messages)
+Remember to:
+- Acknowledge the user's query directly
+- Provide actionable information or next steps
+- End with a natural follow-up question when appropriate
+- Use fashion terminology naturally but explain when needed`;
+
+      // Build conversation context (last 5 messages with better formatting)
       const recentHistory = conversationHistory.slice(-5);
       const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
         { role: 'system', content: systemPrompt },
       ];
 
-      // Add conversation history
+      // Add conversation history with better context
       for (const msg of recentHistory) {
         messages.push({
           role: msg.type === 'user' ? 'user' : 'assistant',
@@ -149,24 +232,119 @@ User preferences: ${preferences ? JSON.stringify(preferences).substring(0, 200) 
         });
       }
 
-      // Add current query
+      // Add current query with intent context
+      const enrichedQuery = intentAnalysis.entities && Object.keys(intentAnalysis.entities).length > 0
+        ? `${query}\n\n[Context: Looking for ${Object.entries(intentAnalysis.entities).map(([k, v]) => `${k}: ${v}`).join(', ')}]`
+        : query;
+
       messages.push({
         role: 'user',
-        content: query,
+        content: enrichedQuery,
       });
 
       const response = await this.client.chat.completions.create({
         model: this.DEFAULT_MODEL,
         messages: messages,
         temperature: 0.7,
-        max_tokens: 150,
+        max_tokens: 200, // Increased for more detailed responses
+        presence_penalty: 0.1, // Encourage variety
+        frequency_penalty: 0.1, // Reduce repetition
       });
 
       const content = response.choices[0]?.message?.content;
+      
+      // Track token usage
+      const usage = response.usage;
+      if (usage) {
+        this.tokenUsage.totalInputTokens += usage.prompt_tokens || 0;
+        this.tokenUsage.totalOutputTokens += usage.completion_tokens || 0;
+        this.tokenUsage.totalRequests += 1;
+        this.tokenUsage.costEstimate += 
+          ((usage.prompt_tokens || 0) / 1_000_000) * this.INPUT_COST_PER_MILLION +
+          ((usage.completion_tokens || 0) / 1_000_000) * this.OUTPUT_COST_PER_MILLION;
+      }
+      
       return content?.trim() || this.fallbackResponse(query, intentAnalysis, userProfile, preferences);
     } catch (error) {
       console.warn('LLM response generation failed, using fallback:', error);
       return this.fallbackResponse(query, intentAnalysis, userProfile, preferences);
+    }
+  }
+
+  /**
+   * Generate streaming response for real-time feedback
+   * Returns an async generator that yields response chunks
+   */
+  async *generateStreamingResponse(
+    query: string,
+    intentAnalysis: IntentAnalysis,
+    conversationHistory: any[],
+    userProfile?: any,
+    preferences?: any
+  ): AsyncGenerator<string, void, unknown> {
+    if (!this.client) {
+      // Fallback: yield full response at once
+      const response = this.fallbackResponse(query, intentAnalysis, userProfile, preferences);
+      yield response;
+      return;
+    }
+
+    try {
+      const systemPrompt = `You are Style Shepherd, a friendly and knowledgeable fashion shopping assistant. 
+
+Your personality:
+- Warm, conversational, and genuinely enthusiastic about helping people find their perfect style
+- Proactive in offering personalized style advice based on user preferences and context
+- Remember user preferences, past purchases, and style history - reference them naturally
+- Keep responses concise (1-2 sentences for voice, 2-3 for text) but informative
+- Use the user's name when available to create a personal connection
+- Be helpful and supportive, never pushy or salesy
+
+Context awareness:
+- Consider the user's intent: ${intentAnalysis.intent}
+- Detected entities: ${JSON.stringify(intentAnalysis.entities)}
+- User sentiment: ${intentAnalysis.sentiment || 'neutral'}
+
+User profile: ${userProfile ? JSON.stringify(userProfile).substring(0, 200) : 'New user'}
+User preferences: ${preferences ? JSON.stringify(preferences).substring(0, 200) : 'None yet'}`;
+
+      const recentHistory = conversationHistory.slice(-5);
+      const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+        { role: 'system', content: systemPrompt },
+      ];
+
+      for (const msg of recentHistory) {
+        messages.push({
+          role: msg.type === 'user' ? 'user' : 'assistant',
+          content: msg.message,
+        });
+      }
+
+      messages.push({
+        role: 'user',
+        content: query,
+      });
+
+      const stream = await this.client.chat.completions.create({
+        model: this.DEFAULT_MODEL,
+        messages: messages,
+        temperature: 0.7,
+        max_tokens: 200,
+        stream: true,
+        presence_penalty: 0.1,
+        frequency_penalty: 0.1,
+      });
+
+      for await (const chunk of stream) {
+        const content = chunk.choices[0]?.delta?.content;
+        if (content) {
+          yield content;
+        }
+      }
+    } catch (error) {
+      console.warn('LLM streaming response failed, using fallback:', error);
+      const response = this.fallbackResponse(query, intentAnalysis, userProfile, preferences);
+      yield response;
     }
   }
 
@@ -411,6 +589,117 @@ User preferences: ${preferences ? JSON.stringify(preferences).substring(0, 200) 
    */
   isAvailable(): boolean {
     return this.client !== null;
+  }
+
+  /**
+   * Get token usage statistics
+   */
+  getTokenUsage() {
+    return {
+      ...this.tokenUsage,
+      totalTokens: this.tokenUsage.totalInputTokens + this.tokenUsage.totalOutputTokens,
+      averageInputTokens: this.tokenUsage.totalRequests > 0 
+        ? Math.round(this.tokenUsage.totalInputTokens / this.tokenUsage.totalRequests)
+        : 0,
+      averageOutputTokens: this.tokenUsage.totalRequests > 0
+        ? Math.round(this.tokenUsage.totalOutputTokens / this.tokenUsage.totalRequests)
+        : 0,
+    };
+  }
+
+  /**
+   * Reset token usage statistics
+   */
+  resetTokenUsage(): void {
+    this.tokenUsage = {
+      totalInputTokens: 0,
+      totalOutputTokens: 0,
+      totalRequests: 0,
+      costEstimate: 0,
+    };
+  }
+
+  /**
+   * Generate streaming response (for real-time responses)
+   */
+  async generateStreamingResponse(
+    query: string,
+    intentAnalysis: IntentAnalysis,
+    conversationHistory: any[],
+    userProfile?: any,
+    preferences?: any,
+    onChunk?: (chunk: string) => void
+  ): Promise<string> {
+    if (!this.client) {
+      return this.fallbackResponse(query, intentAnalysis, userProfile, preferences);
+    }
+
+    try {
+      const systemPrompt = `You are a friendly and helpful fashion shopping assistant named Style Shepherd. 
+Your personality:
+- Warm, conversational, and enthusiastic about fashion
+- Proactive in offering style advice
+- Remember user preferences and reference them naturally
+- Keep responses concise (1-2 sentences for voice, 2-3 for text)
+- Use the user's name when available
+- Be helpful but not pushy
+
+User profile: ${userProfile ? JSON.stringify(userProfile).substring(0, 200) : 'New user'}
+User preferences: ${preferences ? JSON.stringify(preferences).substring(0, 200) : 'None yet'}`;
+
+      const recentHistory = conversationHistory.slice(-5);
+      const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+        { role: 'system', content: systemPrompt },
+      ];
+
+      for (const msg of recentHistory) {
+        messages.push({
+          role: msg.type === 'user' ? 'user' : 'assistant',
+          content: msg.message,
+        });
+      }
+
+      messages.push({
+        role: 'user',
+        content: query,
+      });
+
+      const stream = await this.client.chat.completions.create({
+        model: this.DEFAULT_MODEL,
+        messages: messages,
+        temperature: 0.7,
+        max_tokens: 150,
+        stream: true,
+      });
+
+      let fullResponse = '';
+      for await (const chunk of stream) {
+        const content = chunk.choices[0]?.delta?.content;
+        if (content) {
+          fullResponse += content;
+          if (onChunk) {
+            onChunk(content);
+          }
+        }
+      }
+
+      // Track approximate token usage for streaming
+      this.tokenUsage.totalRequests += 1;
+      const estimatedInputTokens = messages.reduce((sum, m) => 
+        sum + (typeof m.content === 'string' ? m.content.length / 4 : 0), 0
+      );
+      const estimatedOutputTokens = fullResponse.length / 4;
+      this.tokenUsage.totalInputTokens += estimatedInputTokens;
+      this.tokenUsage.totalOutputTokens += estimatedOutputTokens;
+      this.tokenUsage.costEstimate += 
+        (estimatedInputTokens / 1_000_000) * this.INPUT_COST_PER_MILLION +
+        (estimatedOutputTokens / 1_000_000) * this.OUTPUT_COST_PER_MILLION;
+
+      return fullResponse.trim() || this.fallbackResponse(query, intentAnalysis, userProfile, preferences);
+    } catch (error) {
+      console.warn('LLM streaming response generation failed, using fallback:', error);
+      return this.fallbackResponse(query, intentAnalysis, userProfile, preferences);
+    }
   }
 }
 

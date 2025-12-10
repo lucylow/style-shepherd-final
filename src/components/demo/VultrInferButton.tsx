@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Zap } from 'lucide-react';
 import { storeMemory } from '@/lib/raindropClient';
+import { getApiBaseUrl } from '@/lib/api-config';
 
 interface Props {
   onResult?: (text: string) => void;
@@ -17,7 +18,7 @@ export function VultrInferButton({ onResult }: Props) {
   const runInference = async () => {
     setLoading(true);
     try {
-      const resp = await fetch('/api/vultr/infer', {
+      const resp = await fetch(`${getApiBaseUrl()}/vultr/infer`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

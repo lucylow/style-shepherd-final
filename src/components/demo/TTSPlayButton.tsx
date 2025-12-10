@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Volume2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { getApiBaseUrl } from '@/lib/api-config';
 
 interface Props {
   text: string;
@@ -18,7 +19,7 @@ export function TTSPlayButton({ text }: Props) {
     
     setPlaying(true);
     try {
-      const resp = await fetch('/api/elevenlabs/tts', {
+      const resp = await fetch(`${getApiBaseUrl()}/elevenlabs/tts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, voiceId: 'JBFqnCBsd6RMkjVDRZzb' })
