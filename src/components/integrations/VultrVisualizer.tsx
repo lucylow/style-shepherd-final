@@ -71,7 +71,9 @@ export default function VultrVisualizer({ initialResponse = null, onSaved }: Vul
       const j = await r.json();
       if (r.ok) {
         setMessage('Saved to SmartMemory (mock/live).');
-        onSaved && onSaved();
+        if (onSaved) {
+          onSaved();
+        }
       } else {
         setMessage('Save failed: ' + (j.error || JSON.stringify(j)));
       }

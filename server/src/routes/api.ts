@@ -1182,5 +1182,235 @@ router.get(
   }
 );
 
+// Product Voice Search
+router.post(
+  '/products/voice-search',
+  validateBody(
+    z.object({
+      transcript: z.string().min(1, 'Transcript is required'),
+    })
+  ),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { transcript } = req.body;
+      
+      // Import product index and Vultr client
+      const { searchProducts } = await import('../lib/productIndex.js');
+      const { callVultrInference } = await import('../lib/vultrClient.js');
+      const fs = await import('fs');
+      const path = await import('path');
+      const { fileURLToPath } = await import('url');
+      
+      const __filename = fileURLToPath(import.meta.url);
+      const __dirname = path.dirname(__filename);
+      const PRODUCTS_FILE = path.join(__dirname, '../../../../data/products.json');
+
+      // Load products
+      function loadProducts() {
+        try {
+          if (fs.existsSync(PRODUCTS_FILE)) {
+            const raw = fs.readFileSync(PRODUCTS_FILE, 'utf8');
+            const data = JSON.parse(raw);
+            // Handle both array and {products: []} formats
+            return Array.isArray(data) ? data : (data.products || []);
+          }
+          // Fallback to mocks/products.json
+          const mocksFile = path.join(__dirname, '../../../../mocks/products.json');
+          if (fs.existsSync(mocksFile)) {
+            const raw = fs.readFileSync(mocksFile, 'utf8');
+            const data = JSON.parse(raw);
+            return Array.isArray(data) ? data : (data.products || []);
+          }
+          return [];
+        } catch (e) {
+          console.warn('Could not load products.json', e);
+          return [];
+        }
+      }
+
+      // Simple deterministic parser fallback (when no VULTR key)
+      const fallbackParse = (text: string) => {
+        text = (text || '').toLowerCase();
+        const filters: any = {};
+
+        // category keywords
+        const categories = ['dress', 'jacket', 'shirt', 'skirt', 'pants', 'shoes', 'bag', 'coat', 'blazer', 'top', 'dresses'];
+        categories.forEach((c) => {
+          if (text.includes(c)) filters.category = filters.category || c;
+        });
+
+        // color
+        const colors = ['red', 'blue', 'green', 'black', 'white', 'pink', 'beige', 'yellow', 'brown', 'gray', 'grey'];
+        colors.forEach((c) => {
+          if (text.includes(c)) filters.color = filters.color || c;
+        });
+
+        // price
+        const m = text.match(/under\s*\$?(\d{2,4})/i) || text.match(/\$?(\d{2,4})\s*(or less|max|under)/i);
+        if (m) filters.maxPrice = parseInt(m[1], 10);
+
+        const m2 = text.match(/between\s*\$?(\d{2,4})\s*and\s*\$?(\d{2,4})/i);
+        if (m2) {
+          filters.minPrice = parseInt(m2[1], 10);
+          filters.maxPrice = parseInt(m2[2], 10);
+        }
+
+        // size tokens like "m", "small", "s", "l"
+        const sizeMatch = text.match(/\b(xs|s|m|l|xl|xxl|small|medium|large|extra small|extra large)\b/);
+        if (sizeMatch) {
+          filters.size = sizeMatch[0];
+        }
+
+        // fabric
+        const fabrics = ['linen', 'cotton', 'silk', 'denim', 'wool', 'leather', 'viscose'];
+        fabrics.forEach((f) => {
+          if (text.includes(f)) filters.fabric = filters.fabric || f;
+        });
+
+        return filters;
+      };
+
+      let filters: any = {};
+      let source = 'mock';
+
+      try {
+        // Try calling Vultr to parse the user query into structured filters
+        const prompt = `You are a product search parser. Convert the user's search query into JSON with fields: category, color, size, minPrice, maxPrice, fabric, sortBy. If not present, omit fields. Output ONLY JSON. Query: "${transcript.replace(/"/g, '\\"')}"`;
+
+        const vultrResp = await callVultrInference({
+          model: 'gpt-3.5-turbo',
+          messages: [
+            { role: 'system', content: 'You parse product search queries into JSON.' },
+            { role: 'user', content: prompt },
+          ],
+        });
+
+        if (
+          vultrResp &&
+          vultrResp.success &&
+          vultrResp.choices &&
+          vultrResp.choices[0] &&
+          vultrResp.choices[0].message &&
+          vultrResp.choices[0].message.content
+        ) {
+          const txt = vultrResp.choices[0].message.content;
+          // attempt to extract JSON from the response (guarded)
+          const jsonMatch = txt.match(/\{[\s\S]*\}/m);
+          if (jsonMatch) {
+            try {
+              filters = JSON.parse(jsonMatch[0]);
+              source = 'vultr';
+            } catch (e) {
+              // ignore parse error -> fallback
+              filters = fallbackParse(transcript);
+              source = 'fallback';
+            }
+          } else {
+            // no JSON returned -> fallback
+            filters = fallbackParse(transcript);
+            source = 'fallback';
+          }
+        } else {
+          // fallback parse
+          filters = fallbackParse(transcript);
+          source = 'fallback';
+        }
+      } catch (err) {
+        console.warn('Vultr parse error', err);
+        filters = fallbackParse(transcript);
+        source = 'error_fallback';
+      }
+
+      // now run local product search
+      const products = loadProducts();
+      const results = searchProducts(products, filters);
+
+      // Transform results to match frontend Product type
+      const transformedResults = results.map((p: any) => ({
+        id: p.id,
+        name: p.name || p.title,
+        title: p.name || p.title,
+        description: p.description,
+        category: p.category,
+        color: p.color,
+        price: p.price,
+        sizes: p.sizes || (p.sizeChart ? Object.keys(p.sizeChart) : []),
+        images: p.images || [],
+        fabric: p.fabric || (p.styleAttributes?.fabric || ''),
+        brand: p.brand,
+      }));
+
+      return res.status(200).json({ success: true, source, filters, results: transformedResults });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Product Text Search
+router.post(
+  '/products/search',
+  validateBody(
+    z.object({
+      q: z.string().optional(),
+    })
+  ),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { q } = req.body;
+      
+      const { searchProducts } = await import('../lib/productIndex.js');
+      const fs = await import('fs');
+      const path = await import('path');
+      const { fileURLToPath } = await import('url');
+      
+      const __filename = fileURLToPath(import.meta.url);
+      const __dirname = path.dirname(__filename);
+      const PRODUCTS_FILE = path.join(__dirname, '../../../../data/products.json');
+
+      function loadProducts() {
+        try {
+          if (fs.existsSync(PRODUCTS_FILE)) {
+            const raw = fs.readFileSync(PRODUCTS_FILE, 'utf8');
+            const data = JSON.parse(raw);
+            return Array.isArray(data) ? data : (data.products || []);
+          }
+          const mocksFile = path.join(__dirname, '../../../../mocks/products.json');
+          if (fs.existsSync(mocksFile)) {
+            const raw = fs.readFileSync(mocksFile, 'utf8');
+            const data = JSON.parse(raw);
+            return Array.isArray(data) ? data : (data.products || []);
+          }
+          return [];
+        } catch (e) {
+          return [];
+        }
+      }
+
+      const products = loadProducts();
+      const results = q ? searchProducts(products, { q }) : products;
+
+      // Transform results to match frontend Product type
+      const transformedResults = results.map((p: any) => ({
+        id: p.id,
+        name: p.name || p.title,
+        title: p.name || p.title,
+        description: p.description,
+        category: p.category,
+        color: p.color,
+        price: p.price,
+        sizes: p.sizes || (p.sizeChart ? Object.keys(p.sizeChart) : []),
+        images: p.images || [],
+        fabric: p.fabric || (p.styleAttributes?.fabric || ''),
+        brand: p.brand,
+      }));
+
+      return res.status(200).json({ success: true, results: transformedResults });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 export default router;
 

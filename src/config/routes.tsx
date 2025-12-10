@@ -6,19 +6,19 @@
  */
 
 import { lazy } from 'react';
-import PageTransition from '@/components/PageTransition';
+import PageTransition from '@/components/common/PageTransition';
 
 // Public pages
 const Index = lazy(() => import('@/pages/Index'));
 const FeaturesExplorer = lazy(() => import('@/pages/FeaturesExplorer'));
 const FeaturePage = lazy(() => import('@/pages/FeaturePage'));
-const Products = lazy(() => import('@/pages/Products'));
+const Products = lazy(() => import('@/pages/shopping/Products'));
 const VoiceShop = lazy(() => import('@/pages/VoiceShop'));
 
 // Authentication pages
-const Login = lazy(() => import('@/pages/Login'));
-const Signup = lazy(() => import('@/pages/Signup'));
-const AuthCallback = lazy(() => import('@/pages/AuthCallback'));
+const Login = lazy(() => import('@/pages/auth/Login'));
+const Signup = lazy(() => import('@/pages/auth/Signup'));
+const AuthCallback = lazy(() => import('@/pages/auth/AuthCallback'));
 
 // Dashboard & User pages
 const DashboardPage = lazy(() => import('@/pages/DashboardPage'));
@@ -26,47 +26,47 @@ const Dashboard = lazy(() => import('@/pages/Dashboard')); // Legacy
 const AIMemory = lazy(() => import('@/pages/AIMemory'));
 
 // Agent pages
-const AgentsDashboard = lazy(() => import('@/pages/AgentsDashboard'));
-const AgentDetails = lazy(() => import('@/pages/AgentDetails'));
-const AgentCreate = lazy(() => import('@/pages/AgentCreate'));
-const AgentAnalytics = lazy(() => import('@/pages/AgentAnalytics'));
+const AgentsDashboard = lazy(() => import('@/pages/agents/AgentsDashboard'));
+const AgentDetails = lazy(() => import('@/pages/agents/AgentDetails'));
+const AgentCreate = lazy(() => import('@/pages/agents/AgentCreate'));
+const AgentAnalytics = lazy(() => import('@/pages/agents/AgentAnalytics'));
 
 // Shopping & Checkout pages
-const Checkout = lazy(() => import('@/pages/Checkout'));
-const OrderSuccess = lazy(() => import('@/pages/OrderSuccess'));
-const SubscriptionCheckout = lazy(() => import('@/pages/SubscriptionCheckout'));
-const SubscriptionSuccess = lazy(() => import('@/pages/SubscriptionSuccess'));
+const Checkout = lazy(() => import('@/pages/shopping/Checkout'));
+const OrderSuccess = lazy(() => import('@/pages/shopping/OrderSuccess'));
+const SubscriptionCheckout = lazy(() => import('@/pages/shopping/SubscriptionCheckout'));
+const SubscriptionSuccess = lazy(() => import('@/pages/shopping/SubscriptionSuccess'));
 
 // Idea Quality Framework pages
-const IdeaQualityIndex = lazy(() => import('@/pages/IdeaQualityIndex'));
-const CompetitiveAnalysis = lazy(() => import('@/pages/CompetitiveAnalysis'));
-const MarketOpportunity = lazy(() => import('@/pages/MarketOpportunity'));
-const ProblemValidation = lazy(() => import('@/pages/ProblemValidation'));
-const InnovationScoring = lazy(() => import('@/pages/InnovationScoring'));
-const ImpactMeasurement = lazy(() => import('@/pages/ImpactMeasurement'));
-const CompetitiveMoats = lazy(() => import('@/pages/CompetitiveMoats'));
-const IdeaQualityAssessment = lazy(() => import('@/pages/IdeaQualityAssessment'));
-const JudgingCriteriaAssessment = lazy(() => import('@/pages/JudgingCriteriaAssessment'));
+const IdeaQualityIndex = lazy(() => import('@/pages/idea-quality/IdeaQualityIndex'));
+const CompetitiveAnalysis = lazy(() => import('@/pages/idea-quality/CompetitiveAnalysis'));
+const MarketOpportunity = lazy(() => import('@/pages/idea-quality/MarketOpportunity'));
+const ProblemValidation = lazy(() => import('@/pages/idea-quality/ProblemValidation'));
+const InnovationScoring = lazy(() => import('@/pages/idea-quality/InnovationScoring'));
+const ImpactMeasurement = lazy(() => import('@/pages/idea-quality/ImpactMeasurement'));
+const CompetitiveMoats = lazy(() => import('@/pages/idea-quality/CompetitiveMoats'));
+const IdeaQualityAssessment = lazy(() => import('@/pages/idea-quality/IdeaQualityAssessment'));
+const JudgingCriteriaAssessment = lazy(() => import('@/pages/idea-quality/JudgingCriteriaAssessment'));
 
 // Judge-Ready Demo pages
-const JudgeDemoPage = lazy(() => import('@/pages/JudgeDemo'));
-const PilotKPIsPage = lazy(() => import('@/pages/PilotKPIs'));
-const UnitEconomicsPage = lazy(() => import('@/pages/UnitEconomics'));
-const SponsorMetricsPage = lazy(() => import('@/pages/SponsorMetrics'));
+const JudgeDemoPage = lazy(() => import('@/pages/demo/JudgeDemo'));
+const PilotKPIsPage = lazy(() => import('@/pages/demo/PilotKPIs'));
+const UnitEconomicsPage = lazy(() => import('@/pages/demo/UnitEconomics'));
+const SponsorMetricsPage = lazy(() => import('@/pages/demo/SponsorMetrics'));
 
 // Lovable Cloud pages
-const LovableDashboard = lazy(() => import('@/pages/LovableDashboard'));
-const LovableDeployment = lazy(() => import('@/pages/LovableDeployment'));
-const LovableMonitoring = lazy(() => import('@/pages/LovableMonitoring'));
-const LovableSettings = lazy(() => import('@/pages/LovableSettings'));
-const LovableAnalytics = lazy(() => import('@/pages/LovableAnalytics'));
-const LovableEnvironment = lazy(() => import('@/pages/LovableEnvironment'));
-const LovableLogs = lazy(() => import('@/pages/LovableLogs'));
-const LovableHealth = lazy(() => import('@/pages/LovableHealth'));
+const LovableDashboard = lazy(() => import('@/pages/lovable/LovableDashboard'));
+const LovableDeployment = lazy(() => import('@/pages/lovable/LovableDeployment'));
+const LovableMonitoring = lazy(() => import('@/pages/lovable/LovableMonitoring'));
+const LovableSettings = lazy(() => import('@/pages/lovable/LovableSettings'));
+const LovableAnalytics = lazy(() => import('@/pages/lovable/LovableAnalytics'));
+const LovableEnvironment = lazy(() => import('@/pages/lovable/LovableEnvironment'));
+const LovableLogs = lazy(() => import('@/pages/lovable/LovableLogs'));
+const LovableHealth = lazy(() => import('@/pages/lovable/LovableHealth'));
 
 // Demo & Integration pages
-const DemoIntegrations = lazy(() => import('@/pages/DemoIntegrations'));
-const FashioniDemo = lazy(() => import('@/pages/FashioniDemo'));
+const DemoIntegrations = lazy(() => import('@/pages/demo/DemoIntegrations'));
+const FashioniDemo = lazy(() => import('@/pages/demo/FashioniDemo'));
 
 // Error pages
 const NotFound = lazy(() => import('@/pages/NotFound'));

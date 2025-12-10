@@ -39,14 +39,15 @@ export default function MemoryTimeline({ userId = 'demo_user', onSelect }: Memor
         body: JSON.stringify({ userId, q, topK: 200 })
       });
       const j = await res.json();
-      const list = j.results || j.resp || [];
+      const list = j.results || j.resp?.results || j.resp || [];
       // sort by createdAt ascending
-      list.sort((a: MemoryItem, b: MemoryItem) => {
+      const sortedList = Array.isArray(list) ? [...list] : [];
+      sortedList.sort((a: MemoryItem, b: MemoryItem) => {
         const aDate = a.createdAt || a?.resp?.createdAt || 0;
         const bDate = b.createdAt || b?.resp?.createdAt || 0;
         return new Date(aDate).getTime() - new Date(bDate).getTime();
       });
-      setItems(list);
+      setItems(sortedList);
     } catch (e) {
       console.warn('timeline load', e);
       setItems([]);

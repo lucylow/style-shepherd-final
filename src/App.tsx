@@ -5,8 +5,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
-import RouteLoadingIndicator from "@/components/RouteLoadingIndicator";
+import { ErrorBoundary } from "@/components/common/ErrorBoundary";
+import RouteLoadingIndicator from "@/components/common/RouteLoadingIndicator";
 import { routeConfigs, createRouteElement } from "@/config/routes";
 import { KeyboardShortcutsProvider } from "@/components/KeyboardShortcutsProvider";
 

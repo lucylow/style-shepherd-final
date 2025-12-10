@@ -74,7 +74,9 @@ export default function VoiceSearch({ onResults, autoSpeak = true }: VoiceSearch
     return () => {
       try {
         rec.stop();
-      } catch {}
+      } catch {
+        // Ignore errors when stopping recognition
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -119,10 +121,14 @@ export default function VoiceSearch({ onResults, autoSpeak = true }: VoiceSearch
 
       if (!res.ok) {
         setInfo('Search failed: ' + (j.error || j.message || res.status));
-        onResults && onResults([]);
+        if (onResults) {
+          onResults([]);
+        }
       } else {
         setInfo(`Found ${(j.results || []).length} products (source: ${j.source || 'mock'})`);
-        onResults && onResults(j.results || []);
+        if (onResults) {
+          onResults(j.results || []);
+        }
 
         // optionally auto-speak top result
         if (autoSpeak && (j.results || []).length > 0) {
@@ -151,7 +157,9 @@ export default function VoiceSearch({ onResults, autoSpeak = true }: VoiceSearch
     } catch (e) {
       console.error(e);
       setInfo('Search error: ' + String(e));
-      onResults && onResults([]);
+      if (onResults) {
+        onResults([]);
+      }
     } finally {
       setLoading(false);
     }

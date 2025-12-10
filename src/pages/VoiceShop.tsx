@@ -1,20 +1,20 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Mic, MicOff, Sparkles, ShoppingBag, AlertCircle, X } from 'lucide-react';
-import { VoiceInterface } from '@/components/VoiceInterface';
-import { ProductCard } from '@/components/ProductCard';
-import { ShoppingCart } from '@/components/ShoppingCart';
+import { VoiceInterface } from '@/components/voice/VoiceInterface';
+import { ProductCard } from '@/components/shopping/ProductCard';
+import { ShoppingCart } from '@/components/shopping/ShoppingCart';
 import { Button } from '@/components/ui/button';
 import { SkeletonLoader } from '@/components/ui/SkeletonLoader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { CartItem, Product, VoiceResponse } from '@/types/fashion';
 import { useAuth } from '@/contexts/AuthContext';
-import { mockProductService } from '@/services/mockProducts';
-import { mockCartService } from '@/services/mockCart';
-import Breadcrumbs from '@/components/Breadcrumbs';
-import HeaderNav from '@/components/HeaderNav';
-import MobileBottomNav from '@/components/MobileBottomNav';
-import RouteLoadingIndicator from '@/components/RouteLoadingIndicator';
+import { mockProductService } from '@/services/mocks/mockProducts';
+import { mockCartService } from '@/services/mocks/mockCart';
+import Breadcrumbs from '@/components/common/Breadcrumbs';
+import HeaderNav from '@/components/layout/HeaderNav';
+import MobileBottomNav from '@/components/layout/MobileBottomNav';
+import RouteLoadingIndicator from '@/components/common/RouteLoadingIndicator';
 import useScrollRestoration from '@/hooks/useScrollRestoration';
 
 const VoiceShop = () => {
