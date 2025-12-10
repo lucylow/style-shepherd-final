@@ -421,6 +421,18 @@ All colors MUST be HSL.
     @apply overflow-x-auto sm:overflow-x-visible;
   }
 
+  /* Enhanced mobile experience */
+  @media (max-width: 768px) {
+    .card-hover {
+      @apply hover:shadow-elevated;
+    }
+    
+    /* Better spacing on mobile */
+    .section-padding {
+      @apply py-6 sm:py-12;
+    }
+  }
+
   /* Touch-friendly tap targets on mobile */
   .tap-target {
     @apply min-h-[44px] min-w-[44px];
