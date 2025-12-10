@@ -10,47 +10,55 @@ export function Dashboard() {
   return (
     <div className="h-full p-6 grid grid-cols-12 grid-rows-6 gap-4 overflow-auto">
       {/* Quick Actions - Top Left */}
-      <motion.div 
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        whileHover={{ y: -4 }}
-        className="col-span-4 row-span-2 bg-card rounded-xl border border-border/50 shadow-elevated hover:shadow-elevated-lg transition-all backdrop-blur-sm"
-      >
-        <QuickActions />
-      </motion.div>
+      <ErrorBoundary>
+        <motion.div 
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          whileHover={{ y: -4 }}
+          className="col-span-4 row-span-2 bg-card rounded-xl border border-border/50 shadow-elevated hover:shadow-elevated-lg transition-all backdrop-blur-sm"
+        >
+          <QuickActions />
+        </motion.div>
+      </ErrorBoundary>
 
       {/* Style Recommendations - Top Center */}
-      <motion.div 
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        whileHover={{ y: -4 }}
-        className="col-span-5 row-span-3 bg-card rounded-xl border border-border/50 shadow-elevated hover:shadow-elevated-lg transition-all backdrop-blur-sm"
-      >
-        <StyleRecommendations />
-      </motion.div>
+      <ErrorBoundary>
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          whileHover={{ y: -4 }}
+          className="col-span-5 row-span-3 bg-card rounded-xl border border-border/50 shadow-elevated hover:shadow-elevated-lg transition-all backdrop-blur-sm"
+        >
+          <StyleRecommendations />
+        </motion.div>
+      </ErrorBoundary>
 
       {/* Memory Panel - Top Right */}
-      <motion.div 
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 0.2 }}
-        whileHover={{ y: -4 }}
-        className="col-span-3 row-span-6 bg-card rounded-xl border border-border/50 shadow-elevated hover:shadow-elevated-lg transition-all backdrop-blur-sm"
-      >
-        <MemoryPanel />
-      </motion.div>
+      <ErrorBoundary>
+        <motion.div 
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.2 }}
+          whileHover={{ y: -4 }}
+          className="col-span-3 row-span-6 bg-card rounded-xl border border-border/50 shadow-elevated hover:shadow-elevated-lg transition-all backdrop-blur-sm"
+        >
+          <MemoryPanel />
+        </motion.div>
+      </ErrorBoundary>
 
       {/* Recent Activity - Bottom Left */}
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        whileHover={{ y: -4 }}
-        className="col-span-4 row-span-4 bg-card rounded-xl border border-border/50 shadow-elevated hover:shadow-elevated-lg transition-all backdrop-blur-sm"
-      >
-        <RecentActivity />
-      </motion.div>
+      <ErrorBoundary>
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          whileHover={{ y: -4 }}
+          className="col-span-4 row-span-4 bg-card rounded-xl border border-border/50 shadow-elevated hover:shadow-elevated-lg transition-all backdrop-blur-sm"
+        >
+          <RecentActivity />
+        </motion.div>
+      </ErrorBoundary>
 
       {/* Stats - Bottom Center */}
       <motion.div 
