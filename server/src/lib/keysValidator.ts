@@ -44,8 +44,13 @@ function simpleKeySanity(key: string): boolean {
   if (!key) return false;
   if (typeof key !== 'string') return false;
   if (key.length < 8 || key.length > 1024) return false;
-  // no control characters
-  if (/[\x00-\x1F]/.test(key)) return false;
+  // no control characters (check character codes instead of regex)
+  for (let i = 0; i < key.length; i++) {
+    const charCode = key.charCodeAt(i);
+    if (charCode >= 0 && charCode <= 31) {
+      return false;
+    }
+  }
   return true;
 }
 

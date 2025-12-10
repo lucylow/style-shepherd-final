@@ -87,6 +87,85 @@ Style Shepherd combines conversational AI with specialized machine learning mode
    - Fit confidence: 92%
    - Environmental impact calculations
 
+### API Integrations (Judge-Friendly)
+
+This repo includes robust server wrappers and API routes for Vultr, ElevenLabs, and Raindrop with safe mock fallbacks for demo purposes:
+
+**Client Wrappers** (in `server/src/lib/`):
+- `vultrClient.ts` — retry/backoff, timeout, deterministic mock fallback when no key
+- `elevenlabsClient.ts` — TTS with audio caching to `/public/audio-cache/`, demo mp3 fallback, returns public URL for playback
+- `raindropClient.ts` — auto-detects Raindrop SDK or uses `data/raindrop-mock.json` mock storage; exposes `storeMemory`, `searchMemory`, `deleteMemory`
+- `cache.ts` — simple TTL cache utility
+- `rateLimiter.ts` — token-bucket rate limiter for demo protection
+
+**API Routes** (in `server/src/routes/integrations.ts`):
+- `POST /api/integrations/vultr/infer` — call Vultr (or mock) with caching and rate-limiting
+  ```bash
+  curl -X POST http://localhost:3001/api/integrations/vultr/infer \
+    -H "Content-Type: application/json" \
+    -d '{"model": "gpt-3.5-turbo", "messages": [{"role": "user", "content": "Recommend a size for a midi dress"}]}'
+  ```
+
+- `POST /api/integrations/elevenlabs/tts` — call ElevenLabs (or mock) and return `{ url }`
+  ```bash
+  curl -X POST http://localhost:3001/api/integrations/elevenlabs/tts \
+    -H "Content-Type: application/json" \
+    -d '{"text": "Hello demo", "voiceId": "JBFqnCBsd6RMkjVDRZzb"}'
+  ```
+
+- `POST /api/integrations/raindrop/store-memory` — saves assistant replies to Raindrop SmartMemory (or mock)
+  ```bash
+  curl -X POST http://localhost:3001/api/integrations/raindrop/store-memory \
+    -H "Content-Type: application/json" \
+    -d '{"userId": "demo_user", "type": "working", "text": "User prefers blue dresses", "metadata": {}}'
+  ```
+
+- `POST /api/integrations/raindrop/search-memory` — search saved memories
+  ```bash
+  curl -X POST http://localhost:3001/api/integrations/raindrop/search-memory \
+    -H "Content-Type: application/json" \
+    -d '{"userId": "demo_user", "q": "blue dress", "topK": 5}'
+  ```
+
+- `POST /api/integrations/raindrop/delete-memory` — delete memory (mock or SDK)
+  ```bash
+  curl -X POST http://localhost:3001/api/integrations/raindrop/delete-memory \
+    -H "Content-Type: application/json" \
+    -d '{"userId": "demo_user", "id": "memory-id-123"}'
+  ```
+
+- `GET /api/integrations/status` — check integration status (keys present, reachability)
+  ```bash
+  curl http://localhost:3001/api/integrations/status
+  ```
+
+**How Judges/Demo**:
+1. Open `http://localhost:5173/fashioni` (or deploy URL)
+2. Click "Run Demo" or type a question. The UI will show `source: mock` or `source: vultr/raindrop` so judges can confirm integration
+3. TTS plays (ElevenLabs) if `ELEVENLABS_API_KEY` set; otherwise demo mp3 `/public/mock/demo_voice.mp3` will play
+
+**Environment Variables** (add to `server/.env` or deployment secrets):
+```bash
+# Vultr Serverless Inference
+VULTR_SERVERLESS_INFERENCE_API_KEY=
+VULTR_INFERENCE_BASE_URL=https://api.vultrinference.com/v1/chat/completions
+
+# ElevenLabs API Key
+ELEVENLABS_API_KEY=
+ELEVENLABS_BASE_URL=https://api.elevenlabs.io
+NEXT_PUBLIC_DEFAULT_VOICE_ID=JBFqnCBsd6RMkjVDRZzb
+
+# Raindrop (LiquidMetal) API key
+RAINDROP_API_KEY=
+
+# Demo tokens for rate limiter (per-process)
+DEMO_TOKENS=20
+DEMO_TOKEN_REFILL_MS=1000
+DEMO_TOKEN_REFILL_AMOUNT=1
+```
+
+⚠️ **Important security note**: Do not commit API keys. Put keys in `.env.local` or your deployment secrets UI (Lovable / Raindrop / Netlify, etc.).
+
 ---
 
 ## 💡 Motivation / Problem Statement

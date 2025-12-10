@@ -15,6 +15,7 @@ import env from './config/env.js';
 import vultrRoutes from './routes/vultr.js';
 import apiRoutes from './routes/api.js';
 import integrationsRoutes from './routes/integrations.js';
+import raindropRoutes from './routes/raindrop.js';
 import { vultrPostgres } from './lib/vultr-postgres.js';
 import { vultrValkey } from './lib/vultr-valkey.js';
 import { initRaindrop } from './lib/raindropClient.js';
@@ -97,6 +98,7 @@ initRaindrop().catch((err) => {
 // API routes
 app.use('/api/vultr', vultrRoutes);
 app.use('/api/integrations', integrationsRoutes);
+app.use('/api/raindrop', raindropRoutes);
 app.use('/api', apiRoutes);
 
 // Serve static files from client build in production

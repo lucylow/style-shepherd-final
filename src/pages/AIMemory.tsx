@@ -47,18 +47,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { 
-  getAllMemories, 
-  searchMemory, 
-  deleteMemory, 
-  storeMemory,
-  updateMemory,
-  clearAllMemories,
-  type MemoryEntry,
-  type MemoryType
-} from '@/lib/raindropClient';
+import MemoryCard from '@/components/MemoryCard';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { getApiBaseUrl } from '@/lib/api-config';
+
+type MemoryType = 'working' | 'semantic' | 'episodic' | 'procedural';
+
+interface MemoryEntry {
+  id: string;
+  userId?: string;
+  type?: MemoryType;
+  text: string;
+  metadata?: Record<string, unknown>;
+  createdAt?: string;
+  resp?: {
+    id?: string;
+    text?: string;
+    createdAt?: string;
+    metadata?: Record<string, unknown>;
+  };
+}
 
 const MEMORY_TYPE_COLORS: Record<MemoryType, string> = {
   working: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
@@ -106,22 +115,36 @@ export default function AIMemory() {
   const loadMemories = async (query?: string, typeFilter?: MemoryType | 'all') => {
     setIsLoading(true);
     try {
-      let result;
-      if (query) {
-        result = await searchMemory('demo_user', query, 100);
-      } else {
-        result = await getAllMemories('demo_user');
+      const apiBase = getApiBaseUrl();
+      const res = await fetch(`${apiBase}/raindrop/search-memory`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: 'demo_user',
+          q: query || '',
+          topK: 200,
+        }),
+      });
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ message: 'Search failed' }));
+        throw new Error(error?.message || error?.error || 'Search failed');
       }
+
+      const data = await res.json();
+      // Normalize results (handle both mock and raindrop SDK formats)
+      const items: MemoryEntry[] = data.results || data.resp?.results || data.resp || [];
       
-      let filtered = result.results;
+      let filtered = items;
       if (typeFilter && typeFilter !== 'all') {
-        filtered = filtered.filter(m => m.type === typeFilter);
+        filtered = filtered.filter(m => (m.type || 'working') === typeFilter);
       }
       
       setMemories(filtered);
     } catch (e) {
       console.error('Failed to load memories:', e);
       toast.error('Failed to load memories');
+      setMemories([]);
     } finally {
       setIsLoading(false);
     }

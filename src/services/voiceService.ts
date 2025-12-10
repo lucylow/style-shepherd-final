@@ -7,6 +7,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { VoiceResponse } from '@/types/fashion';
 import { speakText } from '@/lib/ttsClient';
+import { productService } from './productService';
 
 export interface ConversationState {
   conversationId: string;
@@ -149,6 +150,19 @@ class VoiceService {
 
       const response = data as VoiceProcessResponse;
       
+      // Search for products if search terms are provided
+      let products = [];
+      if (response.searchTerms && response.searchTerms.length > 0) {
+        try {
+          const query = response.searchTerms.join(' ');
+          products = await productService.searchProducts({ query });
+          console.log(`Found ${products.length} products for search: ${query}`);
+        } catch (searchError) {
+          console.warn('Product search failed:', searchError);
+          // Continue without products - the error is non-critical
+        }
+      }
+      
       // Try to speak the response using TTS
       if (response.text) {
         try {
@@ -174,7 +188,7 @@ class VoiceService {
       return {
         text: response.text,
         confidence: 0.9,
-        products: [], // Products would be fetched based on searchTerms
+        products,
       };
     } catch (error: any) {
       console.error('Failed to process voice input:', error);
@@ -202,10 +216,54 @@ class VoiceService {
 
       if (error) {
         console.error('Edge function error:', error);
-        throw new Error(error.message || 'Failed to process query');
+        // Edge function now handles fallback internally, but handle network/connection errors
+        if (error.message && !error.message.includes('network') && !error.message.includes('fetch')) {
+          throw new Error(error.message || 'Failed to process query');
+        }
+        // For network errors, use client-side fallback
+        console.warn('Using client-side fallback due to edge function error');
+        const searchTerms = this.extractSearchTermsFromText(text);
+        const response: VoiceProcessResponse = {
+          text: searchTerms.length > 0 
+            ? `Great! I'll help you find ${searchTerms.join(', ')}. Here are some options for you.`
+            : "I'd be happy to help you find what you're looking for!",
+          userQuery: text,
+          searchTerms,
+          intent: this.detectIntentFromText(text),
+        };
+        
+        // Search for products
+        let products = [];
+        if (searchTerms.length > 0) {
+          try {
+            const query = searchTerms.join(' ');
+            products = await productService.searchProducts({ query });
+          } catch (searchError) {
+            console.warn('Product search failed:', searchError);
+          }
+        }
+        
+        return {
+          text: response.text,
+          confidence: 0.8,
+          products,
+        };
       }
 
       const response = data as VoiceProcessResponse;
+      
+      // Search for products if search terms are provided
+      let products = [];
+      if (response.searchTerms && response.searchTerms.length > 0) {
+        try {
+          const query = response.searchTerms.join(' ');
+          products = await productService.searchProducts({ query });
+          console.log(`Found ${products.length} products for search: ${query}`);
+        } catch (searchError) {
+          console.warn('Product search failed:', searchError);
+          // Continue without products - the error is non-critical
+        }
+      }
       
       // Try to speak the response
       if (response.text) {
@@ -232,7 +290,7 @@ class VoiceService {
       return {
         text: response.text,
         confidence: 0.95,
-        products: [],
+        products,
       };
     } catch (error: any) {
       console.error('Failed to process text query:', error);
@@ -297,6 +355,56 @@ class VoiceService {
     if (url && url.startsWith('blob:')) {
       URL.revokeObjectURL(url);
     }
+  }
+
+  /**
+   * Extract search terms from text (client-side fallback)
+   */
+  private extractSearchTermsFromText(text: string): string[] {
+    const terms: string[] = [];
+    const lowerText = text.toLowerCase();
+    
+    // Colors
+    const colors = ["blue", "red", "black", "white", "green", "yellow", "pink", "purple", "orange", "brown", "gray", "grey", "navy", "beige"];
+    colors.forEach(color => {
+      if (lowerText.includes(color)) terms.push(color);
+    });
+    
+    // Clothing items
+    const items = ["dress", "dresses", "shirt", "shirts", "pants", "jeans", "jacket", "jackets", "coat", "coats", "skirt", "skirts", "blouse", "top", "tops", "sweater", "hoodie", "suit", "blazer"];
+    items.forEach(item => {
+      if (lowerText.includes(item)) terms.push(item);
+    });
+    
+    // Styles
+    const styles = ["casual", "formal", "business", "elegant", "sporty", "vintage", "modern", "classic", "trendy"];
+    styles.forEach(style => {
+      if (lowerText.includes(style)) terms.push(style);
+    });
+    
+    return terms;
+  }
+
+  /**
+   * Detect intent from text (client-side fallback)
+   */
+  private detectIntentFromText(text: string): string {
+    const lowerText = text.toLowerCase();
+    
+    if (lowerText.includes("show") || lowerText.includes("find") || lowerText.includes("search") || lowerText.includes("looking for")) {
+      return "product_search";
+    }
+    if (lowerText.includes("recommend") || lowerText.includes("suggest") || lowerText.includes("what do you")) {
+      return "recommendation";
+    }
+    if (lowerText.includes("size") || lowerText.includes("fit")) {
+      return "sizing";
+    }
+    if (lowerText.includes("style") || lowerText.includes("wear") || lowerText.includes("match")) {
+      return "styling";
+    }
+    
+    return "general";
   }
 }
 
