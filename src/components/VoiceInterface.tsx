@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 
 interface VoiceInterfaceProps {
   onVoiceCommand?: (response: VoiceResponse) => void;
+  onListeningChange?: (isListening: boolean) => void;
   userId: string;
   className?: string;
 }
@@ -23,8 +24,13 @@ interface Message {
 // Check for Web Speech API support
 const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
-export const VoiceInterface = ({ onVoiceCommand, userId, className }: VoiceInterfaceProps) => {
+export const VoiceInterface = ({ onVoiceCommand, onListeningChange, userId, className }: VoiceInterfaceProps) => {
   const [isListening, setIsListening] = useState(false);
+  
+  // Notify parent when listening state changes
+  useEffect(() => {
+    onListeningChange?.(isListening);
+  }, [isListening, onListeningChange]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isConnected, setIsConnected] = useState(true);

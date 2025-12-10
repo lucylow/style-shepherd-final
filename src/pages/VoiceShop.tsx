@@ -91,7 +91,6 @@ const VoiceShop = () => {
   }, [userId, loadInitialProducts, loadCart]);
 
   const handleVoiceCommand = async (response: VoiceResponse) => {
-    setIsListening(false);
     setError(null);
     setLastCommand(response.text || 'Command processed');
 
@@ -380,6 +379,7 @@ const VoiceShop = () => {
       <VoiceInterface
         userId={userId}
         onVoiceCommand={handleVoiceCommand}
+        onListeningChange={setIsListening}
       />
 
       {/* Shopping Cart */}
