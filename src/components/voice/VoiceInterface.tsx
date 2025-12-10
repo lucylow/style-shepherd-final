@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Mic, MicOff, Bot, Volume2, VolumeX, X, Loader2, Sparkles, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Button } from './ui/button';
-import { useToast } from './ui/use-toast';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui/use-toast';
 import { VoiceResponse } from '@/types/fashion';
 import { voiceService } from '@/services/voiceService';
 import { cn } from '@/lib/utils';

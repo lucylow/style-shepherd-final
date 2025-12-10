@@ -10,7 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { RolePlayDialog } from "./RolePlayDialog";
 import { UserPersonasSidebar } from "./UserPersonasSidebar";
-import { CallInterface, RecordingData } from "./CallInterface";
+import { CallInterface, RecordingData } from "@/components/voice/CallInterface";
 import { toast } from "@/components/ui/use-toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 

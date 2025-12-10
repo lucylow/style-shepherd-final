@@ -148,6 +148,14 @@ class VoiceService {
         throw new Error(error.message || 'Failed to process voice');
       }
 
+      // Check if response indicates success
+      if (data && typeof data === 'object' && 'success' in data && !data.success) {
+        // Response has success: false, check for error message
+        const errorMessage = (data as any).error || 'Failed to process voice';
+        console.error('Edge function returned error:', errorMessage);
+        throw new Error(errorMessage);
+      }
+
       const response = data as VoiceProcessResponse;
       
       // Search for products if search terms are provided
@@ -248,6 +256,14 @@ class VoiceService {
           confidence: 0.8,
           products,
         };
+      }
+
+      // Check if response indicates success
+      if (data && typeof data === 'object' && 'success' in data && !data.success) {
+        // Response has success: false, check for error message
+        const errorMessage = (data as any).error || 'Failed to process query';
+        console.error('Edge function returned error:', errorMessage);
+        throw new Error(errorMessage);
       }
 
       const response = data as VoiceProcessResponse;

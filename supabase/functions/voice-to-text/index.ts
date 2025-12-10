@@ -10,8 +10,23 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Parse request body once at the start
+  let requestBody: { audio?: string; text?: string };
   try {
-    const { audio, text } = await req.json();
+    requestBody = await req.json();
+  } catch (parseError) {
+    console.error("Failed to parse request body:", parseError);
+    return new Response(
+      JSON.stringify({ 
+        success: false,
+        error: "Invalid request body" 
+      }),
+      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  try {
+    const { audio, text } = requestBody;
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     // If text is already provided (from browser speech recognition), use it directly
@@ -23,31 +38,34 @@ serve(async (req) => {
     const searchTerms = extractSearchTerms(userQuery);
     const intent = detectIntent(userQuery);
 
-    // If API key is missing, return a fallback response without AI
-    if (!LOVABLE_API_KEY) {
-      console.warn("LOVABLE_API_KEY not configured, using fallback response");
-      
-      // Generate a simple fallback response based on the query
+    // Helper function to create fallback response
+    const createFallbackResponse = (query: string, terms: string[], detectedIntent: string) => {
       let fallbackResponse = "I'd be happy to help you find what you're looking for!";
       
-      if (searchTerms.length > 0) {
-        const termsString = searchTerms.join(", ");
+      if (terms.length > 0) {
+        const termsString = terms.join(", ");
         fallbackResponse = `Great! I'll help you find ${termsString}. Here are some options for you.`;
-      } else if (intent === "product_search") {
+      } else if (detectedIntent === "product_search") {
         fallbackResponse = "Let me show you some products that match your request.";
       }
-
+      
       return new Response(
         JSON.stringify({
           success: true,
           text: fallbackResponse,
-          userQuery,
-          searchTerms,
-          intent,
+          userQuery: query,
+          searchTerms: terms,
+          intent: detectedIntent,
           fallback: true, // Flag to indicate this is a fallback response
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    };
+
+    // If API key is missing, return a fallback response without AI
+    if (!LOVABLE_API_KEY) {
+      console.warn("LOVABLE_API_KEY not configured, using fallback response");
+      return createFallbackResponse(userQuery, searchTerms, intent);
     }
 
     // Use Lovable AI to process the fashion query
@@ -95,24 +113,7 @@ Example responses:
       
       // On API error, fall back to basic response
       console.warn(`AI Gateway error: ${response.status}, using fallback`);
-      let fallbackResponse = "I'd be happy to help you find what you're looking for!";
-      
-      if (searchTerms.length > 0) {
-        const termsString = searchTerms.join(", ");
-        fallbackResponse = `Great! I'll help you find ${termsString}. Here are some options for you.`;
-      }
-      
-      return new Response(
-        JSON.stringify({
-          success: true,
-          text: fallbackResponse,
-          userQuery,
-          searchTerms,
-          intent,
-          fallback: true,
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return createFallbackResponse(userQuery, searchTerms, intent);
     }
 
     const data = await response.json();
@@ -131,39 +132,29 @@ Example responses:
   } catch (error) {
     console.error("Voice-to-text error:", error);
     
-    // On any error, try to extract query and return a basic response
-    try {
-      const { text } = await req.json();
-      const userQuery = text || "Hello, I need fashion advice";
-      const searchTerms = extractSearchTerms(userQuery);
-      const intent = detectIntent(userQuery);
-      
-      let fallbackResponse = "I'd be happy to help you find what you're looking for!";
-      if (searchTerms.length > 0) {
-        const termsString = searchTerms.join(", ");
-        fallbackResponse = `Great! I'll help you find ${termsString}. Here are some options for you.`;
-      }
-      
-      return new Response(
-        JSON.stringify({
-          success: true,
-          text: fallbackResponse,
-          userQuery,
-          searchTerms,
-          intent,
-          fallback: true,
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    } catch (fallbackError) {
-      return new Response(
-        JSON.stringify({ 
-          success: false,
-          error: error instanceof Error ? error.message : "Unknown error" 
-        }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    // Use already parsed request body for fallback
+    const userQuery = requestBody?.text || "Hello, I need fashion advice";
+    const searchTerms = extractSearchTerms(userQuery);
+    const intent = detectIntent(userQuery);
+    
+    let fallbackResponse = "I'd be happy to help you find what you're looking for!";
+    if (searchTerms.length > 0) {
+      const termsString = searchTerms.join(", ");
+      fallbackResponse = `Great! I'll help you find ${termsString}. Here are some options for you.`;
     }
+    
+    return new Response(
+      JSON.stringify({
+        success: true,
+        text: fallbackResponse,
+        userQuery,
+        searchTerms,
+        intent,
+        fallback: true,
+        error: error instanceof Error ? error.message : "Unknown error",
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 });
 

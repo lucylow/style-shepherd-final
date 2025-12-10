@@ -22,7 +22,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/components/ui/use-toast";
 import { isEqual } from 'lodash';
-import VoiceSelectionModal from './VoiceSelectionModal';
+import VoiceSelectionModal from '@/components/voice/VoiceSelectionModal';
 
 const VOICE_PROVIDERS = {
   "Eleven Labs": {

@@ -8,7 +8,7 @@
 import api from '@/lib/api';
 import { Product } from '@/types/fashion';
 import { transformProduct, safeTransformProduct } from '@/lib/transform';
-import { mockProductService } from './mockProducts';
+import { mockProductService } from './mocks/mockProducts';
 
 export interface SearchFilters {
   query?: string;

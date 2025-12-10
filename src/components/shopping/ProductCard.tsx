@@ -1,15 +1,15 @@
 import { useState, memo } from 'react';
 import { motion } from 'framer-motion';
 import { Heart, ShoppingBag, AlertTriangle, Info, Leaf, ZoomIn, Eye } from 'lucide-react';
-import { Button } from './ui/button';
-import { Badge } from './ui/badge';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Product } from '@/types/fashion';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from './ui/tooltip';
+} from '@/components/ui/tooltip';
 
 interface ProductCardProps {
   product: Product;
