@@ -544,7 +544,7 @@ export class FashionEngine {
     userId: string,
     occasion?: string,
     budget?: number
-  ): Promise<PersonalizedRecommendation & { trends: ReturnType<typeof this.detectTrends> }> {
+  ): Promise<PersonalizedRecommendation & { trends: Awaited<ReturnType<typeof this.detectTrends>> }> {
     let baseRecommendation: PersonalizedRecommendation;
     try {
       baseRecommendation = await this.getPersonalizedRecommendation(userId, occasion, budget);
@@ -561,7 +561,7 @@ export class FashionEngine {
       };
     }
 
-    let trends: ReturnType<typeof this.detectTrends>;
+    let trends: Awaited<ReturnType<typeof this.detectTrends>>;
     try {
       trends = await this.detectTrends(occasion);
     } catch (error) {
@@ -577,7 +577,7 @@ export class FashionEngine {
     // Enhance style recommendations with trending elements
     const enhancedStyles = [
       ...baseRecommendation.style,
-      ...trends.trendingStyles.filter(s => !baseRecommendation.style.includes(s)),
+      ...trends.trendingStyles.filter((s: string) => !baseRecommendation.style.includes(s)),
     ].slice(0, 5); // Limit to top 5 styles
 
     return {

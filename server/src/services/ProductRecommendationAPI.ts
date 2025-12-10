@@ -3,6 +3,7 @@
  * Leverages Vultr GPU instances for ML-powered recommendations
  */
 
+import { createHash } from 'crypto';
 import env from '../config/env.js';
 import { vultrPostgres } from '../lib/vultr-postgres.js';
 import { vultrValkey } from '../lib/vultr-valkey.js';
@@ -249,9 +250,7 @@ export class ProductRecommendationAPI {
       console.error('Fallback recommendations failed:', error);
       
       // Log specific error details for debugging
-      if (error instanceof DatabaseError) {
-        console.error('Database error in fallback recommendations:', error.message);
-      } else if (error instanceof Error) {
+      if (error instanceof Error) {
         console.error('Unexpected error in fallback recommendations:', error.message, error.stack);
       }
       
@@ -548,7 +547,11 @@ export class ProductRecommendationAPI {
 
       return await response.json() as { recommendedSize: string; confidence: number };
     } catch (error: any) {
-      if (error instanceof ExternalServiceError && error.name === 'AbortError') {
+      if (error instanceof ExternalServiceError) {
+        throw error;
+      }
+      
+      if (error.name === 'AbortError') {
         throw new ApiTimeoutError('Vultr Size Prediction API', API_TIMEOUT_MS, `${this.baseURL}/size-prediction`);
       }
       
@@ -861,7 +864,6 @@ export class ProductRecommendationAPI {
    * Hash cache key for consistent lookups
    */
   private hashCacheKey(data: any): string {
-    const { createHash } = require('crypto');
     const str = JSON.stringify(data);
     return createHash('sha256').update(str).digest('hex').substring(0, 16);
   }
