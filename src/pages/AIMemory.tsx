@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Header } from '@/components/layout/Header';
-import { Sidebar } from '@/components/layout/Sidebar';
+import HeaderNav from '@/components/HeaderNav';
 import { Brain, Search, Trash2, Plus, Download, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -90,10 +89,8 @@ export default function AIMemory() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <Header />
-      <div className="flex h-screen pt-16">
-        <Sidebar />
-        <main className="flex-1 overflow-auto p-6">
+      <HeaderNav />
+      <main className="flex-1 overflow-auto p-6">
           <div className="max-w-4xl mx-auto">
             {/* Header */}
             <div className="flex items-center justify-between mb-6">

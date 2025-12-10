@@ -8,7 +8,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 export function Dashboard() {
   return (
-    <div className="h-full p-6 grid grid-cols-12 grid-rows-6 gap-4 overflow-auto">
+    <div className="min-h-full p-6 grid grid-cols-12 grid-rows-6 gap-4 overflow-auto">
       {/* Quick Actions - Top Left */}
       <ErrorBoundary>
         <motion.div 

@@ -1,131 +1,87 @@
-/**
- * Simple Express server shim for Lovable deployment
- * Serves the client build (dist/) and provides /health endpoint
- * Falls back to this if TypeScript server isn't built
- */
+// server/index.js
+const express = require('express');
+const path = require('path');
+const fs = require('fs');
+const fetch = require('node-fetch'); // add to package.json if not present
+const promClient = require('prom-client'); // add to package.json
 
-import express from 'express';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { existsSync } from 'fs';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const { runServiceChecks } = require('../lib/healthChecks');
 
 const PORT = process.env.PORT || 3000;
 const app = express();
 
-// Health check endpoint (required for Lovable) - must be before static files
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
-    time: new Date().toISOString(),
-    mode: 'simple-server'
-  });
+// Prometheus metrics registry
+const collectDefaultMetrics = promClient.collectDefaultMetrics;
+collectDefaultMetrics({ timeout: 5000 });
+
+const requestCounter = new promClient.Counter({
+  name: 'style_shepherd_requests_total',
+  help: 'Total number of HTTP requests'
 });
 
-// Basic API ping endpoint
-app.get('/api/ping', (req, res) => {
-  res.json({ 
-    pong: true, 
-    env: process.env.NODE_ENV || 'dev',
-    mode: 'simple-server'
-  });
+app.use((req, res, next) => {
+  requestCounter.inc();
+  next();
 });
 
-// 404 for API routes that don't exist (must be before SPA fallback)
-app.use('/api/*', (req, res) => {
-  res.status(404).json({ 
-    error: 'API endpoint not available in simple server mode',
-    path: req.path
-  });
-});
+// Serve static build for SPA (Vite -> dist)
+const distDir = path.join(process.cwd(), 'dist');
+const nextDir = path.join(process.cwd(), '.next');
 
-// Serve static files (Vite -> dist)
-const clientDist = path.join(__dirname, '..', 'dist');
-if (existsSync(clientDist)) {
-  // Serve static assets with proper caching
-  // This will serve files like /assets/*, images, etc.
-  app.use(express.static(clientDist, {
-    maxAge: '1y',
-    etag: true,
-    lastModified: true,
-  }));
-  console.log(`📦 Serving static files from ${clientDist}`);
-  
-  // SPA fallback: serve index.html for all non-API, non-file routes
-  // This catches routes like /dashboard, /products, etc. for client-side routing
-  // Must be after static files and API routes
-  app.get('*', (req, res) => {
-    // Skip API routes and health check (shouldn't reach here, but safety check)
-    if (req.path.startsWith('/api') || req.path === '/health') {
-      return res.status(404).json({ error: 'Not found' });
-    }
-    
-    // Serve index.html for SPA routing
-    const indexHtml = path.join(clientDist, 'index.html');
-    if (existsSync(indexHtml)) {
-      res.sendFile(path.resolve(indexHtml));
-    } else {
-      res.status(404).send('Not found');
-    }
+if (fs.existsSync(nextDir)) {
+  console.log('Next.js build detected. Ensure you run `next start` in production (lovable.yml may set start_command for Next).');
+} else if (fs.existsSync(distDir)) {
+  console.log('Serving static files from /dist');
+  app.use(express.static(distDir));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api') || req.path === '/health' || req.path === '/metrics' || req.path === '/ready' || req.path === '/status') return next();
+    res.sendFile(path.join(distDir, 'index.html'));
   });
 } else {
-  console.warn(`⚠️  Client build not found at ${clientDist}. Run 'npm run build' first.`);
-  
-  // Even without dist, provide basic endpoints
-  app.get('/', (req, res) => {
-    res.json({
-      error: 'Frontend build not found',
-      message: 'Please run "npm run build" first',
-      health: '/health',
-      api: '/api/ping'
-    });
-  });
+  console.warn('No build detected (dist/ or .next/). Server will still expose health endpoints.');
 }
 
-// Error handling middleware (must be after routes)
-app.use((err, req, res, next) => {
-  console.error('Server error:', err);
-  if (res.headersSent) {
-    return next(err);
-  }
-  const status = err.status || err.statusCode || 500;
-  res.status(status).json({ 
-    error: 'Internal server error',
-    message: process.env.NODE_ENV === 'development' ? (err.message || String(err)) : 'Something went wrong'
-  });
+// Health endpoint (fast)
+app.get('/health', (req, res) => res.json({ status: 'ok', ts: new Date().toISOString() }));
+
+// Readiness - do lightweight checks (no network)
+app.get('/ready', (req, res) => {
+  // For production you might check DB connections or file system readiness
+  const ready = true;
+  res.json({ ready, ts: new Date().toISOString() });
 });
 
-const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Simple server started on port ${PORT}`);
-  console.log(`📊 Serving client from ${clientDist}`);
-  console.log(`🔗 Health check: http://localhost:${PORT}/health`);
-  console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
-});
-
-// Handle server errors
-server.on('error', (err) => {
-  console.error('Server error:', err);
-  if (err.code === 'EADDRINUSE') {
-    console.error(`Port ${PORT} is already in use`);
-    process.exit(1);
+// Status: expensive checks for external integrations (safe, does not leak secrets)
+app.get('/status', async (req, res) => {
+  try {
+    const results = await runServiceChecks();
+    res.json({ ok: true, checks: results, ts: new Date().toISOString() });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: String(err) });
   }
 });
+
+// Prometheus metrics
+app.get('/metrics', async (req, res) => {
+  res.set('Content-Type', promClient.register.contentType);
+  res.end(await promClient.register.metrics());
+});
+
+// Basic ping
+app.get('/api/ping', (req, res) => res.json({ pong: true, env: process.env.NODE_ENV || 'development' }));
 
 // Graceful shutdown
+let shuttingDown = false;
 process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully...');
-  server.close(() => {
-    console.log('Server closed');
-    process.exit(0);
-  });
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log('SIGTERM received: shutting down gracefully');
+  setTimeout(() => process.exit(0), 5000);
 });
 
-process.on('SIGINT', () => {
-  console.log('SIGINT received, shutting down gracefully...');
-  server.close(() => {
-    console.log('Server closed');
-    process.exit(0);
-  });
+app.listen(PORT, () => {
+  console.log(`Server started on port ${PORT}`);
+  console.log(`Health: http://localhost:${PORT}/health`);
+  console.log(`Status: http://localhost:${PORT}/status`);
+  console.log(`Metrics: http://localhost:${PORT}/metrics`);
 });

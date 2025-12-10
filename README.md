@@ -994,70 +994,91 @@ volumes:
 docker-compose up -d
 ```
 
-### Lovable Deployment
+## Deploying to Lovable (recommended)
 
-**Quick Local Test for Lovable**:
+### Quick Local Test for Lovable
+
 ```bash
 # 1. Install dependencies
 npm ci
-cd server && npm ci && cd ..
 
 # 2. Build frontend (creates dist/ for Vite)
 npm run build
 
-# 3. Build backend (optional - simple server fallback available)
-cd server && npm run build && cd ..
-
-# 4. Run server (locally)
+# 3. Run server (locally)
 npm start
 
-# 5. Healthcheck
+# 4. Healthcheck
 curl http://localhost:3000/health
-# Should return: {"status":"ok","time":"..."}
+# Should return: {"status":"ok","ts":"..."}
 
-# 6. Test client
+# 5. Test status endpoint
+curl http://localhost:3000/status
+# Returns health checks for Vultr, ElevenLabs, and Raindrop
+
+# 6. Test metrics endpoint
+curl http://localhost:3000/metrics
+# Returns Prometheus metrics
+
+# 7. Test client
 # Open http://localhost:3000 in browser
 ```
 
-**Lovable Configuration** (`lovable.yml`):
-```yaml
-build:
-  framework: vite
-  node_version: 18
-  build_command: "npm run build"
-  output_dir: "dist"
+### Lovable Configuration
 
-deploy:
-  start_command: "npm run start"
+The `lovable.yml` file configures:
+- **Build**: Static framework (Vite), Node.js 18, builds to `dist/`
+- **Deploy**: Starts with `npm run start`, autoscales 1-3 instances
+- **Health**: `/health` endpoint checked every 15 seconds
+- **Monitoring**: `/metrics` endpoint for Prometheus scraping
+- **Environment**: Maps Lovable secrets to runtime variables
 
-environment:
-  VITE_API_BASE_URL: "/api"
-  VITE_DEMO_MODE: "true"
-  NODE_ENV: production
-  PORT: 3000
-```
+### Deploy to Lovable
 
-**Deploy to Lovable**:
-1. **Push to GitHub**: Ensure your repo is pushed to GitHub
-2. **Connect in Lovable UI**: 
-   - Go to Lovable dashboard
-   - Connect your GitHub repository
-   - Lovable will detect `lovable.yml` automatically
-3. **Set Environment Variables** (in Lovable UI):
-   - `VULTR_SERVERLESS_INFERENCE_API_KEY` (optional)
-   - `ELEVENLABS_API_KEY` (optional)
-   - `RAINDROP_API_KEY` (optional)
-   - `DEMO_MODE=true` (to run without external services)
-4. **Deploy**: Click "Deploy" in Lovable dashboard
+1. **In Lovable dashboard**:
+   - Create a new project and connect to this GitHub repo (or upload zip artifact)
+   - Set environment secrets:
+     - `VULTR_SERVERLESS_INFERENCE_API_KEY`
+     - `ELEVENLABS_API_KEY`
+     - `RAINDROP_API_KEY`
+     - `NEXT_PUBLIC_DEFAULT_VOICE_ID` (optional)
+     - `NEXT_PUBLIC_DEMO_MODE=true` (for judge-friendly mode)
 
-**Lovable Requirements**:
-- ✅ Node.js >= 18 (specified in package.json engines)
-- ✅ Build command: `npm run build` (creates `dist/`)
-- ✅ Start command: `npm run start` (serves static files + API)
-- ✅ Health endpoint: `/health` (for platform health checks)
-- ✅ Server listens on `process.env.PORT` (required for Lovable)
+2. **Lovable will run** `npm run build` and `npm run start` as defined in `lovable.yml`
 
-**Note**: The server automatically serves static files from `dist/` in production mode and provides API routes at `/api/*`. Set `DEMO_MODE=true` to run without external API keys.
+3. **Verify the health endpoint**: `https://<app>.lovable.app/health` returns `{ "status": "ok" }`
+
+4. **Check `/status`** to confirm third-party integrations (it reports keys present & reachability)
+
+5. **Configure monitoring** to scrape `/metrics` if you want Prometheus style metrics
+
+### Health Endpoints
+
+- **`/health`**: Fast health check (returns immediately, no external calls)
+- **`/ready`**: Readiness probe (lightweight checks, no network)
+- **`/status`**: Comprehensive status with external service checks (Vultr, ElevenLabs, Raindrop)
+- **`/metrics`**: Prometheus metrics endpoint
+- **`/api/ping`**: Basic API ping endpoint
+
+### Extra Tips & Best Practices for Lovable
+
+- **Use secrets**: Set all API keys through Lovable's secrets / environment UI. Don't put keys in the repo.
+- **Demo mode**: Set `NEXT_PUBLIC_DEMO_MODE=true` in the Lovable environment to enable deterministic mock behavior for judges.
+- **Health checks**: Lovable health probes rely on `/health` — keep it light and fast. Use `/status` for deeper checks.
+- **Logs & metrics**: Output structured JSON to stdout and use `/metrics` endpoint for scraping.
+- **Autoscale**: Set sensible min_instances and max_instances; keep small for demo to save credits but allow burst to 2–3 when needed.
+- **Persistent storage**: If you need to persist files, configure Lovable volumes (if the platform supports it) or use SmartBuckets/R2/S3 and save the URL in Raindrop SmartBuckets.
+- **Rate limits & caching**: Use short caches for LLM outputs and TTS audio to avoid hitting quotas during demos.
+
+### Final Checklist
+
+- ✅ Commit the new files
+- ✅ `npm i express node-fetch prom-client` (if not already installed)
+- ✅ `npm ci`
+- ✅ `npm run build`
+- ✅ `npm start`
+- ✅ Open `http://localhost:3000/health` and `http://localhost:3000/status` and `http://localhost:3000/metrics`
+- ✅ Push & deploy to Lovable and set secrets in the Lovable UI as defined in `lovable.yml`
 
 ### Hosting Considerations
 

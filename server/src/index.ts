@@ -14,8 +14,10 @@ import { existsSync } from 'fs';
 import env from './config/env.js';
 import vultrRoutes from './routes/vultr.js';
 import apiRoutes from './routes/api.js';
+import integrationsRoutes from './routes/integrations.js';
 import { vultrPostgres } from './lib/vultr-postgres.js';
 import { vultrValkey } from './lib/vultr-valkey.js';
+import { initRaindrop } from './lib/raindropClient.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -86,8 +88,15 @@ app.get('/health', async (req: express.Request, res: express.Response) => {
   }
 });
 
+// Initialize Raindrop client (with mock fallback if key missing)
+// Note: This is async but we don't await to avoid blocking server startup
+initRaindrop().catch((err) => {
+  console.warn('Raindrop initialization error (will use mock mode):', err);
+});
+
 // API routes
 app.use('/api/vultr', vultrRoutes);
+app.use('/api/integrations', integrationsRoutes);
 app.use('/api', apiRoutes);
 
 // Serve static files from client build in production

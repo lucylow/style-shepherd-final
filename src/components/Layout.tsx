@@ -1,5 +1,5 @@
 import React from "react";
-import MainNav from "@/components/MainNav";
+import HeaderNav from "@/components/HeaderNav";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -12,8 +12,8 @@ export default function Layout({ children, showNav = true }: LayoutProps) {
   }
 
   return (
-    <div className="min-h-screen flex w-full">
-      <MainNav />
+    <div className="min-h-screen flex flex-col w-full">
+      <HeaderNav />
       <main className="flex-1 overflow-auto">{children}</main>
     </div>
   );
