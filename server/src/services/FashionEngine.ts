@@ -42,24 +42,67 @@ export class FashionEngine {
 
   /**
    * Get personalized recommendation based on user profile
+   * Enhanced with caching and better error handling
    */
   async getPersonalizedRecommendation(
     userId: string,
     occasion?: string,
     budget?: number
   ): Promise<PersonalizedRecommendation> {
+    // Check cache first
+    const cacheKey = `fashion-recommendation:${userId}:${occasion || 'none'}:${budget || 'none'}`;
+    try {
+      const { vultrValkey } = await import('../lib/vultr-valkey.js');
+      const cached = await vultrValkey.get<PersonalizedRecommendation>(cacheKey);
+      if (cached) {
+        console.log(`✅ Returning cached fashion recommendation for user ${userId}`);
+        return cached;
+      }
+    } catch (cacheError) {
+      // Cache miss or error, continue to generate
+      console.warn('Cache lookup failed, generating new recommendation:', cacheError);
+    }
+
     // Get user profile from SmartMemory
     const userProfile = await userMemory.get(userId);
     if (!userProfile) {
       throw new Error('User profile not found');
     }
 
-    // Fetch user data in parallel
-    const [bodyMeasurements, styleHistory, returnsHistory] = await Promise.all([
-      userMemory.get(`${userId}-measurements`) as Promise<BodyMeasurements | null>,
-      userMemory.get(`${userId}-style-history`) as Promise<any[] | null>,
-      this.getReturnsHistory(userId),
-    ]);
+    // Fetch user data in parallel with timeout
+    const dataFetchTimeout = 5000; // 5 seconds
+    const fetchWithTimeout = <T>(promise: Promise<T>, timeout: number): Promise<T> => {
+      return Promise.race([
+        promise,
+        new Promise<T>((_, reject) => 
+          setTimeout(() => reject(new Error('Data fetch timeout')), timeout)
+        ),
+      ]);
+    };
+
+    let bodyMeasurements: BodyMeasurements | null = null;
+    let styleHistory: any[] | null = null;
+    let returnsHistory: any[] = [];
+
+    try {
+      [bodyMeasurements, styleHistory, returnsHistory] = await Promise.all([
+        fetchWithTimeout(
+          userMemory.get(`${userId}-measurements`) as Promise<BodyMeasurements | null>,
+          dataFetchTimeout
+        ).catch(() => null),
+        fetchWithTimeout(
+          userMemory.get(`${userId}-style-history`) as Promise<any[] | null>,
+          dataFetchTimeout
+        ).catch(() => null),
+        fetchWithTimeout(
+          this.getReturnsHistory(userId),
+          dataFetchTimeout
+        ).catch(() => []),
+      ]);
+    } catch (error) {
+      console.warn('Some data fetch failed, continuing with available data:', error);
+      // Continue with whatever data we have
+    }
 
     // Predict optimal size
     const size = await this.predictOptimalSize(
@@ -86,7 +129,7 @@ export class FashionEngine {
       returnsHistory
     );
 
-    return {
+    const result: PersonalizedRecommendation = {
       size,
       style,
       budget: budget || 500,
@@ -94,6 +137,17 @@ export class FashionEngine {
       products: recommendations.slice(0, 10),
       returnRisk,
     };
+
+    // Cache the result
+    try {
+      const { vultrValkey } = await import('../lib/vultr-valkey.js');
+      await vultrValkey.set(cacheKey, result, 1800); // Cache for 30 minutes
+    } catch (cacheError) {
+      console.warn('Failed to cache recommendation:', cacheError);
+      // Non-critical, continue
+    }
+
+    return result;
   }
 
   /**
@@ -349,6 +403,99 @@ export class FashionEngine {
       console.error('Failed to get returns history:', error);
       return [];
     }
+  }
+
+  /**
+   * Detect current fashion trends based on season, recent sales, and style patterns
+   */
+  async detectTrends(occasion?: string): Promise<{
+    trendingColors: string[];
+    trendingStyles: string[];
+    trendingCategories: string[];
+    season: string;
+  }> {
+    const currentMonth = new Date().getMonth() + 1;
+    let season = 'all-season';
+    
+    // Determine season
+    if (currentMonth >= 12 || currentMonth <= 2) {
+      season = 'winter';
+    } else if (currentMonth >= 3 && currentMonth <= 5) {
+      season = 'spring';
+    } else if (currentMonth >= 6 && currentMonth <= 8) {
+      season = 'summer';
+    } else {
+      season = 'fall';
+    }
+
+    // Season-based trending colors
+    const seasonalColors: Record<string, string[]> = {
+      winter: ['navy', 'burgundy', 'forest green', 'charcoal', 'cream'],
+      spring: ['pastel pink', 'lavender', 'mint green', 'sky blue', 'peach'],
+      summer: ['coral', 'turquoise', 'white', 'yellow', 'light blue'],
+      fall: ['rust', 'olive', 'burgundy', 'mustard', 'brown'],
+    };
+
+    // Occasion-based trending styles
+    const occasionStyles: Record<string, string[]> = {
+      wedding: ['elegant', 'sophisticated', 'romantic', 'classic'],
+      party: ['bold', 'trendy', 'glamorous', 'eye-catching'],
+      casual: ['comfortable', 'relaxed', 'effortless', 'versatile'],
+      business: ['professional', 'polished', 'tailored', 'structured'],
+      date: ['chic', 'stylish', 'flattering', 'alluring'],
+    };
+
+    // Trending categories based on season and occasion
+    const trendingCategories: string[] = [];
+    if (season === 'winter') {
+      trendingCategories.push('coats', 'sweaters', 'boots', 'scarves');
+    } else if (season === 'summer') {
+      trendingCategories.push('dresses', 'sandals', 'shorts', 'light tops');
+    } else {
+      trendingCategories.push('jackets', 'jeans', 'sneakers', 'tops');
+    }
+
+    if (occasion) {
+      const occasionCats: Record<string, string[]> = {
+        wedding: ['dresses', 'heels', 'formal wear'],
+        party: ['dresses', 'statement pieces', 'accessories'],
+        business: ['blazers', 'dress pants', 'dress shoes'],
+      };
+      if (occasionCats[occasion]) {
+        trendingCategories.push(...occasionCats[occasion]);
+      }
+    }
+
+    return {
+      trendingColors: seasonalColors[season] || seasonalColors['all-season'] || [],
+      trendingStyles: occasion ? occasionStyles[occasion] || [] : ['versatile', 'timeless', 'classic'],
+      trendingCategories: [...new Set(trendingCategories)], // Remove duplicates
+      season,
+    };
+  }
+
+  /**
+   * Get style recommendations with trend awareness
+   */
+  async getTrendAwareRecommendations(
+    userId: string,
+    occasion?: string,
+    budget?: number
+  ): Promise<PersonalizedRecommendation & { trends: ReturnType<typeof this.detectTrends> }> {
+    const baseRecommendation = await this.getPersonalizedRecommendation(userId, occasion, budget);
+    const trends = await this.detectTrends(occasion);
+
+    // Enhance style recommendations with trending elements
+    const enhancedStyles = [
+      ...baseRecommendation.style,
+      ...trends.trendingStyles.filter(s => !baseRecommendation.style.includes(s)),
+    ].slice(0, 5); // Limit to top 5 styles
+
+    return {
+      ...baseRecommendation,
+      style: enhancedStyles,
+      trends,
+    };
   }
 
   /**

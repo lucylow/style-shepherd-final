@@ -60,12 +60,16 @@ export class ProductRecommendationAPI {
     userPreferences: UserPreferences,
     context: RecommendationContext
   ): Promise<RecommendationResult[]> {
-    // Check cache first
-    const cacheKey = `recommendations:${JSON.stringify({ userPreferences, context })}`;
+    // Generate cache key with normalized data for better cache hits
+    const normalizedPrefs = this.normalizePreferences(userPreferences);
+    const normalizedContext = this.normalizeContext(context);
+    const cacheKey = `recommendations:${this.hashCacheKey({ userPreferences: normalizedPrefs, context: normalizedContext })}`;
+    
+    // Check cache first with longer TTL for similar queries
     try {
       const cached = await vultrValkey.get<RecommendationResult[]>(cacheKey);
-      if (cached) {
-        console.log('Returning cached recommendations');
+      if (cached && Array.isArray(cached) && cached.length > 0) {
+        console.log(`✅ Returning cached recommendations (${cached.length} items)`);
         return cached;
       }
     } catch (cacheError) {

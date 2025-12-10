@@ -5,6 +5,8 @@ import { VoiceInterface } from '@/components/VoiceInterface';
 import { ProductCard } from '@/components/ProductCard';
 import { ShoppingCart } from '@/components/ShoppingCart';
 import { Button } from '@/components/ui/button';
+import { SkeletonLoader } from '@/components/ui/SkeletonLoader';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { CartItem, Product, VoiceResponse } from '@/types/fashion';
 import { useAuth } from '@/contexts/AuthContext';
 import { mockProductService } from '@/services/mockProducts';
@@ -233,18 +235,7 @@ const VoiceShop = () => {
           </div>
 
           {isLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {[...Array(8)].map((_, i) => (
-                <div key={i} className="bg-card rounded-xl shadow-sm border border-border animate-pulse">
-                  <div className="aspect-[3/4] bg-muted rounded-t-xl" />
-                  <div className="p-4 space-y-2">
-                    <div className="h-4 bg-muted rounded" />
-                    <div className="h-3 bg-muted rounded w-3/4" />
-                    <div className="h-4 bg-muted rounded w-1/2" />
-                  </div>
-                </div>
-              ))}
-            </div>
+            <SkeletonLoader variant="product" count={8} />
           ) : products.length > 0 ? (
             <motion.div
               layout
@@ -265,15 +256,11 @@ const VoiceShop = () => {
               ))}
             </motion.div>
           ) : (
-            <div className="text-center py-12">
-              <Mic className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground text-lg mb-2">
-                No products yet
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Use the voice interface below to search for products
-              </p>
-            </div>
+            <EmptyState
+              icon={Mic}
+              title="No products yet"
+              description="Use the voice interface below to search for products. Try saying something like 'Show me summer dresses' or 'Find blue jeans'."
+            />
           )}
         </section>
       </main>

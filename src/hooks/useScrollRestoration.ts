@@ -16,14 +16,19 @@ export default function useScrollRestoration() {
     if (savedPosition) {
       // Use requestAnimationFrame to ensure DOM is ready
       requestAnimationFrame(() => {
-        window.scrollTo({
-          top: Number(savedPosition),
-          behavior: 'auto', // Instant scroll, not smooth
-        });
+        // Small delay to ensure content is rendered
+        setTimeout(() => {
+          window.scrollTo({
+            top: Number(savedPosition),
+            behavior: 'smooth', // Smooth scroll for better UX
+          });
+        }, 50);
       });
     } else {
-      // If no saved position, scroll to top
-      window.scrollTo({ top: 0, behavior: 'auto' });
+      // If no saved position, scroll to top smoothly
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
     }
 
     // Save scroll position before leaving
