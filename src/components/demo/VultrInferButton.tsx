@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Zap } from 'lucide-react';
 import { storeMemory } from '@/lib/raindropClient';
 import { getApiBaseUrl } from '@/lib/api-config';
+import { SourceBadge } from './SourceBadge';
 
 interface Props {
   onResult?: (text: string) => void;
@@ -69,8 +70,10 @@ export function VultrInferButton({ onResult }: Props) {
           Run Vultr Inference
         </Button>
         {result && (
-          <div className="p-3 rounded bg-muted/50 text-sm">
-            <div className="text-xs text-muted-foreground mb-1">Source: {result.source}</div>
+          <div className="p-3 rounded bg-muted/50 text-sm space-y-2">
+            <div className="flex items-center justify-between">
+              <SourceBadge source={result.source} size="sm" />
+            </div>
             <div>{result.text}</div>
           </div>
         )}

@@ -87,6 +87,31 @@ export async function searchMemory(
   return { success: true, source: 'mock', results };
 }
 
+// Update a memory entry
+export async function updateMemory(
+  userId: string,
+  id: string,
+  text: string,
+  memoryType?: MemoryType,
+  metadata?: Record<string, unknown>
+): Promise<{ success: boolean; source: string; entry?: MemoryEntry }> {
+  const db = readMock();
+  const index = db.memories.findIndex(m => 
+    m.userId === (userId || 'demo_user') && m.id === id
+  );
+  if (index === -1) {
+    return { success: false, source: 'mock' };
+  }
+  db.memories[index] = {
+    ...db.memories[index],
+    text: text || db.memories[index].text,
+    type: memoryType || db.memories[index].type,
+    metadata: metadata !== undefined ? metadata : db.memories[index].metadata,
+  };
+  writeMock(db);
+  return { success: true, source: 'mock', entry: db.memories[index] };
+}
+
 // Delete a memory entry
 export async function deleteMemory(
   userId: string,

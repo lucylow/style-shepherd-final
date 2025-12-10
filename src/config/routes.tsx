@@ -66,6 +66,7 @@ const LovableHealth = lazy(() => import('@/pages/LovableHealth'));
 
 // Demo & Integration pages
 const DemoIntegrations = lazy(() => import('@/pages/DemoIntegrations'));
+const FashioniDemo = lazy(() => import('@/pages/FashioniDemo'));
 
 // Error pages
 const NotFound = lazy(() => import('@/pages/NotFound'));
@@ -357,6 +358,12 @@ export const routeConfigs: RouteConfig[] = [
     path: '/demo-integrations',
     component: DemoIntegrations,
     label: 'Demo Integrations',
+    group: 'demo',
+  },
+  {
+    path: '/fashioni-demo',
+    component: FashioniDemo,
+    label: 'Fashioni Demo',
     group: 'demo',
   },
 
