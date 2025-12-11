@@ -95,8 +95,8 @@ export class PostgresVectorDBAdapter implements VectorDBAdapter {
         LIMIT $2
       `;
 
-      const result = await vultrPostgres.query(query, filterParams);
-      return result.rows.map((row: any) => ({
+      const result = await vultrPostgres.query<any>(query, filterParams);
+      return result.map((row: any) => ({
         id: row.id,
         score: parseFloat(row.score) || 0,
         metadata: opts.includeMetadata !== false ? row.metadata : undefined,

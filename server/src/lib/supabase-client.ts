@@ -247,18 +247,22 @@ export class SupabaseWorkflowService {
       return; // Silently fail if Supabase not configured
     }
 
-    await supabase
-      .from('workflow_analytics')
-      .insert({
-        workflow_id: workflowId,
-        agent_type: agentType,
-        duration_ms: durationMs,
-        success,
-        error_type: errorType,
-      })
-      .catch((err) => {
-        console.warn('Failed to record analytics:', err);
-      });
+    try {
+      const { error } = await supabase
+        .from('workflow_analytics')
+        .insert({
+          workflow_id: workflowId,
+          agent_type: agentType,
+          duration_ms: durationMs,
+          success,
+          error_type: errorType,
+        });
+      if (error) {
+        console.warn('Failed to record analytics:', error);
+      }
+    } catch (err) {
+      console.warn('Failed to record analytics:', err);
+    }
   }
 
   /**

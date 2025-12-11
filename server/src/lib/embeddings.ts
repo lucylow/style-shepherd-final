@@ -73,7 +73,7 @@ export async function embedOpenAI(texts: string | string[]): Promise<number[][]>
       throw new Error(`OpenAI embedding error: ${response.status} ${errorText}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as { data: Array<{ embedding: number[] }> };
     const embeddings = data.data.map((item: any) => item.embedding as number[]);
 
     // Cache embeddings and populate results

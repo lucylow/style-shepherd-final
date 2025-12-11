@@ -49,18 +49,24 @@ export async function personalizedRecommendations(
 
     if (usePreferences) {
       try {
-        const userResult = await vultrPostgres.query(
+        const userResult = await vultrPostgres.query<{
+          id: string;
+          email: string;
+          preferences: any;
+          size: string;
+          budget: number;
+        }>(
           `SELECT id, email, preferences, size, budget FROM users WHERE id = $1`,
           [userId]
         );
-        userProfile = userResult.rows[0] || null;
+        userProfile = userResult[0] || null;
 
         // Get preferences from interactions/preferences table if exists
-        const prefsResult = await vultrPostgres.query(
+        const prefsResult = await vultrPostgres.query<{ key: string; value: any }>(
           `SELECT key, value FROM preferences WHERE user_id = $1`,
           [userId]
-        ).catch(() => ({ rows: [] }));
-        preferences = prefsResult.rows || [];
+        ).catch(() => []);
+        preferences = prefsResult || [];
       } catch (error) {
         console.warn('Failed to fetch user profile:', error);
       }
@@ -102,7 +108,7 @@ export async function personalizedRecommendations(
     // Fallback: fetch products from database
     if (candidates.length === 0) {
       try {
-        const productResult = await vultrPostgres.query(
+        const productResult = await vultrPostgres.query<any>(
           `SELECT id, name, price, category, brand, color, style, rating, reviews_count, stock, description
            FROM catalog
            WHERE stock > 0
@@ -110,7 +116,7 @@ export async function personalizedRecommendations(
            LIMIT $1`,
           [topK]
         );
-        candidates = productResult.rows.map((p: any) => ({
+        candidates = productResult.map((p: any) => ({
           id: p.id,
           score: 0,
           metadata: p,
@@ -209,12 +215,12 @@ export async function personalizedRecommendations(
  */
 async function getProductById(id: string): Promise<any> {
   try {
-    const result = await vultrPostgres.query(
+    const result = await vultrPostgres.query<any>(
       `SELECT id, name, price, category, brand, color, style, rating, reviews_count, stock, description, sizes, created_at
        FROM catalog WHERE id = $1`,
       [id]
     );
-    return result.rows[0] || null;
+    return result[0] || null;
   } catch (error) {
     console.warn('Failed to fetch product:', error);
     return null;

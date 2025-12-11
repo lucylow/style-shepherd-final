@@ -112,7 +112,10 @@ export async function callVultrInference({
     }
     
     const json = await res.json();
-    return { success: true, source: 'vultr', ...json };
+    if (typeof json === 'object' && json !== null) {
+      return { success: true, source: 'vultr', ...json };
+    }
+    return { success: true, source: 'vultr', data: json };
   } catch (err) {
     clearTimeout(timeout);
     return {

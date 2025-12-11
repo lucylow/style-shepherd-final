@@ -100,7 +100,12 @@ export class GuardrailMonitor {
     lastOccurred: Date;
   }>> {
     try {
-      const result = await vultrPostgres.query(
+      const result = await vultrPostgres.query<{
+        agent: string;
+        check_name: string;
+        count: string;
+        last_occurred: Date | string;
+      }>(
         `SELECT agent, check_name, COUNT(*) as count, MAX(created_at) as last_occurred
          FROM guardrail_violations
          WHERE created_at > NOW() - INTERVAL '24 hours'
@@ -109,7 +114,7 @@ export class GuardrailMonitor {
          LIMIT 10`
       );
 
-      return result.rows.map(row => ({
+      return result.map(row => ({
         agent: row.agent as AgentType,
         checkName: row.check_name,
         count: parseInt(row.count, 10),
@@ -126,7 +131,16 @@ export class GuardrailMonitor {
    */
   private async getRecentViolations(limit: number): Promise<GuardrailViolation[]> {
     try {
-      const result = await vultrPostgres.query(
+      const result = await vultrPostgres.query<{
+        agent: string;
+        action: string;
+        user_id: string;
+        reason: string;
+        severity: string;
+        payload: string | null;
+        check_name: string;
+        created_at: Date | string;
+      }>(
         `SELECT agent, action, user_id, reason, severity, payload, check_name, created_at
          FROM guardrail_violations
          ORDER BY created_at DESC
@@ -134,7 +148,7 @@ export class GuardrailMonitor {
         [limit]
       );
 
-      return result.rows.map(row => ({
+      return result.map(row => ({
         agent: row.agent as AgentType,
         action: row.action,
         userId: row.user_id,
@@ -158,7 +172,16 @@ export class GuardrailMonitor {
     windowSize: number
   ): Promise<GuardrailViolation[]> {
     try {
-      const result = await vultrPostgres.query(
+      const result = await vultrPostgres.query<{
+        agent: string;
+        action: string;
+        user_id: string;
+        reason: string;
+        severity: string;
+        payload: string | null;
+        check_name: string;
+        created_at: Date | string;
+      }>(
         `SELECT agent, action, user_id, reason, severity, payload, check_name, created_at
          FROM guardrail_violations
          WHERE agent = $1
@@ -167,7 +190,7 @@ export class GuardrailMonitor {
         [agent, windowSize]
       );
 
-      return result.rows.map(row => ({
+      return result.map(row => ({
         agent: row.agent as AgentType,
         action: row.action,
         userId: row.user_id,
@@ -203,7 +226,12 @@ export class GuardrailMonitor {
     trend: Array<{ date: string; count: number }>;
   }> {
     try {
-      const result = await vultrPostgres.query(
+      const result = await vultrPostgres.query<{
+        total: string;
+        agent: string;
+        severity: string;
+        date: string;
+      }>(
         `SELECT 
            COUNT(*) as total,
            agent,
@@ -220,7 +248,7 @@ export class GuardrailMonitor {
       const bySeverity: Record<string, number> = {};
       const trendMap = new Map<string, number>();
 
-      for (const row of result.rows) {
+      for (const row of result) {
         byAgent[row.agent] = (byAgent[row.agent] || 0) + parseInt(row.total, 10);
         bySeverity[row.severity] = (bySeverity[row.severity] || 0) + parseInt(row.total, 10);
         
@@ -234,7 +262,7 @@ export class GuardrailMonitor {
       }));
 
       return {
-        total: result.rows.reduce((sum, row) => sum + parseInt(row.total, 10), 0),
+        total: result.reduce((sum, row) => sum + parseInt(row.total, 10), 0),
         byAgent: byAgent as Record<AgentType, number>,
         bySeverity,
         trend,

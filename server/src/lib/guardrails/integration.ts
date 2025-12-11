@@ -70,10 +70,9 @@ export async function withGuardrails<T>(
 
   // Add warnings to output if any
   if (result.warnings && result.warnings.length > 0) {
-    return {
-      ...output,
+    return Object.assign({}, output, {
       guardrailWarnings: result.warnings,
-    } as T & { guardrailWarnings?: string[] };
+    }) as T & { guardrailWarnings?: string[] };
   }
 
   return output;

@@ -15,14 +15,17 @@ export class PermissionManager {
   async getUserPermissions(userId: string): Promise<UserPermissions> {
     try {
       // Try to get from database first
-      const result = await vultrPostgres.query(
+      const result = await vultrPostgres.query<{
+        plan: string;
+        preferences: any;
+      }>(
         `SELECT plan, preferences FROM users WHERE user_id = $1`,
         [userId]
       );
 
-      if (result.rows && result.rows.length > 0) {
-        const plan = result.rows[0].plan || 'free';
-        const preferences = result.rows[0].preferences || {};
+      if (result && result.length > 0) {
+        const plan = result[0].plan || 'free';
+        const preferences = result[0].preferences || {};
         
         return this.getPermissionsForTier(plan as UserPermissionTier, preferences);
       }
@@ -197,8 +200,8 @@ export class PermissionManager {
         [userId]
       );
 
-      if (result.rows && result.rows.length > 0) {
-        const row = result.rows[0];
+      if (result && result.length > 0) {
+        const row = result[0];
         profile = {
           ...profile,
           email: row.email,

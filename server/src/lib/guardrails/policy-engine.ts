@@ -19,7 +19,7 @@ export class GuardrailEngine {
   private checks: Map<AgentType, GuardrailCheck[]> = new Map();
   private violationHistory: GuardrailViolation[] = [];
   private auditLogs: AuditLog[] = [];
-  private circuitBreakers: Map<AgentType, { isOpen: boolean; failureCount: number; openedAt?: Date }> = new Map();
+  private circuitBreakers: Map<AgentType, { isOpen: boolean; failureCount: number; openedAt?: Date; lastFailureTime?: Date }> = new Map();
 
   constructor() {
     this.initializeCircuitBreakers();
