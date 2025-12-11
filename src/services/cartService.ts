@@ -6,7 +6,7 @@
 
 import { CartItem, Product } from '@/types/fashion';
 import { apiGet, apiPost, apiPut, apiDelete, ApiClientOptions } from '@/lib/apiClient';
-import { handleError } from '@/lib/errorHandler';
+import { handleError, handleErrorSilently } from '@/lib/errorHandler';
 
 export interface CartItemBackend {
   productId: string;
@@ -36,8 +36,10 @@ export interface CartSummary {
 }
 
 class CartService {
-  private API_BASE = getApiBaseUrl();
   private sessionId: string | null = null;
+  private errorOptions: ApiClientOptions = {
+    showErrorToast: false, // We'll handle errors manually for better UX
+  };
 
   constructor() {
     // Generate or retrieve session ID for guest carts
@@ -109,7 +111,7 @@ class CartService {
       // Convert backend items to frontend format
       return data.items.map(item => this.backendToFrontendItem(item));
     } catch (error) {
-      handleError(error, { showToast: false });
+      handleErrorSilently(error);
       // Fallback to empty cart
       return [];
     }
@@ -130,7 +132,7 @@ class CartService {
       const response = await apiGet<CartSummary>(`/cart/summary?${params.toString()}`, undefined, this.errorOptions);
       return response.data;
     } catch (error) {
-      handleError(error, { showToast: false });
+      handleErrorSilently(error);
       return {
         items: [],
         totalItems: 0,
@@ -157,13 +159,15 @@ class CartService {
           ...backendItem,
         },
         undefined,
-        this.errorOptions
+        { ...this.errorOptions, showErrorToast: true }
       );
 
       const cart = response.data;
       return cart.items.map(item => this.backendToFrontendItem(item));
     } catch (error) {
-      handleError(error);
+      handleError(error, {
+        defaultMessage: 'Failed to add item to cart. Please try again.',
+      });
       throw error;
     }
   }
@@ -178,22 +182,28 @@ class CartService {
     quantity: number
   ): Promise<CartItem[]> {
     try {
+      const params = new URLSearchParams();
+      if (size) {
+        params.append('size', size);
+      }
+
       const response = await apiPut<Cart>(
-        `/cart/items/${productId}`,
+        `/cart/items/${productId}${params.toString() ? `?${params.toString()}` : ''}`,
         {
           userId: userId === 'guest' ? undefined : userId,
           sessionId: userId === 'guest' ? this.sessionId : undefined,
-          size,
           quantity,
         },
         undefined,
-        this.errorOptions
+        { ...this.errorOptions, showErrorToast: true }
       );
 
       const cart = response.data;
       return cart.items.map(item => this.backendToFrontendItem(item));
     } catch (error) {
-      handleError(error);
+      handleError(error, {
+        defaultMessage: 'Failed to update item quantity. Please try again.',
+      });
       throw error;
     }
   }
@@ -239,9 +249,11 @@ class CartService {
         params.append('userId', userId);
       }
 
-      await apiDelete(`/cart?${params.toString()}`, undefined, this.errorOptions);
+      await apiDelete(`/cart?${params.toString()}`, undefined, { ...this.errorOptions, showErrorToast: true });
     } catch (error) {
-      handleError(error);
+      handleError(error, {
+        defaultMessage: 'Failed to clear cart. Please try again.',
+      });
       throw error;
     }
   }
@@ -251,26 +263,22 @@ class CartService {
    */
   async mergeGuestCart(userId: string): Promise<CartItem[]> {
     try {
-      const response = await fetch(`${this.API_BASE}/cart/merge`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const response = await apiPost<Cart>(
+        '/cart/merge',
+        {
           userId,
           guestSessionId: this.sessionId,
-        }),
-      });
+        },
+        undefined,
+        { ...this.errorOptions, showErrorToast: false } // Silent for merge operations
+      );
 
-      if (!response.ok) {
-        throw new Error(`Failed to merge cart: ${response.statusText}`);
-      }
-
-      const cart: Cart = await response.json();
+      const cart = response.data;
       return cart.items.map(item => this.backendToFrontendItem(item));
     } catch (error) {
-      console.error('Error merging cart:', error);
-      throw error;
+      handleErrorSilently(error);
+      // Return empty cart if merge fails - user can still use their account cart
+      return [];
     }
   }
 
