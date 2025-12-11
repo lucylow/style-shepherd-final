@@ -92,6 +92,10 @@ graph TB
         STRIPE[Stripe<br/>Payments]
     end
     
+    subgraph "Edge Functions (Optional)"
+        SUPABASE[Supabase Edge Functions<br/>Vultr Inference Proxy<br/>Voice Services]
+    end
+    
     WEB --> API
     VOICE --> API
     API --> AUTH
@@ -122,6 +126,8 @@ graph TB
     ORCH --> RAINDROP_MEMORY
     
     API --> STRIPE
+    API --> SUPABASE
+    SUPABASE --> VULTR_INFERENCE
     
     style VULTR_PG fill:#ff6b35
     style VULTR_VALKEY fill:#ff6b35
@@ -150,7 +156,7 @@ graph TB
 │ Voice:           ElevenLabs TTS + OpenAI Whisper STT             │
 │ Auth:            WorkOS                                           │
 │ Payments:        Stripe                                           │
-│ Deployment:      Raindrop Platform (GCP)                         │
+│ Deployment:      Raindrop Platform (GCP) / Supabase Edge Functions│
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -527,7 +533,18 @@ describe('Return Risk Calculator', () => {
 
 **Frontend Build** (`vite.config.ts`):
 ```typescript
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  server: {
+    host: "::",
+    port: 8080,
+    proxy: mode === 'development' ? {
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        secure: false,
+      },
+    } : undefined,
+  },
   plugins: [react()],
   build: {
     outDir: 'dist',
@@ -543,16 +560,8 @@ export default defineConfig({
       }
     },
     chunkSizeWarningLimit: 1000
-  },
-  server: {
-    proxy: {
-      '/api': {
-        target: 'http://localhost:3001',
-        changeOrigin: true
-      }
-    }
   }
-});
+}));
 ```
 
 **Backend Build**:
@@ -1619,7 +1628,7 @@ sequenceDiagram
 1. **Voice Shopping Experience**
    ```bash
    # Navigate to voice interface
-   http://localhost:5173/voice-shop
+   http://localhost:8080/voice-shop
    
    # Try voice commands:
    - "Find me a blue dress for a wedding"
@@ -2275,7 +2284,7 @@ cd ..
 **Terminal 1 - Frontend**:
 ```bash
 npm run dev
-# Frontend available at http://localhost:5173
+# Frontend available at http://localhost:8080
 ```
 
 **Terminal 2 - Backend**:
@@ -2939,9 +2948,10 @@ This section explicitly maps the hackathon judging criteria to Style Shepherd's 
 - **Performance**: <1ms cache access for voice interface responsiveness
 
 #### Vultr Serverless Inference
-- **Location**: `supabase/functions/vultr-inference/index.ts`
+- **Location**: `supabase/functions/vultr-inference/index.ts` (Supabase Edge Function) and `server/src/lib/clients/vultrClient.ts` (Direct integration)
 - **Implementation**:
-  - Proxy edge function for secure API access
+  - Supabase Edge Function: Proxy edge function for secure API access via Supabase platform
+  - Direct Integration: Vultr client for direct API calls from backend
   - Multiple model support (chat, size prediction, return risk, trend analysis)
   - Request caching with intelligent TTL
   - Retry logic with exponential backoff
@@ -2949,6 +2959,7 @@ This section explicitly maps the hackathon judging criteria to Style Shepherd's 
   - Timeout management (25s)
 - **Usage**: Powers size prediction models, return risk assessment, and trend analysis
 - **Performance**: Real-time inference with automatic scaling
+- **Note**: The application uses Supabase Edge Functions as an optional deployment platform for some services, while also supporting direct Vultr API integration
 
 **Evidence**: All three Vultr services are production-ready with connection pooling, SSL/TLS, error handling, and monitoring. The application relies on Vultr for critical infrastructure, not just as placeholders.
 
