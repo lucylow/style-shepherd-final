@@ -57,6 +57,7 @@ export function usePersonalization(
     } finally {
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, params.userId, params.query, params.intent, params.occasion, params.budget]);
 
   useEffect(() => {

@@ -236,7 +236,6 @@ const AgentConfigSettings: React.FC<AgentConfigSettingsProps> = ({ agent, onAgen
       }
     };
     
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     return debounce(saveFn, 1000);
   }, [agent.id, onAgentUpdate, toast, showSuccessToast]);
 
