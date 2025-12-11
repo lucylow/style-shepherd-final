@@ -4,7 +4,7 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import { AppError, isAppError } from '../lib/errors.js';
+import { AppError, isAppError, toAppError } from '../lib/errors.js';
 import { createErrorContext, enhanceErrorWithContext } from '../lib/errorContext.js';
 
 /**
@@ -16,13 +16,14 @@ export function asyncHandler(
 ) {
   return (req: Request, res: Response, next: NextFunction) => {
     Promise.resolve(fn(req, res, next)).catch((error) => {
+      // Convert to AppError if not already
+      const appError = isAppError(error) ? error : toAppError(error);
+      
       // Enhance error with context before passing to error handler
-      if (isAppError(error)) {
-        const context = createErrorContext(req);
-        const enhancedError = enhanceErrorWithContext(error, context);
-        return next(enhancedError);
-      }
-      next(error);
+      const context = createErrorContext(req);
+      const enhancedError = enhanceErrorWithContext(appError, context);
+      
+      return next(enhancedError);
     });
   };
 }
