@@ -1,6 +1,7 @@
 import { CartItem } from '@/types/fashion';
 import { apiPost, apiGet, ApiClientOptions } from '@/lib/apiClient';
 import { handleError } from '@/lib/errorHandler';
+import { getApiBaseUrl } from '@/lib/api-config';
 
 export interface PaymentIntent {
   clientSecret: string;
@@ -39,11 +40,43 @@ interface PaymentMethod {
 }
 
 class PaymentService {
+  private readonly API_BASE = getApiBaseUrl();
   private readonly errorOptions: ApiClientOptions = {
     retry: {
       maxRetries: 3,
     },
   };
+
+  /**
+   * Retry wrapper for API calls with exponential backoff
+   */
+  private async retryApiCall<T>(
+    fn: () => Promise<T>,
+    maxRetries: number = 3,
+    delay: number = 1000
+  ): Promise<T> {
+    let lastError: Error;
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        return await fn();
+      } catch (error: any) {
+        lastError = error;
+        
+        // Don't retry on client errors (4xx) except 429 (rate limit)
+        if (error.status >= 400 && error.status < 500 && error.status !== 429) {
+          throw error;
+        }
+        
+        if (attempt < maxRetries - 1) {
+          const backoffDelay = delay * Math.pow(2, attempt);
+          await new Promise(resolve => setTimeout(resolve, backoffDelay));
+        }
+      }
+    }
+    
+    throw lastError!;
+  }
 
   /**
    * Create a payment intent for Stripe
@@ -219,12 +252,9 @@ class PaymentService {
         size: item.size || 'M',
       }));
 
-      const response = await fetch(`${this.API_BASE}/payments/confirm`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const response = await apiPost<{ orderId: string; status: string }>(
+        '/payments/confirm',
+        {
           paymentIntentId,
           order: {
             userId,
@@ -239,18 +269,12 @@ class PaymentService {
               country: shippingInfo.country,
             },
           },
-        }),
-      });
+        },
+        undefined,
+        this.errorOptions
+      );
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const error = new Error(errorData.message || `Failed to confirm payment: ${response.statusText}`);
-        (error as any).status = response.status;
-        throw error;
-      }
-
-      const data = await response.json();
-      return data;
+      return response.data;
     });
   }
 
@@ -276,28 +300,22 @@ class PaymentService {
    * Attach payment method to user
    */
   async attachPaymentMethod(userId: string, paymentMethodId: string): Promise<PaymentMethod> {
-    return this.retryApiCall(async () => {
-      const response = await fetch(`${this.API_BASE}/payments/payment-methods/attach`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+    try {
+      const response = await apiPost<{ paymentMethod: PaymentMethod }>(
+        '/payments/payment-methods/attach',
+        {
           userId,
           paymentMethodId,
-        }),
-      });
+        },
+        undefined,
+        this.errorOptions
+      );
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const error = new Error(errorData.message || `Failed to attach payment method: ${response.statusText}`);
-        (error as any).status = response.status;
-        throw error;
-      }
-
-      const data = await response.json();
-      return data.paymentMethod;
-    });
+      return response.data.paymentMethod;
+    } catch (error) {
+      handleError(error);
+      throw error;
+    }
   }
 
   /**

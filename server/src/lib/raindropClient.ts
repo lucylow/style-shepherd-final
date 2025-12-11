@@ -4,16 +4,12 @@
  * - otherwise writes to data/raindrop-mock.json
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
 import { getRaindropKey } from './keysValidator.js';
+import { getStorage, setStorageAdapter, getStorageAdapter } from './storage-adapter.js';
+import { isCloudflare } from './cloudflare-detection.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const SERVER_ROOT = join(__dirname, '..', '..');
-const MOCK_FILE = join(SERVER_ROOT, '..', 'data', 'raindrop-mock.json');
+// Use storage adapter instead of direct file system
+const MOCK_FILE = 'raindrop-mock.json';
 
 let raindropClient: any = null;
 let raindropEnabled = false;
@@ -32,31 +28,29 @@ interface MockDatabase {
   buckets: Record<string, any>;
 }
 
-function ensureMockFile(): void {
-  const dir = dirname(MOCK_FILE);
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
-  }
-  if (!existsSync(MOCK_FILE)) {
-    writeFileSync(
-      MOCK_FILE,
-      JSON.stringify({ memories: [], buckets: {} }, null, 2)
-    );
+async function ensureMockFile(): Promise<void> {
+  const storage = getStorage();
+  const exists = await storage.exists(MOCK_FILE);
+  if (!exists) {
+    await storage.writeJSON(MOCK_FILE, { memories: [], buckets: {} });
   }
 }
 
-function readMock(): MockDatabase {
+async function readMock(): Promise<MockDatabase> {
   try {
-    ensureMockFile();
-    return JSON.parse(readFileSync(MOCK_FILE, 'utf8'));
+    await ensureMockFile();
+    const storage = getStorage();
+    const data = await storage.readJSON<MockDatabase>(MOCK_FILE);
+    return data || { memories: [], buckets: {} };
   } catch (e) {
-    ensureMockFile();
+    await ensureMockFile();
     return { memories: [], buckets: {} };
   }
 }
 
-function writeMock(db: MockDatabase): void {
-  writeFileSync(MOCK_FILE, JSON.stringify(db, null, 2));
+async function writeMock(db: MockDatabase): Promise<void> {
+  const storage = getStorage();
+  await storage.writeJSON(MOCK_FILE, db);
 }
 
 async function tryLoadSdk(): Promise<any> {
@@ -74,11 +68,22 @@ async function tryLoadSdk(): Promise<any> {
   }
 }
 
-export async function initRaindrop(): Promise<void> {
+export async function initRaindrop(kv?: KVNamespace): Promise<void> {
+  // Initialize storage adapter
+  if (!isCloudflare() || !kv) {
+    // Node.js environment - use file system
+    const adapter = getStorageAdapter();
+    setStorageAdapter(adapter);
+  } else {
+    // Cloudflare environment - use KV
+    const adapter = getStorageAdapter(kv);
+    setStorageAdapter(adapter);
+  }
+
   const found = getRaindropKey();
   if (!found) {
     raindropEnabled = false;
-    ensureMockFile();
+    await ensureMockFile();
     console.log('Raindrop: No API key found, using mock mode');
     return;
   }
@@ -86,7 +91,7 @@ export async function initRaindrop(): Promise<void> {
   const RaindropCtor = await tryLoadSdk();
   if (!RaindropCtor) {
     raindropEnabled = false;
-    ensureMockFile();
+    await ensureMockFile();
     console.log('Raindrop: SDK not installed, using mock mode');
     return;
   }
@@ -101,7 +106,7 @@ export async function initRaindrop(): Promise<void> {
       'Raindrop init failed, using mock:',
       err && (err as Error).message ? (err as Error).message : err
     );
-    ensureMockFile();
+    await ensureMockFile();
   }
 }
 
@@ -135,7 +140,7 @@ export async function storeMemory(
   }
 
   // Mock path
-  const db = readMock();
+  const db = await readMock();
   const entry: MemoryEntry = {
     id: `${Date.now()}-${Math.floor(Math.random() * 1000)}`,
     userId,
@@ -145,7 +150,7 @@ export async function storeMemory(
     createdAt: new Date().toISOString()
   };
   db.memories.push(entry);
-  writeMock(db);
+  await writeMock(db);
   return { success: true, source: 'mock', entry };
 }
 
@@ -176,7 +181,7 @@ export async function searchMemory(
     }
   }
 
-  const db = readMock();
+  const db = await readMock();
   const results = db.memories
     .filter(
       m =>
@@ -210,12 +215,12 @@ export async function deleteMemory(
     }
   }
 
-  const db = readMock();
+  const db = await readMock();
   const before = db.memories.length;
   db.memories = db.memories.filter(
     m => !(m.userId === userId && m.id === id)
   );
-  writeMock(db);
+  await writeMock(db);
   return {
     success: true,
     source: 'mock',
@@ -276,11 +281,11 @@ export async function updateMemory(
   }
 
   // Mock path
-  const db = readMock();
+  const db = await readMock();
   const index = db.memories.findIndex(
     m => m.userId === userId && m.id === id
   );
-  
+
   if (index === -1) {
     return { success: false, source: 'mock' };
   }
@@ -291,7 +296,7 @@ export async function updateMemory(
     type: type || db.memories[index].type,
     metadata: metadata !== undefined ? metadata : db.memories[index].metadata,
   };
-  writeMock(db);
+  await writeMock(db);
   return { success: true, source: 'mock', entry: db.memories[index] };
 }
 
@@ -324,7 +329,7 @@ export async function batchStoreMemory(
   }
 
   // Mock path - store sequentially
-  const db = readMock();
+  const db = await readMock();
   for (const { userId, type, text, metadata = {} } of memories) {
     try {
       const entry: MemoryEntry = {
@@ -345,7 +350,7 @@ export async function batchStoreMemory(
       });
     }
   }
-  writeMock(db);
+  await writeMock(db);
   return results;
 }
 
@@ -358,7 +363,7 @@ export async function getMemoryStats(userId: string = 'demo_user'): Promise<{
   oldest: string | null;
   newest: string | null;
 }> {
-  const db = readMock();
+  const db = await readMock();
   const userMemories = db.memories.filter(m => m.userId === userId);
   
   const byType: Record<string, number> = {};

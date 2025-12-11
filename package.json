@@ -29,7 +29,10 @@
     "health:check": "node scripts/health-check.js",
     "netlify:deploy": "netlify deploy --prod",
     "netlify:deploy:preview": "netlify deploy",
-    "netlify:build": "npm run build"
+    "netlify:build": "npm run build",
+    "cloudflare:dev": "cd server && wrangler dev",
+    "cloudflare:deploy": "cd server && wrangler deploy",
+    "cloudflare:build": "cd server && npm run build:cloudflare"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

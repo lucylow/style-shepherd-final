@@ -82,7 +82,7 @@ const Hero = () => {
       <div className="absolute inset-0 bg-grid-white/5 opacity-30" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)', backgroundSize: '50px 50px' }} />
       
       <div className="max-w-7xl mx-auto relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
           <motion.div 
             initial={{ opacity: 0, x: -30 }}
             animate={{ opacity: 1, x: 0 }}
@@ -199,7 +199,7 @@ const Hero = () => {
               transition={{ duration: 0.6, delay: 0.2 }}
               className="relative group"
             >
-            <div className="bg-white rounded-2xl shadow-2xl p-8 relative z-10 border border-gray-100/50 backdrop-blur-sm hover:shadow-elevated-xl transition-shadow duration-300">
+            <div className="bg-white rounded-2xl shadow-2xl p-4 sm:p-6 lg:p-8 relative z-10 border border-gray-100/50 backdrop-blur-sm hover:shadow-elevated-xl transition-shadow duration-300">
               <div className="text-center mb-6">
                 <motion.div
                   initial={{ scale: 0 }}
@@ -225,7 +225,7 @@ const Hero = () => {
                 </p>
               </div>
 
-              <div className="space-y-3 mb-6 h-48 overflow-y-auto scrollbar-thin">
+              <div className="space-y-3 mb-4 sm:mb-6 h-40 sm:h-48 overflow-y-auto scrollbar-thin">
                 <AnimatePresence>
                   {conversation.map((msg, idx) => (
                     <motion.div

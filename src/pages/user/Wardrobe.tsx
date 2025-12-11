@@ -16,7 +16,8 @@ import {
   X,
   Camera,
   Upload,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -46,6 +47,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 
 interface WardrobeItem extends Product {
   addedDate: string;
@@ -58,15 +60,24 @@ export default function Wardrobe() {
   const { user } = useAuth();
   const [wardrobeItems, setWardrobeItems] = useState<WardrobeItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [showAddItem, setShowAddItem] = useState(false);
+  const [isAddingItem, setIsAddingItem] = useState(false);
+  const [newItemForm, setNewItemForm] = useState({
+    name: '',
+    brand: '',
+    category: '',
+    size: '',
+  });
 
   // Mock wardrobe data - in production, fetch from API
   useEffect(() => {
     const loadWardrobe = async () => {
       setIsLoading(true);
+      setError(null);
       try {
         // Simulate API call
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -106,15 +117,20 @@ export default function Wardrobe() {
         ];
         
         setWardrobeItems(mockWardrobe);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error loading wardrobe:', error);
+        setError(error.message || 'Failed to load wardrobe');
         toast.error('Failed to load wardrobe');
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadWardrobe();
+    if (user) {
+      loadWardrobe();
+    } else {
+      setIsLoading(false);
+    }
   }, [user]);
 
   const filteredItems = wardrobeItems.filter(item => {
@@ -134,9 +150,14 @@ export default function Wardrobe() {
     ),
   };
 
+  const clearSearch = () => {
+    setSearchQuery('');
+  };
+
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <HeaderNav />
+    <ErrorBoundary>
+      <div className="min-h-screen bg-background text-foreground">
+        <HeaderNav />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <motion.div
@@ -207,44 +228,108 @@ export default function Wardrobe() {
                     </div>
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="name">Item Name</Label>
-                    <Input id="name" placeholder="e.g., Classic White T-Shirt" />
+                    <Label htmlFor="name">Item Name *</Label>
+                    <Input 
+                      id="name" 
+                      placeholder="e.g., Classic White T-Shirt"
+                      value={newItemForm.name}
+                      onChange={(e) => setNewItemForm({ ...newItemForm, name: e.target.value })}
+                      required
+                    />
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="brand">Brand</Label>
-                    <Input id="brand" placeholder="e.g., Basic Co" />
+                    <Input 
+                      id="brand" 
+                      placeholder="e.g., Basic Co"
+                      value={newItemForm.brand}
+                      onChange={(e) => setNewItemForm({ ...newItemForm, brand: e.target.value })}
+                    />
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div className="grid gap-2">
-                      <Label htmlFor="category">Category</Label>
-                      <Select>
+                      <Label htmlFor="category">Category *</Label>
+                      <Select 
+                        value={newItemForm.category}
+                        onValueChange={(value) => setNewItemForm({ ...newItemForm, category: value })}
+                      >
                         <SelectTrigger id="category">
                           <SelectValue placeholder="Select" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="tops">Tops</SelectItem>
-                          <SelectItem value="bottoms">Bottoms</SelectItem>
-                          <SelectItem value="outerwear">Outerwear</SelectItem>
-                          <SelectItem value="shoes">Shoes</SelectItem>
-                          <SelectItem value="accessories">Accessories</SelectItem>
+                          <SelectItem value="Tops">Tops</SelectItem>
+                          <SelectItem value="Bottoms">Bottoms</SelectItem>
+                          <SelectItem value="Outerwear">Outerwear</SelectItem>
+                          <SelectItem value="Shoes">Shoes</SelectItem>
+                          <SelectItem value="Accessories">Accessories</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="grid gap-2">
                       <Label htmlFor="size">Size</Label>
-                      <Input id="size" placeholder="e.g., M" />
+                      <Input 
+                        id="size" 
+                        placeholder="e.g., M"
+                        value={newItemForm.size}
+                        onChange={(e) => setNewItemForm({ ...newItemForm, size: e.target.value })}
+                      />
                     </div>
                   </div>
                 </div>
                 <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setShowAddItem(false)}>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setShowAddItem(false);
+                      setNewItemForm({ name: '', brand: '', category: '', size: '' });
+                    }}
+                    disabled={isAddingItem}
+                  >
                     Cancel
                   </Button>
-                  <Button onClick={() => {
-                    toast.success('Item added to wardrobe!');
-                    setShowAddItem(false);
-                  }}>
-                    Add to Wardrobe
+                  <Button 
+                    onClick={async () => {
+                      if (!newItemForm.name || !newItemForm.category) {
+                        toast.error('Please fill in required fields');
+                        return;
+                      }
+                      setIsAddingItem(true);
+                      try {
+                        // Simulate API call
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                        const newItem: WardrobeItem = {
+                          id: Date.now().toString(),
+                          name: newItemForm.name,
+                          brand: newItemForm.brand,
+                          category: newItemForm.category,
+                          price: 0,
+                          imageUrl: '',
+                          addedDate: new Date().toISOString().split('T')[0],
+                          description: '',
+                          sizes: newItemForm.size ? [newItemForm.size] : [],
+                          colors: [],
+                          inStock: true,
+                        };
+                        setWardrobeItems([...wardrobeItems, newItem]);
+                        toast.success('Item added to wardrobe!');
+                        setShowAddItem(false);
+                        setNewItemForm({ name: '', brand: '', category: '', size: '' });
+                      } catch (error) {
+                        toast.error('Failed to add item');
+                      } finally {
+                        setIsAddingItem(false);
+                      }
+                    }}
+                    disabled={isAddingItem}
+                  >
+                    {isAddingItem ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Adding...
+                      </>
+                    ) : (
+                      'Add to Wardrobe'
+                    )}
                   </Button>
                 </div>
               </DialogContent>
@@ -302,13 +387,23 @@ export default function Wardrobe() {
             <CardContent className="p-4">
               <div className="flex flex-col sm:flex-row gap-4">
                 <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground z-10" />
                   <Input
                     placeholder="Search your wardrobe..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 pr-10"
+                    aria-label="Search wardrobe"
                   />
+                  {searchQuery && (
+                    <button
+                      onClick={clearSearch}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      aria-label="Clear search"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
                 <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                   <SelectTrigger className="w-full sm:w-[200px]">
@@ -352,6 +447,16 @@ export default function Wardrobe() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               <SkeletonLoader variant="product" count={8} />
             </div>
+          ) : error ? (
+            <EmptyState
+              icon={Shirt}
+              title="Error loading wardrobe"
+              description={error}
+              action={{
+                label: 'Try Again',
+                onClick: () => window.location.reload(),
+              }}
+            />
           ) : filteredItems.length > 0 ? (
             <div className={
               viewMode === 'grid'
@@ -436,5 +541,6 @@ export default function Wardrobe() {
       </main>
       <MobileBottomNav />
     </div>
+    </ErrorBoundary>
   );
 }

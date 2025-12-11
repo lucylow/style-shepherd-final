@@ -73,21 +73,34 @@ export class AuthService {
         console.warn('Failed to store user in SmartMemory, continuing:', memoryError);
       }
 
+      // Get or create Stripe customer (link WorkOS user with Stripe)
+      let stripeCustomerId: string | null = null;
+      try {
+        const { paymentService } = await import('./PaymentService.js');
+        stripeCustomerId = await paymentService.getOrCreateCustomer(user.id, user.email);
+        console.log(`✅ Linked WorkOS user ${user.id} with Stripe customer ${stripeCustomerId}`);
+      } catch (stripeError) {
+        console.warn('Failed to link Stripe customer (non-critical):', stripeError);
+        // Continue without Stripe customer - it can be created on first payment
+      }
+
       // Store user in Vultr PostgreSQL
       try {
         await vultrPostgres.query(
-          `INSERT INTO user_profiles (user_id, email, first_name, last_name, created_at, updated_at)
-           VALUES ($1, $2, $3, $4, $5, $6)
+          `INSERT INTO user_profiles (user_id, email, first_name, last_name, stripe_customer_id, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
            ON CONFLICT (user_id) DO UPDATE SET
              email = EXCLUDED.email,
              first_name = EXCLUDED.first_name,
              last_name = EXCLUDED.last_name,
+             stripe_customer_id = COALESCE(EXCLUDED.stripe_customer_id, user_profiles.stripe_customer_id),
              updated_at = EXCLUDED.updated_at`,
           [
             user.id,
             user.email,
             user.firstName || null,
             user.lastName || null,
+            stripeCustomerId,
             new Date().toISOString(),
             new Date().toISOString(),
           ]
@@ -98,6 +111,21 @@ export class AuthService {
           throw dbError;
         }
         console.warn('Failed to store user in PostgreSQL, continuing:', dbError);
+      }
+
+      // Also store in users table if it exists (for payment service)
+      try {
+        await vultrPostgres.query(
+          `INSERT INTO users (user_id, stripe_customer_id, email, created_at)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (user_id) DO UPDATE SET 
+             stripe_customer_id = COALESCE(EXCLUDED.stripe_customer_id, users.stripe_customer_id),
+             email = EXCLUDED.email`,
+          [user.id, stripeCustomerId, user.email, new Date().toISOString()]
+        );
+      } catch (usersTableError) {
+        // users table might not exist, that's okay
+        console.warn('Failed to store in users table (table may not exist):', usersTableError);
       }
 
       // Create session token (in production, use JWT or similar)

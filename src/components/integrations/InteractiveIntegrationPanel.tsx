@@ -25,12 +25,12 @@ export default function InteractiveIntegrationPanel({ userId = 'demo_user' }: In
   const [selectedMemory, setSelectedMemory] = useState<MemoryItem | null>(null);
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 420px', gap: 18, marginTop: 18 }}>
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-4 lg:gap-[18px] mt-4 lg:mt-[18px]">
       <div>
         <IntegrationStatus />
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 lg:gap-3 mt-3 lg:mt-3">
           <div><MemoryTimeline userId={userId} onSelect={m => setSelectedMemory(m)} /></div>
-          <div style={{ display: 'grid', gap: 12 }}>
+          <div className="grid gap-3 lg:gap-3">
             <TagCloud 
               userId={userId} 
               onTag={(t) => {
@@ -46,7 +46,7 @@ export default function InteractiveIntegrationPanel({ userId = 'demo_user' }: In
           </div>
         </div>
 
-        <div style={{ marginTop: 12 }}>
+        <div className="mt-3 lg:mt-3">
           <VultrVisualizer onSaved={() => { 
             // Optional: refresh timeline via ref or event
             window.dispatchEvent(new CustomEvent('memory-updated'));
@@ -54,26 +54,26 @@ export default function InteractiveIntegrationPanel({ userId = 'demo_user' }: In
         </div>
       </div>
 
-      <aside>
-        <div style={{ padding: 12, borderRadius: 10, background: '#fff' }}>
-          <h4 style={{ margin: 0 }}>Selected Memory</h4>
-          {!selectedMemory && <div style={{ color: '#64748b', marginTop: 8 }}>Click a memory in the timeline to inspect.</div>}
+      <aside className="lg:sticky lg:top-4 lg:h-fit">
+        <div className="p-3 lg:p-3 rounded-lg bg-card border border-border">
+          <h4 className="text-base font-semibold text-foreground m-0">Selected Memory</h4>
+          {!selectedMemory && <div className="text-muted-foreground mt-2 text-sm">Click a memory in the timeline to inspect.</div>}
           {selectedMemory && (
-            <div style={{ marginTop: 10 }}>
-              <div style={{ whiteSpace: 'pre-wrap' }}>{selectedMemory.text || selectedMemory?.resp?.text}</div>
-              <div style={{ marginTop: 8, color: '#94a3b8' }}>{selectedMemory.createdAt || selectedMemory?.resp?.createdAt}</div>
+            <div className="mt-2.5">
+              <div className="whitespace-pre-wrap text-sm text-foreground">{selectedMemory.text || selectedMemory?.resp?.text}</div>
+              <div className="mt-2 text-xs text-muted-foreground">{selectedMemory.createdAt || selectedMemory?.resp?.createdAt}</div>
             </div>
           )}
         </div>
 
-        <div style={{ marginTop: 12 }}>
-          <h4>Quick Dev Tools</h4>
-          <div style={{ display: 'flex', gap: 8, flexDirection: 'column' }}>
+        <div className="mt-3 lg:mt-3">
+          <h4 className="text-base font-semibold text-foreground mb-2">Quick Dev Tools</h4>
+          <div className="flex flex-col gap-2">
             <a 
               href="/api/integrations/status" 
               target="_blank"
               rel="noopener noreferrer"
-              style={{ padding: 8, borderRadius: 8, background: '#f8fafc', textDecoration: 'none', color: '#0f172a', border: '1px solid #eef2f6' }}
+              className="p-2 rounded-lg bg-muted text-foreground no-underline border border-border hover:bg-muted/80 transition-colors text-sm"
             >
               Open /api/integrations/status
             </a>
@@ -81,7 +81,7 @@ export default function InteractiveIntegrationPanel({ userId = 'demo_user' }: In
               href="/api/raindrop/search-memory" 
               target="_blank"
               rel="noopener noreferrer"
-              style={{ padding: 8, borderRadius: 8, background: '#f8fafc', textDecoration: 'none', color: '#0f172a', border: '1px solid #eef2f6' }}
+              className="p-2 rounded-lg bg-muted text-foreground no-underline border border-border hover:bg-muted/80 transition-colors text-sm"
             >
               Open search API (POST)
             </a>

@@ -7,22 +7,25 @@ import ReturnsCalculator from "@/components/shopping/ReturnsCalculator";
 import Testimonials from "@/components/common/Testimonials";
 import CTASection from "@/components/common/CTASection";
 import Footer from "@/components/layout/Footer";
+import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 
 const Index = () => {
   return (
-    <div className="min-h-screen pb-20 md:pb-0">
-      <HeaderNav />
-      <main id="main">
-        <Hero />
-        <Features />
-        <ResearchStats />
-        <ReturnsCalculator />
-        <Testimonials />
-        <CTASection />
-      </main>
-      <Footer />
-      <MobileBottomNav />
-    </div>
+    <ErrorBoundary>
+      <div className="min-h-screen pb-20 md:pb-0">
+        <HeaderNav />
+        <main id="main">
+          <Hero />
+          <Features />
+          <ResearchStats />
+          <ReturnsCalculator />
+          <Testimonials />
+          <CTASection />
+        </main>
+        <Footer />
+        <MobileBottomNav />
+      </div>
+    </ErrorBoundary>
   );
 };
 

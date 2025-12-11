@@ -11,9 +11,12 @@ import { paymentService } from '@/services/paymentService';
 import { mockCartService } from '@/services/mocks/mockCart';
 import { useCartCalculations } from '@/hooks/useCartCalculations';
 import { toast } from 'sonner';
-import { ArrowLeft, CreditCard, Lock, CheckCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, CreditCard, Lock, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
 import { CartReview } from '@/components/CartReview';
 import { returnsPredictor, type CartValidationResponse } from '@/services/returnsPredictor';
+import { ErrorBoundary } from '@/components/common/ErrorBoundary';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import HeaderNav from '@/components/layout/HeaderNav';
 
 // Helper function to build URLs that work with Lovable Cloud
 function buildCheckoutUrl(path: string): string {
@@ -33,6 +36,7 @@ const CheckoutForm = ({ cartItems }: { cartItems: CartItem[] }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [shippingInfo, setShippingInfo] = useState({
     name: '',
     address: '',
@@ -44,6 +48,31 @@ const CheckoutForm = ({ cartItems }: { cartItems: CartItem[] }) => {
 
   const { subtotal, shipping, tax, total } = useCartCalculations(cartItems);
 
+  const validateForm = useCallback(() => {
+    const newErrors: Record<string, string> = {};
+    
+    if (!shippingInfo.name.trim()) {
+      newErrors.name = 'Name is required';
+    }
+    if (!shippingInfo.address.trim()) {
+      newErrors.address = 'Address is required';
+    }
+    if (!shippingInfo.city.trim()) {
+      newErrors.city = 'City is required';
+    }
+    if (!shippingInfo.state.trim()) {
+      newErrors.state = 'State is required';
+    }
+    if (!shippingInfo.zipCode.trim()) {
+      newErrors.zipCode = 'ZIP code is required';
+    } else if (!/^\d{5}(-\d{4})?$/.test(shippingInfo.zipCode)) {
+      newErrors.zipCode = 'Please enter a valid ZIP code';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  }, [shippingInfo]);
+
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -52,8 +81,8 @@ const CheckoutForm = ({ cartItems }: { cartItems: CartItem[] }) => {
       return;
     }
 
-    if (!shippingInfo.name || !shippingInfo.address || !shippingInfo.city) {
-      toast.error('Please fill in shipping information');
+    if (!validateForm()) {
+      toast.error('Please fill in all required fields correctly');
       return;
     }
 
@@ -84,7 +113,7 @@ const CheckoutForm = ({ cartItems }: { cartItems: CartItem[] }) => {
       toast.error(error.message || 'An error occurred during checkout');
       setIsProcessing(false);
     }
-  }, [user, cartItems, shippingInfo, navigate]);
+  }, [user, cartItems, shippingInfo, navigate, validateForm]);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -96,55 +125,116 @@ const CheckoutForm = ({ cartItems }: { cartItems: CartItem[] }) => {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Full Name</Label>
+            <Label htmlFor="name">Full Name *</Label>
             <Input
               id="name"
               value={shippingInfo.name}
-              onChange={(e) => setShippingInfo({ ...shippingInfo, name: e.target.value })}
+              onChange={(e) => {
+                setShippingInfo({ ...shippingInfo, name: e.target.value });
+                if (errors.name) setErrors({ ...errors, name: '' });
+              }}
               required
+              aria-invalid={!!errors.name}
+              aria-describedby={errors.name ? 'name-error' : undefined}
+              className={errors.name ? 'border-destructive' : ''}
             />
+            {errors.name && (
+              <p id="name-error" className="text-sm text-destructive flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" />
+                {errors.name}
+              </p>
+            )}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="address">Address</Label>
+            <Label htmlFor="address">Address *</Label>
             <Input
               id="address"
               value={shippingInfo.address}
-              onChange={(e) => setShippingInfo({ ...shippingInfo, address: e.target.value })}
+              onChange={(e) => {
+                setShippingInfo({ ...shippingInfo, address: e.target.value });
+                if (errors.address) setErrors({ ...errors, address: '' });
+              }}
               required
+              aria-invalid={!!errors.address}
+              aria-describedby={errors.address ? 'address-error' : undefined}
+              className={errors.address ? 'border-destructive' : ''}
             />
+            {errors.address && (
+              <p id="address-error" className="text-sm text-destructive flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" />
+                {errors.address}
+              </p>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="city">City</Label>
+              <Label htmlFor="city">City *</Label>
               <Input
                 id="city"
                 value={shippingInfo.city}
-                onChange={(e) => setShippingInfo({ ...shippingInfo, city: e.target.value })}
+                onChange={(e) => {
+                  setShippingInfo({ ...shippingInfo, city: e.target.value });
+                  if (errors.city) setErrors({ ...errors, city: '' });
+                }}
                 required
+                aria-invalid={!!errors.city}
+                aria-describedby={errors.city ? 'city-error' : undefined}
+                className={errors.city ? 'border-destructive' : ''}
               />
+              {errors.city && (
+                <p id="city-error" className="text-sm text-destructive flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {errors.city}
+                </p>
+              )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="state">State</Label>
+              <Label htmlFor="state">State *</Label>
               <Input
                 id="state"
                 value={shippingInfo.state}
-                onChange={(e) => setShippingInfo({ ...shippingInfo, state: e.target.value })}
+                onChange={(e) => {
+                  setShippingInfo({ ...shippingInfo, state: e.target.value });
+                  if (errors.state) setErrors({ ...errors, state: '' });
+                }}
                 required
+                aria-invalid={!!errors.state}
+                aria-describedby={errors.state ? 'state-error' : undefined}
+                className={errors.state ? 'border-destructive' : ''}
               />
+              {errors.state && (
+                <p id="state-error" className="text-sm text-destructive flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {errors.state}
+                </p>
+              )}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="zipCode">ZIP Code</Label>
+              <Label htmlFor="zipCode">ZIP Code *</Label>
               <Input
                 id="zipCode"
                 value={shippingInfo.zipCode}
-                onChange={(e) => setShippingInfo({ ...shippingInfo, zipCode: e.target.value })}
+                onChange={(e) => {
+                  setShippingInfo({ ...shippingInfo, zipCode: e.target.value });
+                  if (errors.zipCode) setErrors({ ...errors, zipCode: '' });
+                }}
                 required
+                pattern="^\d{5}(-\d{4})?$"
+                aria-invalid={!!errors.zipCode}
+                aria-describedby={errors.zipCode ? 'zipCode-error' : undefined}
+                className={errors.zipCode ? 'border-destructive' : ''}
               />
+              {errors.zipCode && (
+                <p id="zipCode-error" className="text-sm text-destructive flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {errors.zipCode}
+                </p>
+              )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="country">Country</Label>
+              <Label htmlFor="country">Country *</Label>
               <Input
                 id="country"
                 value={shippingInfo.country}
@@ -333,14 +423,16 @@ const Checkout = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-6">
-          <Link to="/dashboard" className="text-primary hover:underline flex items-center">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Dashboard
-          </Link>
-        </div>
+    <ErrorBoundary>
+      <div className="min-h-screen bg-background">
+        <HeaderNav />
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="mb-6">
+            <Link to="/dashboard" className="text-primary hover:underline flex items-center">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Dashboard
+            </Link>
+          </div>
 
         <h1 className="text-2xl font-bold mb-6">Checkout</h1>
 
@@ -370,8 +462,9 @@ const Checkout = () => {
         )}
 
         <CheckoutForm cartItems={cartItems} />
+        </div>
       </div>
-    </div>
+    </ErrorBoundary>
   );
 };
 

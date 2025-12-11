@@ -1408,6 +1408,242 @@ export class PaymentService {
   }
 
   /**
+   * Get revenue analytics for a time period
+   */
+  async getRevenueAnalytics(
+    startDate: Date,
+    endDate: Date,
+    userId?: string
+  ): Promise<{
+    totalRevenue: number;
+    subscriptionRevenue: number;
+    oneTimeRevenue: number;
+    refunds: number;
+    netRevenue: number;
+    orderCount: number;
+    averageOrderValue: number;
+    revenueByDay: Array<{ date: string; revenue: number }>;
+    topProducts: Array<{ productId: string; revenue: number; quantity: number }>;
+  }> {
+    try {
+      const userIdFilter = userId ? 'AND user_id = $3' : '';
+      const params = userId 
+        ? [startDate.toISOString(), endDate.toISOString(), userId]
+        : [startDate.toISOString(), endDate.toISOString()];
+
+      // Get all orders in period
+      const orders = await vultrPostgres.query<{
+        order_id: string;
+        user_id: string;
+        total_amount: number;
+        status: string;
+        created_at: string;
+        items: string;
+      }>(
+        `SELECT order_id, user_id, total_amount, status, created_at, items 
+         FROM orders 
+         WHERE created_at BETWEEN $1 AND $2 ${userIdFilter}
+         ORDER BY created_at ASC`,
+        params
+      );
+
+      // Get subscriptions
+      const subscriptions = await vultrPostgres.query<{
+        stripe_subscription_id: string;
+        status: string;
+        created_at: string;
+      }>(
+        `SELECT stripe_subscription_id, status, created_at
+         FROM subscriptions 
+         WHERE created_at BETWEEN $1 AND $2 ${userIdFilter}`,
+        params
+      );
+
+      // Get refunds
+      const refunds = await vultrPostgres.query<{
+        refund_amount: number;
+      }>(
+        `SELECT COALESCE(SUM(refund_amount), 0) as refund_amount
+         FROM orders 
+         WHERE status = 'refunded' AND created_at BETWEEN $1 AND $2 ${userIdFilter}`,
+        params
+      );
+
+      const totalRevenue = orders.reduce((sum, o) => 
+        o.status === 'paid' || o.status === 'confirmed' ? sum + parseFloat(String(o.total_amount)) : sum, 0
+      );
+      
+      const subscriptionRevenue = subscriptions.length * 19.99; // Approximate monthly subscription
+      const oneTimeRevenue = totalRevenue - subscriptionRevenue;
+      const refundsTotal = parseFloat(refunds[0]?.refund_amount || '0');
+      const netRevenue = totalRevenue - refundsTotal;
+
+      // Revenue by day
+      const revenueByDayMap = new Map<string, number>();
+      orders.forEach(order => {
+        const date = new Date(order.created_at).toISOString().split('T')[0];
+        const amount = order.status === 'paid' || order.status === 'confirmed' 
+          ? parseFloat(String(order.total_amount)) 
+          : 0;
+        revenueByDayMap.set(date, (revenueByDayMap.get(date) || 0) + amount);
+      });
+
+      const revenueByDay = Array.from(revenueByDayMap.entries())
+        .map(([date, revenue]) => ({ date, revenue }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+
+      // Top products
+      const productRevenue = new Map<string, { revenue: number; quantity: number }>();
+      orders.forEach(order => {
+        try {
+          const items = JSON.parse(order.items);
+          items.forEach((item: any) => {
+            const existing = productRevenue.get(item.productId) || { revenue: 0, quantity: 0 };
+            productRevenue.set(item.productId, {
+              revenue: existing.revenue + (item.price * item.quantity),
+              quantity: existing.quantity + item.quantity,
+            });
+          });
+        } catch (e) {
+          // Skip invalid JSON
+        }
+      });
+
+      const topProducts = Array.from(productRevenue.entries())
+        .map(([productId, data]) => ({ productId, ...data }))
+        .sort((a, b) => b.revenue - a.revenue)
+        .slice(0, 10);
+
+      return {
+        totalRevenue,
+        subscriptionRevenue,
+        oneTimeRevenue,
+        refunds: refundsTotal,
+        netRevenue,
+        orderCount: orders.length,
+        averageOrderValue: orders.length > 0 ? totalRevenue / orders.length : 0,
+        revenueByDay,
+        topProducts,
+      };
+    } catch (error: any) {
+      console.error('Failed to get revenue analytics:', error);
+      throw new ExternalServiceError('Analytics', 'Failed to retrieve revenue analytics', error);
+    }
+  }
+
+  /**
+   * Update subscription plan (upgrade/downgrade with prorating)
+   */
+  async updateSubscription(
+    subscriptionId: string,
+    newPriceId: string,
+    prorate: boolean = true
+  ): Promise<{ subscriptionId: string; status: string }> {
+    try {
+      if (this.isMockMode()) {
+        await this.simulateDelay(300);
+        return { subscriptionId, status: 'active' };
+      }
+
+      const subscription = await this.retryStripeCall(
+        () => this.stripe!.subscriptions.retrieve(subscriptionId),
+        'retrieveSubscription'
+      );
+
+      // Update subscription with prorating
+      const updatedSubscription = await this.retryStripeCall(
+        () => this.stripe!.subscriptions.update(subscriptionId, {
+          items: [{
+            id: subscription.items.data[0].id,
+            price: newPriceId,
+          }],
+          proration_behavior: prorate ? 'always_invoice' : 'none',
+        }),
+        'updateSubscription'
+      );
+
+      // Update database
+      await vultrPostgres.query(
+        `UPDATE subscriptions 
+         SET stripe_subscription_id = $1, 
+             updated_at = $2
+         WHERE stripe_subscription_id = $1`,
+        [subscriptionId, new Date().toISOString()]
+      );
+
+      this.logPaymentOperation('updateSubscription', {
+        subscriptionId,
+        newPriceId,
+        prorate,
+      });
+
+      return {
+        subscriptionId: updatedSubscription.id,
+        status: updatedSubscription.status,
+      };
+    } catch (error: any) {
+      this.logPaymentOperation('updateSubscription', {
+        subscriptionId,
+        error: error.message,
+      }, false);
+      throw new ExternalServiceError('Stripe', 'Failed to update subscription', error);
+    }
+  }
+
+  /**
+   * Get subscription usage for usage-based billing
+   */
+  async getSubscriptionUsage(
+    userId: string,
+    startDate: Date,
+    endDate: Date
+  ): Promise<{
+    voiceSessions: number;
+    stylingRecommendations: number;
+    fitReports: number;
+    premiumFeatures: number;
+    totalUsage: number;
+  }> {
+    try {
+      // This would integrate with your analytics/usage tracking
+      // For now, return mock data structure
+      const usage = await vultrPostgres.query<{
+        event_type: string;
+        count: number;
+      }>(
+        `SELECT event_type, COUNT(*) as count
+         FROM engagement_events
+         WHERE user_id = $1 AND timestamp BETWEEN $2 AND $3
+         GROUP BY event_type`,
+        [userId, startDate.toISOString(), endDate.toISOString()]
+      );
+
+      const voiceSessions = usage.find(u => u.event_type === 'voice_session')?.count || 0;
+      const stylingRecommendations = usage.find(u => u.event_type === 'recommendation')?.count || 0;
+      const fitReports = usage.find(u => u.event_type === 'fit_report')?.count || 0;
+      const premiumFeatures = usage.find(u => u.event_type === 'premium_feature')?.count || 0;
+
+      return {
+        voiceSessions: Number(voiceSessions),
+        stylingRecommendations: Number(stylingRecommendations),
+        fitReports: Number(fitReports),
+        premiumFeatures: Number(premiumFeatures),
+        totalUsage: Number(voiceSessions) + Number(stylingRecommendations) + Number(fitReports) + Number(premiumFeatures),
+      };
+    } catch (error: any) {
+      console.error('Failed to get subscription usage:', error);
+      // Return zero usage on error
+      return {
+        voiceSessions: 0,
+        stylingRecommendations: 0,
+        fitReports: 0,
+        premiumFeatures: 0,
+        totalUsage: 0,
+      };
+    }
+  }
+
+  /**
    * Handle Stripe webhook with improved error handling and retry logic
    * This is called when Stripe sends events about payment status changes
    * In mock mode, this can be called manually to simulate webhook events
@@ -1772,11 +2008,11 @@ export class PaymentService {
         try {
           const chargeId = dispute.charge as string;
           if (chargeId) {
-            const charge = await this.stripe.charges.retrieve(chargeId);
+            const charge = await this.stripe!.charges.retrieve(chargeId);
             const paymentIntentId = charge.payment_intent as string;
             
             if (paymentIntentId) {
-              const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
+              const paymentIntent = await this.stripe!.paymentIntents.retrieve(paymentIntentId);
               const userId = paymentIntent.metadata?.userId;
               const incidentId = paymentIntent.metadata?.incidentId;
               
@@ -1789,11 +2025,18 @@ export class PaymentService {
                        updated_at = $2
                    WHERE id = $3`,
                   [
-                    `Stripe dispute: ${event.type} - ${dispute.reason || 'unknown'}`,
+                    `Stripe dispute: ${event.type} - ${dispute.reason || 'unknown'} - Amount: ${dispute.amount / 100}`,
                     new Date().toISOString(),
                     incidentId,
                   ]
                 );
+                
+                this.logPaymentOperation('fraud.dispute.linked', {
+                  incidentId,
+                  disputeId: dispute.id,
+                  reason: dispute.reason,
+                  amount: dispute.amount / 100,
+                });
               }
               
               // Update user risk profile - increment chargeback count
@@ -1810,11 +2053,87 @@ export class PaymentService {
                     new Date().toISOString(),
                   ]
                 );
+                
+                // Log dispute for analytics
+                this.logPaymentOperation('fraud.dispute.user', {
+                  userId,
+                  disputeId: dispute.id,
+                  chargebackCount: 'incremented',
+                });
               }
             }
           }
         } catch (dbError) {
           console.error('Failed to update fraud data for dispute:', dbError);
+          this.logPaymentOperation('fraud.dispute.error', {
+            disputeId: dispute.id,
+            error: dbError instanceof Error ? dbError.message : String(dbError),
+          }, false);
+        }
+        break;
+      }
+      
+      case 'radar.early_fraud_warning.created': {
+        const warning = event.data.object as Stripe.Radar.EarlyFraudWarning;
+        console.log('🚨 Stripe Radar early fraud warning:', warning.id);
+        
+        try {
+          const chargeId = warning.charge as string;
+          if (chargeId) {
+            const charge = await this.stripe!.charges.retrieve(chargeId);
+            const paymentIntentId = charge.payment_intent as string;
+            
+            if (paymentIntentId) {
+              const paymentIntent = await this.stripe!.paymentIntents.retrieve(paymentIntentId);
+              const userId = paymentIntent.metadata?.userId;
+              const incidentId = paymentIntent.metadata?.incidentId;
+              
+              // Log Radar warning
+              this.logPaymentOperation('fraud.radar.warning', {
+                warningId: warning.id,
+                chargeId,
+                paymentIntentId,
+                userId,
+                incidentId,
+                actionable: warning.actionable.toString(),
+              }, false);
+              
+              // Update fraud incident if exists
+              if (incidentId) {
+                await vultrPostgres.query(
+                  `UPDATE fraud_incidents 
+                   SET notes = COALESCE(notes, '') || $1,
+                       updated_at = $2
+                   WHERE id = $3`,
+                  [
+                    ` | Stripe Radar warning: ${warning.id} (actionable: ${warning.actionable})`,
+                    new Date().toISOString(),
+                    incidentId,
+                  ]
+                );
+              }
+              
+              // If actionable and no incident exists, create one
+              if (warning.actionable && !incidentId && userId) {
+                const newIncidentId = `radar_${warning.id}`;
+                await vultrPostgres.query(
+                  `INSERT INTO fraud_incidents (id, user_id, score, decision, notes, created_at, updated_at)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                  [
+                    newIncidentId,
+                    userId,
+                    0.7, // High risk score for Radar warnings
+                    'manual_review',
+                    `Stripe Radar early fraud warning: ${warning.id}`,
+                    new Date().toISOString(),
+                    new Date().toISOString(),
+                  ]
+                );
+              }
+            }
+          }
+        } catch (radarError) {
+          console.error('Failed to process Radar fraud warning:', radarError);
         }
         break;
       }

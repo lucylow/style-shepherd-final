@@ -10,7 +10,9 @@ import {
   MessageSquare,
   Lightbulb,
   Shirt,
-  Camera
+  Camera,
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -21,6 +23,8 @@ import MobileBottomNav from '@/components/layout/MobileBottomNav';
 import { useFashionChat } from '@/hooks/useFashionChat';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
+import { ErrorBoundary } from '@/components/common/ErrorBoundary';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const QUICK_PROMPTS = [
   { text: "What should I wear for a job interview?", icon: Shirt },
@@ -33,6 +37,8 @@ export default function AIChat() {
   const { messages, isLoading, sendMessage, clearMessages } = useFashionChat();
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -44,7 +50,12 @@ export default function AIChat() {
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
       }
     }
-  }, [messages]);
+  }, [messages, isLoading]);
+
+  // Focus input on mount
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
@@ -52,13 +63,28 @@ export default function AIChat() {
     const message = input.trim();
     setInput('');
     setIsTyping(true);
+    setError(null);
+    setRetryCount(0);
 
     try {
       await sendMessage(message);
-    } catch (error) {
-      toast.error('Failed to send message');
+    } catch (error: any) {
+      console.error('Error sending message:', error);
+      const errorMessage = error.message || 'Failed to send message. Please try again.';
+      setError(errorMessage);
+      toast.error(errorMessage);
+      setRetryCount(prev => prev + 1);
     } finally {
       setIsTyping(false);
+    }
+  };
+
+  const handleRetry = async () => {
+    if (messages.length === 0) return;
+    const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');
+    if (lastUserMessage) {
+      setInput(lastUserMessage.content);
+      await handleSend();
     }
   };
 
@@ -75,9 +101,10 @@ export default function AIChat() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
-      <HeaderNav />
-      <main className="flex-1 flex flex-col max-w-4xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6">
+    <ErrorBoundary>
+      <div className="min-h-screen bg-background text-foreground flex flex-col">
+        <HeaderNav />
+        <main className="flex-1 flex flex-col max-w-4xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -137,11 +164,39 @@ export default function AIChat() {
           )}
         </motion.div>
 
+        {/* Error Alert */}
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="mb-4"
+          >
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="flex items-center justify-between">
+                <span>{error}</span>
+                {retryCount < 3 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRetry}
+                    className="ml-4"
+                  >
+                    <RefreshCw className="h-3 w-3 mr-1" />
+                    Retry
+                  </Button>
+                )}
+              </AlertDescription>
+            </Alert>
+          </motion.div>
+        )}
+
         {/* Chat Messages */}
         <Card className="flex-1 flex flex-col min-h-0 mb-4">
           <CardContent className="flex-1 flex flex-col p-0 min-h-0">
             <ScrollArea ref={scrollAreaRef} className="flex-1 p-6">
-              <AnimatePresence>
+              <AnimatePresence mode="popLayout">
                 {messages.length === 0 ? (
                   <motion.div
                     initial={{ opacity: 0 }}
@@ -227,6 +282,8 @@ export default function AIChat() {
             placeholder="Ask me anything about fashion..."
             disabled={isLoading}
             className="flex-1"
+            aria-label="Chat input"
+            maxLength={500}
           />
           <Button
             onClick={handleSend}
@@ -244,5 +301,6 @@ export default function AIChat() {
       </main>
       <MobileBottomNav />
     </div>
+    </ErrorBoundary>
   );
 }

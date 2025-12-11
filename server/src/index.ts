@@ -113,6 +113,7 @@ app.get('/health', async (req: express.Request, res: express.Response) => {
 
 // Initialize Raindrop client (with mock fallback if key missing)
 // Note: This is async but we don't await to avoid blocking server startup
+// For Cloudflare, KV will be passed via env
 initRaindrop().catch((err) => {
   console.warn('Raindrop initialization error (will use mock mode):', err);
 });

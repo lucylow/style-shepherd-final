@@ -1,0 +1,52 @@
+# Cloudflare Workers/Pages Configuration
+# For Style Shepherd Backend API
+
+name = "style-shepherd-api"
+main = "dist/cloudflare.js"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Environment variables (set via wrangler secret put or dashboard)
+# [vars]
+# NODE_ENV = "production"
+
+# KV Namespaces for caching (replacing Redis/Valkey)
+# Create via: wrangler kv:namespace create "CACHE"
+# [[kv_namespaces]]
+# binding = "CACHE"
+# id = "your-kv-namespace-id"
+# preview_id = "your-preview-kv-namespace-id"
+
+# D1 Database (optional - for SQLite)
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "style-shepherd"
+# database_id = "your-d1-database-id"
+
+# R2 Storage (optional - for file storage)
+# [[r2_buckets]]
+# binding = "STORAGE"
+# bucket_name = "style-shepherd-storage"
+
+# Limits
+[limits]
+cpu_ms = 50
+
+# Build configuration
+[build]
+command = "npm run build:cloudflare"
+
+# Pages configuration (if using Pages instead of Workers)
+pages_build_output_dir = "dist"
+
+# Routes (for Workers)
+routes = [
+  { pattern = "api/*", zone_name = "your-domain.com" }
+]
+
+# Environment-specific settings
+[env.production]
+name = "style-shepherd-api-prod"
+
+[env.staging]
+name = "style-shepherd-api-staging"

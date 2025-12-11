@@ -1106,6 +1106,79 @@ router.post(
   }
 );
 
+// Revenue Analytics
+router.get(
+  '/payments/revenue-analytics',
+  validateQuery(
+    z.object({
+      startDate: z.string().datetime(),
+      endDate: z.string().datetime(),
+      userId: z.string().optional(),
+    })
+  ),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { startDate, endDate, userId } = req.query;
+      const analytics = await paymentService.getRevenueAnalytics(
+        new Date(startDate as string),
+        new Date(endDate as string),
+        userId as string | undefined
+      );
+      res.json(analytics);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Subscription Updates (Upgrade/Downgrade)
+router.post(
+  '/payments/subscriptions/:subscriptionId/update',
+  validateParams(z.object({ subscriptionId: z.string().min(1) })),
+  validateBody(
+    z.object({
+      newPriceId: z.string().min(1, 'New price ID is required'),
+      prorate: z.boolean().default(true),
+    })
+  ),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { subscriptionId } = req.params;
+      const { newPriceId, prorate } = req.body;
+      const result = await paymentService.updateSubscription(subscriptionId, newPriceId, prorate);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Subscription Usage Tracking
+router.get(
+  '/payments/subscriptions/:userId/usage',
+  validateParams(z.object({ userId: z.string().min(1) })),
+  validateQuery(
+    z.object({
+      startDate: z.string().datetime(),
+      endDate: z.string().datetime(),
+    })
+  ),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId } = req.params;
+      const { startDate, endDate } = req.query;
+      const usage = await paymentService.getSubscriptionUsage(
+        userId,
+        new Date(startDate as string),
+        new Date(endDate as string)
+      );
+      res.json(usage);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 // Authentication
 router.get(
   '/auth/authorize',
