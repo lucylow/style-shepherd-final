@@ -54,6 +54,19 @@ const envSchema = z.object({
   STRIPE_SECRET_KEY: DEMO_MODE ? z.string().optional() : z.string().min(1),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
   
+  // Fraud Detection
+  FRAUD_SCORE_THRESHOLD: z.string().transform(Number).default('0.65'),
+  FRAUD_FLAG_THRESHOLD: z.string().transform(Number).default('0.45'),
+  FRAUD_MODEL_PATH: z.string().optional(),
+  FRAUD_MODEL_ALPHA: z.string().transform(Number).default('0.5'),
+  FRAUD_SMS_ALERT_NUMBER: z.string().optional(),
+  IPINFO_TOKEN: z.string().optional(),
+  EMAILREP_KEY: z.string().optional(),
+  BINLIST_KEY: z.string().optional(),
+  ADMIN_API_KEY: z.string().optional(),
+  ADMIN_TOKEN: z.string().optional(), // For provider admin UI
+  SLACK_WEBHOOK_URL: z.string().url().optional(),
+  
   // CORS - support multiple origins for Lovable deployment
   CORS_ORIGIN: z.string().default('http://localhost:5173,http://localhost:8080,http://localhost:3000'),
 });

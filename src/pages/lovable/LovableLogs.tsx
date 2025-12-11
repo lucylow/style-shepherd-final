@@ -37,6 +37,8 @@ interface LogEntry {
   details?: string;
 }
 
+const SERVICES = ['Frontend', 'Backend', 'Database', 'CDN'];
+
 export default function LovableLogs() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [filteredLogs, setFilteredLogs] = useState<LogEntry[]>([]);
@@ -46,15 +48,13 @@ export default function LovableLogs() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const logsEndRef = useRef<HTMLDivElement>(null);
 
-  const services = ['Frontend', 'Backend', 'Database', 'CDN'];
-
   useEffect(() => {
     // Generate initial logs
     const initialLogs: LogEntry[] = Array.from({ length: 50 }, (_, i) => ({
       id: `log-${i}`,
       timestamp: new Date(Date.now() - (50 - i) * 1000).toISOString(),
       level: ['info', 'warning', 'error', 'success'][Math.floor(Math.random() * 4)] as any,
-      service: services[Math.floor(Math.random() * services.length)],
+      service: SERVICES[Math.floor(Math.random() * SERVICES.length)],
       message: `Log entry ${i + 1}: ${['Request processed', 'Database query executed', 'Cache updated', 'Error occurred', 'Deployment successful'][Math.floor(Math.random() * 5)]}`,
     }));
     setLogs(initialLogs);

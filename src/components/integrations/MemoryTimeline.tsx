@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 
 interface MemoryTimelineProps {
   userId?: string;
@@ -30,7 +30,7 @@ export default function MemoryTimeline({ userId = 'demo_user', onSelect }: Memor
   const [items, setItems] = useState<MemoryItem[]>([]);
   const [loading, setLoading] = useState(false);
 
-  async function load(q = '') {
+  const load = useCallback(async (q = '') => {
     setLoading(true);
     try {
       const res = await fetch('/api/raindrop/search-memory', {
@@ -54,10 +54,11 @@ export default function MemoryTimeline({ userId = 'demo_user', onSelect }: Memor
     } finally { 
       setLoading(false); 
     }
-  }
+  }, [userId]);
 
   useEffect(() => { 
     load(); 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   async function handleDelete(id: string | undefined) {

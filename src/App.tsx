@@ -62,22 +62,29 @@ const AppRoutes = () => {
   );
 };
 
-const App = () => (
-  <ErrorBoundary>
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <TooltipProvider>
-          <BrowserRouter>
-            <KeyboardShortcutsProvider>
-              <Toaster />
-              <Sonner />
-              <AppRoutes />
-            </KeyboardShortcutsProvider>
-          </BrowserRouter>
-        </TooltipProvider>
-      </AuthProvider>
-    </QueryClientProvider>
-  </ErrorBoundary>
-);
+const App = () => {
+  // Initialize global error handlers on mount
+  useEffect(() => {
+    initGlobalErrorHandlers();
+  }, []);
+
+  return (
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <TooltipProvider>
+            <BrowserRouter>
+              <KeyboardShortcutsProvider>
+                <Toaster />
+                <Sonner />
+                <AppRoutes />
+              </KeyboardShortcutsProvider>
+            </BrowserRouter>
+          </TooltipProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
+  );
+};
 
 export default App;

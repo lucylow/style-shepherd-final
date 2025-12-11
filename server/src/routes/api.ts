@@ -47,23 +47,36 @@ router.post(
       }).optional(),
       userId: z.string().optional(),
       useLearning: z.boolean().optional().default(false),
+      useHybrid: z.boolean().optional().default(false), // New: use hybrid recommender
     })
   ),
   async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { userPreferences, context, userId, useLearning } = req.body;
+    const { userPreferences, context, userId, useLearning, useHybrid } = req.body;
     
-    // Use learning-enhanced recommendations if requested and userId provided
-    const recommendations = useLearning && userId
-      ? await productRecommendationAPI.getRecommendationsWithLearning(
-          userPreferences,
-          context || {},
-          userId
-        )
-      : await productRecommendationAPI.getRecommendations(
-          userPreferences,
-          context || {}
-        );
+    let recommendations;
+    
+    // Use hybrid recommender if requested
+    if (useHybrid && context?.searchQuery) {
+      recommendations = await productRecommendationAPI.getHybridRecommendations(
+        context.searchQuery,
+        userPreferences,
+        context || {},
+        userId
+      );
+    } else if (useLearning && userId) {
+      // Use learning-enhanced recommendations if requested and userId provided
+      recommendations = await productRecommendationAPI.getRecommendationsWithLearning(
+        userPreferences,
+        context || {},
+        userId
+      );
+    } else {
+      recommendations = await productRecommendationAPI.getRecommendations(
+        userPreferences,
+        context || {}
+      );
+    }
     
     res.json({ recommendations });
   } catch (error) {
@@ -90,6 +103,36 @@ router.post(
       const { userId, productId, feedback } = req.body;
       await productRecommendationAPI.recordFeedback(userId, productId, feedback);
       res.json({ success: true, message: 'Feedback recorded' });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Interaction logging endpoint for metrics (A/B testing, analytics)
+router.post(
+  '/interactions',
+  validateBody(
+    z.object({
+      userId: z.string().min(1, 'User ID is required'),
+      productId: z.string().min(1, 'Product ID is required'),
+      type: z.enum(['view', 'click', 'add_to_cart', 'purchase', 'return', 'recommendation_impression']),
+      value: z.number().int().positive().optional().default(1),
+      metadata: z.record(z.any()).optional(),
+    })
+  ),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId, productId, type, value, metadata } = req.body;
+      
+      const { vultrPostgres } = await import('../lib/vultr-postgres.js');
+      await vultrPostgres.query(
+        `INSERT INTO interactions (user_id, product_id, type, value, metadata, created_at)
+         VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)`,
+        [userId, productId, type, value, JSON.stringify(metadata || {})]
+      );
+      
+      res.json({ success: true, message: 'Interaction logged' });
     } catch (error) {
       next(error);
     }
@@ -647,6 +690,7 @@ router.post(
 // Payments
 router.post(
   '/payments/intent',
+  fraudMiddleware,
   validateBody(
     z.object({
       userId: z.string().min(1, 'User ID is required'),
@@ -684,6 +728,8 @@ router.post(
         zip: '',
         country: 'US',
       },
+      // Include incidentId from fraud middleware if present
+      incidentId: req.fraudIncident?.id || order.incidentId,
     };
     
     const result = await paymentService.createPaymentIntent(orderWithShipping);
@@ -1408,6 +1454,66 @@ router.post(
       return res.status(200).json({ success: true, results: transformedResults });
     } catch (error) {
       next(error);
+    }
+  }
+);
+
+// Fashioni RAG endpoint
+router.post(
+  '/fashioni/respond',
+  validateBody(
+    z.object({
+      userId: z.string().optional(),
+      message: z.string().min(1, 'Message is required'),
+      model: z.string().optional(),
+    })
+  ),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId = 'demo_user', message, model } = req.body;
+      
+      const { generateFashioniResponse } = await import('../lib/ragClient.js');
+      const out = await generateFashioniResponse({ userId, userMessage: message, model });
+      
+      return res.status(200).json(out);
+    } catch (err) {
+      console.error('fashioni/respond error', err);
+      return res.status(500).json({ success: false, error: String(err) });
+    }
+  }
+);
+
+// Evaluation harness endpoint
+router.post(
+  '/eval/run',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      // Sample testcases (can be expanded or pushed from frontend)
+      const samples = [
+        { 
+          id: 't1', 
+          prompt: "I'm 5'3\" and 135lbs, which size for a midi linen dress?", 
+          expected: { size: 'm', fabric: 'linen' } 
+        },
+        { 
+          id: 't2', 
+          prompt: "Looking for a red summer dress under $100", 
+          expected: { contains: ['red', 'under'] } 
+        },
+        { 
+          id: 't3', 
+          prompt: "What size should I choose if I'm usually a size S and want a loose fit?", 
+          expected: { contains: ['S', 'loose'] } 
+        }
+      ];
+
+      const { evaluateSamples } = await import('../lib/evalHarness.js');
+      const results = await evaluateSamples(samples, { model: req.body.model });
+      
+      return res.status(200).json({ success: true, results });
+    } catch (err) {
+      console.error('eval/run error', err);
+      return res.status(500).json({ success: false, error: String(err) });
     }
   }
 );

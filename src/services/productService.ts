@@ -66,7 +66,8 @@ class ProductService {
       this.useMockFallback = false;
       return products;
     } catch (error: any) {
-      console.error('[ProductService] API error, falling back to mocks:', error);
+      // Log error silently (don't show toast for fallback scenarios)
+      handleErrorSilently(error);
       this.useMockFallback = true;
       
       // Fallback to mock service
@@ -130,7 +131,8 @@ class ProductService {
       // If recommendations API doesn't return full products, fall back to search
       return this.searchProducts({ limit: 12 });
     } catch (error: any) {
-      console.error('[ProductService] Error fetching recommendations:', error);
+      // Log error silently (don't show toast for fallback scenarios)
+      handleErrorSilently(error);
       
       // Fallback to mock service
       return mockProductService.getRecommendations(userId);

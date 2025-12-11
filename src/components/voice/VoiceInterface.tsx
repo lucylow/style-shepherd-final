@@ -89,7 +89,7 @@ export const VoiceInterface = ({ onVoiceCommand, onListeningChange, userId, clas
       // Guest users use browser speech only
       setIsConnected(false);
     }
-  }, [userId]);
+  }, [userId, toast]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -123,6 +123,7 @@ export const VoiceInterface = ({ onVoiceCommand, onListeningChange, userId, clas
         }
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Audio level visualization

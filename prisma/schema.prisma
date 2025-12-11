@@ -1,0 +1,45 @@
+// Prisma schema for Risk & Compliance
+// Run: npx prisma generate && npx prisma migrate dev --name add_risk_evidence
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql" // or "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Evidence {
+  id         String   @id @default(cuid())
+  action     String
+  userId     String?
+  payload    Json
+  hash       String   @unique
+  createdAt  DateTime @default(now())
+  // relation
+  incidents  RiskIncident[]
+}
+
+model RiskIncident {
+  id                 String   @id @default(cuid())
+  evidenceId         String?              // relation to Evidence
+  action             String
+  userId             String?
+  score              Float
+  decision           String
+  reasons            Json?
+  handledBy          String?
+  handledAt          DateTime?
+  createdAt          DateTime @default(now())
+
+  // Explicit features (optional but helpful for ML training)
+  price              Int?     // cents
+  returnsProbability Float?   // 0..1
+  userReturnRate     Float?
+  brandTrustScore    Float?   // 0..1
+  anomalyFlagsCount  Int?     // count of flags
+  actionType         String?
+
+  evidence           Evidence? @relation(fields: [evidenceId], references: [id])
+}

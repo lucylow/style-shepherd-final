@@ -26,6 +26,15 @@ VITE_VULTR_VALKEY_TLS=true
 # Backend API endpoint for Valkey (required for frontend)
 # This should point to your backend API that connects to Vultr Valkey
 VITE_VULTR_VALKEY_API_ENDPOINT=http://localhost:3000/api/vultr/valkey
+
+# OpenAI Configuration (for embeddings in hybrid recommender)
+OPENAI_API_KEY=sk-...
+
+# Recommendation System Tuning (optional, defaults provided)
+RECOMMEND_TOP_K=50
+RECOMMEND_RETURN_PENALTY_WEIGHT=0.7
+RECOMMEND_SIZE_BONUS=1.2
+RECOMMEND_RECENCY_BOOST=1.1
 ```
 
 ## Setup Instructions

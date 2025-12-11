@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { streamFashionChat } from '@/services/aiAssistant';
-import { toast } from 'sonner';
+import { handleError } from '@/lib/errorHandler';
 
 type Message = { role: 'user' | 'assistant'; content: string };
 
@@ -38,13 +38,16 @@ export function useFashionChat() {
           onDone: () => setIsLoading(false),
           onError: (error) => {
             setIsLoading(false);
-            toast.error(error.message || 'Failed to get response');
+            handleError(error, {
+              defaultMessage: 'Failed to get response from AI assistant',
+            });
           },
         });
       } catch (error) {
         setIsLoading(false);
-        console.error('Chat error:', error);
-        toast.error('Failed to send message');
+        handleError(error, {
+          defaultMessage: 'Failed to send message',
+        });
       }
     },
     [messages, isLoading]

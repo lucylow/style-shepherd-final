@@ -36,6 +36,7 @@ export interface Order {
     zip: string;
     country: string;
   };
+  incidentId?: string; // Optional fraud incident ID
 }
 
 export interface ReturnPrediction {
@@ -159,6 +160,7 @@ export class PaymentService {
               orderId: `order_${Date.now()}`,
               returnRiskScore: returnPrediction.score.toString(),
               integration: 'style-shepherd',
+              ...(order.incidentId && { incidentId: order.incidentId }),
             },
           };
 
@@ -1139,10 +1141,59 @@ export class PaymentService {
         break;
       }
 
-      case 'charge.dispute.created': {
+      case 'charge.dispute.created':
+      case 'charge.dispute.updated': {
         const dispute = event.data.object as Stripe.Dispute;
-        console.log('⚠️ Dispute created:', dispute.id);
-        // Alert team, create evidence, etc.
+        console.log('⚠️ Dispute created/updated:', dispute.id);
+        
+        // Update fraud incidents and user risk profiles
+        try {
+          const chargeId = dispute.charge as string;
+          if (chargeId) {
+            const charge = await this.stripe.charges.retrieve(chargeId);
+            const paymentIntentId = charge.payment_intent as string;
+            
+            if (paymentIntentId) {
+              const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
+              const userId = paymentIntent.metadata?.userId;
+              const incidentId = paymentIntent.metadata?.incidentId;
+              
+              // Update fraud incident if linked
+              if (incidentId) {
+                await vultrPostgres.query(
+                  `UPDATE fraud_incidents 
+                   SET decision = 'deny', 
+                       notes = $1,
+                       updated_at = $2
+                   WHERE id = $3`,
+                  [
+                    `Stripe dispute: ${event.type} - ${dispute.reason || 'unknown'}`,
+                    new Date().toISOString(),
+                    incidentId,
+                  ]
+                );
+              }
+              
+              // Update user risk profile - increment chargeback count
+              if (userId) {
+                await vultrPostgres.query(
+                  `INSERT INTO user_risk_profiles (id, user_id, chargeback_count, last_update)
+                   VALUES ($1, $2, 1, $3)
+                   ON CONFLICT (user_id) DO UPDATE SET
+                     chargeback_count = user_risk_profiles.chargeback_count + 1,
+                     last_update = $3`,
+                  [
+                    `risk_${userId}`,
+                    userId,
+                    new Date().toISOString(),
+                  ]
+                );
+              }
+            }
+          }
+        } catch (dbError) {
+          console.error('Failed to update fraud data for dispute:', dbError);
+        }
         break;
       }
 
@@ -1191,7 +1242,23 @@ export class PaymentService {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
         console.log('✅ Checkout session completed:', session.id);
-        // Handle successful checkout - create order, activate subscription, etc.
+        
+        // Update fraud incident if payment completed successfully
+        try {
+          const incidentId = session.metadata?.incidentId;
+          if (incidentId) {
+            await vultrPostgres.query(
+              `UPDATE fraud_incidents 
+               SET decision = 'allow', 
+                   notes = 'payment completed successfully',
+                   updated_at = $1
+               WHERE id = $2`,
+              [new Date().toISOString(), incidentId]
+            );
+          }
+        } catch (dbError) {
+          console.error('Failed to update fraud incident for completed checkout:', dbError);
+        }
         break;
       }
       

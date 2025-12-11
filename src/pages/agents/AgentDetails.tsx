@@ -196,13 +196,14 @@ const AgentDetails = () => {
   
   useEffect(() => {
     if (agent) {
+      const customVoice = agent.voice === "Custom";
       setIsActive(agent.status === "active");
       setModel(agent.model || "GPT-4");
       setVoice(agent.voice || "Emma");
       setVoiceProvider(agent.voiceProvider || "Eleven Labs");
       setCustomVoiceId(agent.customVoiceId || "");
-      setIsCustomVoice(agent.voice === "Custom");
-      if (agent.voice && agent.voiceProvider && !isCustomVoice) {
+      setIsCustomVoice(customVoice);
+      if (agent.voice && agent.voiceProvider && !customVoice) {
         const voiceDef = voiceSamples[agent.voiceProvider]?.[agent.voice];
         if (voiceDef) {
           setSelectedVoiceTraits(voiceDef.traits || []);

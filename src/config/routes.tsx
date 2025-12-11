@@ -68,6 +68,9 @@ const LovableHealth = lazy(() => import('@/pages/lovable/LovableHealth'));
 const DemoIntegrations = lazy(() => import('@/pages/demo/DemoIntegrations'));
 const FashioniDemo = lazy(() => import('@/pages/demo/FashioniDemo'));
 
+// Admin pages
+const AdminRisk = lazy(() => import('@/pages/AdminRisk'));
+
 // Error pages
 const NotFound = lazy(() => import('@/pages/NotFound'));
 
@@ -365,6 +368,20 @@ export const routeConfigs: RouteConfig[] = [
     component: FashioniDemo,
     label: 'Fashioni Demo',
     group: 'demo',
+  },
+
+  // Admin routes
+  {
+    path: '/admin/risk',
+    component: AdminRisk,
+    label: 'Risk & Compliance',
+    group: 'admin',
+  },
+  {
+    path: '/admin/providers',
+    component: AdminProviders,
+    label: 'Provider Management',
+    group: 'admin',
   },
 
   // Error routes (must be last)

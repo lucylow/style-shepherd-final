@@ -7,6 +7,7 @@ import { createHash } from 'crypto';
 import env from '../config/env.js';
 import { vultrPostgres } from '../lib/vultr-postgres.js';
 import { vultrValkey } from '../lib/vultr-valkey.js';
+import { embedOpenAI, cosineSimilarity, ensureProductEmbedding } from '../lib/embeddings.js';
 import {
   ExternalServiceError,
   ApiTimeoutError,
@@ -44,6 +45,13 @@ export interface RecommendationResult {
   confidence: number;
   reasons: string[];
   returnRisk: number;
+  explain?: {
+    sim?: number;
+    popularity?: number;
+    sizeBonus?: number;
+    riskPenalty?: number;
+    recency?: number;
+  };
 }
 
 export class ProductRecommendationAPI {
@@ -866,6 +874,320 @@ export class ProductRecommendationAPI {
   private hashCacheKey(data: any): string {
     const str = JSON.stringify(data);
     return createHash('sha256').update(str).digest('hex').substring(0, 16);
+  }
+
+  /**
+   * Hybrid recommendation system with embeddings + business rules
+   * Combines semantic similarity (RAG-style) with collaborative signals and business rules
+   */
+  async getHybridRecommendations(
+    userQuery: string,
+    userPreferences: UserPreferences,
+    context: RecommendationContext,
+    userId?: string
+  ): Promise<RecommendationResult[]> {
+    const RECOMMEND_TOP_K = Number(process.env.RECOMMEND_TOP_K || 50);
+    const RETURN_PENALTY_WEIGHT = Number(process.env.RECOMMEND_RETURN_PENALTY_WEIGHT || 0.7);
+    const SIZE_BONUS = Number(process.env.RECOMMEND_SIZE_BONUS || 1.2);
+    const RECENCY_BOOST = Number(process.env.RECOMMEND_RECENCY_BOOST || 1.1);
+
+    try {
+      // 1. Generate candidates (filter by category, stock, price range)
+      const candidates = await this.getCandidateProducts({
+        category: context.occasion ? this.mapOccasionToCategory(context.occasion) : undefined,
+        budgetMaxCents: context.budget ? Math.round(context.budget * 100) : undefined,
+        brandWhitelist: userPreferences.preferredBrands,
+      });
+
+      if (candidates.length === 0) {
+        return [];
+      }
+
+      // 2. Compute embedding for user query
+      const [queryEmbedding] = await embedOpenAI([userQuery || context.searchQuery || 'fashion items']);
+
+      // 3. Score each candidate
+      const scored: Array<{
+        product: any;
+        score: number;
+        explain: {
+          sim: number;
+          popularity: number;
+          sizeBonus: number;
+          riskPenalty: number;
+          recency: number;
+        };
+      }> = [];
+
+      for (const product of candidates) {
+        // Get or generate product embedding
+        let productEmbedding: number[];
+        if (product.embedding && Array.isArray(product.embedding)) {
+          productEmbedding = product.embedding;
+        } else {
+          // Generate embedding and optionally persist
+          productEmbedding = await ensureProductEmbedding({
+            id: product.id,
+            name: product.name,
+            description: product.description,
+            brand: product.brand,
+            category: product.category,
+          });
+          
+          // Persist embedding asynchronously (non-blocking)
+          vultrPostgres.query(
+            `UPDATE catalog SET embedding = $1 WHERE id = $2`,
+            [JSON.stringify(productEmbedding), product.id]
+          ).catch(err => console.warn('Failed to persist embedding:', err));
+        }
+
+        // Calculate semantic similarity
+        const sim = cosineSimilarity(queryEmbedding, productEmbedding);
+
+        // Business rule multipliers
+        const sizeBonus = this.calculateSizeMatchBonus(product, userPreferences);
+        const riskPenalty = this.calculateReturnRiskPenalty(product, RETURN_PENALTY_WEIGHT);
+        const recency = this.calculateRecencyBoost(product, RECENCY_BOOST);
+        const popularity = Number(product.popularity || 0.5);
+
+        // Hybrid score: semantic similarity + popularity, then apply business multipliers
+        const baseScore = (sim * 0.7) + (popularity * 0.3);
+        const finalScore = baseScore * sizeBonus * riskPenalty * recency;
+
+        scored.push({
+          product,
+          score: finalScore,
+          explain: {
+            sim: Number(sim.toFixed(4)),
+            popularity: Number(popularity.toFixed(4)),
+            sizeBonus,
+            riskPenalty,
+            recency,
+          },
+        });
+      }
+
+      // 4. Diversity post-process: avoid brand repeats
+      scored.sort((a, b) => b.score - a.score);
+      const final: typeof scored = [];
+      const brandSeen = new Set<string>();
+
+      for (const item of scored) {
+        const brand = item.product.brand?.toLowerCase() || 'unknown';
+        if (!brandSeen.has(brand) || final.length < 5) {
+          final.push(item);
+          brandSeen.add(brand);
+        } else {
+          // Deprioritize repeated brand
+          item.score *= 0.85;
+          final.push(item);
+        }
+      }
+
+      // 5. Return top N with explainability
+      const topResults = final.slice(0, 12).map(item => ({
+        productId: item.product.id,
+        score: Number(item.score.toFixed(4)),
+        confidence: this.calculateConfidence(item.product),
+        reasons: this.generateHybridReasons(item.product, item.explain, userPreferences),
+        returnRisk: Number((item.product.return_risk || this.estimateReturnRisk(item.product)).toFixed(3)),
+        explain: item.explain,
+      }));
+
+      // Log impressions for metrics
+      if (userId) {
+        await this.logRecommendationImpressions(userId, topResults.map(r => r.productId)).catch(
+          err => console.warn('Failed to log impressions:', err)
+        );
+      }
+
+      return topResults;
+    } catch (error: any) {
+      console.error('Hybrid recommendation error:', error);
+      // Fallback to existing recommendation method
+      return this.getRecommendations(userPreferences, context);
+    }
+  }
+
+  /**
+   * Get candidate products from database
+   */
+  private async getCandidateProducts(filters: {
+    category?: string;
+    budgetMaxCents?: number;
+    brandWhitelist?: string[];
+  }): Promise<any[]> {
+    const RECOMMEND_TOP_K = Number(process.env.RECOMMEND_TOP_K || 50);
+    
+    let whereClause = 'WHERE stock > 0';
+    const params: any[] = [];
+    let paramIndex = 1;
+
+    if (filters.category) {
+      whereClause += ` AND category = $${paramIndex}`;
+      params.push(filters.category);
+      paramIndex++;
+    }
+
+    if (filters.brandWhitelist && filters.brandWhitelist.length > 0) {
+      whereClause += ` AND brand = ANY($${paramIndex})`;
+      params.push(filters.brandWhitelist);
+      paramIndex++;
+    }
+
+    if (filters.budgetMaxCents) {
+      whereClause += ` AND price <= $${paramIndex}`;
+      params.push(filters.budgetMaxCents / 100); // Convert cents to dollars
+      paramIndex++;
+    }
+
+    const query = `
+      SELECT 
+        id, name, description, brand, category, price, 
+        sizes, stock, image_url, rating, reviews_count,
+        embedding, popularity, return_risk, created_at
+      FROM catalog
+      ${whereClause}
+      ORDER BY popularity DESC, rating DESC
+      LIMIT $${paramIndex}
+    `;
+    params.push(RECOMMEND_TOP_K * 3); // Oversample for diversification
+
+    const results = await vultrPostgres.query(query, params);
+    return results.map((r: any) => ({
+      ...r,
+      embedding: r.embedding ? (typeof r.embedding === 'string' ? JSON.parse(r.embedding) : r.embedding) : null,
+      sizes: typeof r.sizes === 'string' ? JSON.parse(r.sizes) : (r.sizes || []),
+    }));
+  }
+
+  /**
+   * Calculate size match bonus
+   */
+  private calculateSizeMatchBonus(product: any, preferences: UserPreferences): number {
+    const SIZE_BONUS = Number(process.env.RECOMMEND_SIZE_BONUS || 1.2);
+    
+    if (!preferences.preferredSizes || preferences.preferredSizes.length === 0) {
+      return 1.0;
+    }
+
+    if (!product.sizes || product.sizes.length === 0) {
+      return 1.0;
+    }
+
+    const productSizes = product.sizes.map((s: string) => s.toUpperCase());
+    const preferredSizes = preferences.preferredSizes.map(s => s.toUpperCase());
+
+    const hasMatch = preferredSizes.some(size => productSizes.includes(size));
+    return hasMatch ? SIZE_BONUS : 1.0;
+  }
+
+  /**
+   * Calculate return risk penalty
+   */
+  private calculateReturnRiskPenalty(product: any, weight: number): number {
+    const risk = product.return_risk || this.estimateReturnRisk(product);
+    return 1 - (weight * risk);
+  }
+
+  /**
+   * Calculate recency boost
+   */
+  private calculateRecencyBoost(product: any, boost: number): number {
+    if (!product.created_at) {
+      return 1.0;
+    }
+
+    const ageMs = Date.now() - new Date(product.created_at).getTime();
+    const day = 24 * 3600000;
+
+    if (ageMs < 7 * day) {
+      return boost; // New in last week
+    }
+    if (ageMs < 30 * day) {
+      return 1.05; // New in last month
+    }
+    return 1.0;
+  }
+
+  /**
+   * Generate hybrid recommendation reasons
+   */
+  private generateHybridReasons(
+    product: any,
+    explain: { sim: number; popularity: number; sizeBonus: number; riskPenalty: number; recency: number },
+    preferences: UserPreferences
+  ): string[] {
+    const reasons: string[] = [];
+
+    if (explain.sim > 0.7) {
+      reasons.push(`Strong semantic match (${Math.round(explain.sim * 100)}% similarity)`);
+    } else if (explain.sim > 0.5) {
+      reasons.push(`Good semantic match (${Math.round(explain.sim * 100)}% similarity)`);
+    }
+
+    if (explain.sizeBonus > 1.0) {
+      reasons.push(`Matches your preferred size`);
+    }
+
+    if (explain.riskPenalty > 0.8) {
+      reasons.push(`Low return risk`);
+    }
+
+    if (explain.recency > 1.0) {
+      reasons.push(`Newly added item`);
+    }
+
+    if (product.rating && product.rating >= 4.0) {
+      reasons.push(`Highly rated (${product.rating.toFixed(1)}/5.0)`);
+    }
+
+    if (preferences.preferredBrands?.includes(product.brand)) {
+      reasons.push(`From your favorite brand: ${product.brand}`);
+    }
+
+    if (reasons.length === 0) {
+      reasons.push('Recommended based on your preferences');
+    }
+
+    return reasons;
+  }
+
+  /**
+   * Map occasion to category
+   */
+  private mapOccasionToCategory(occasion: string): string | undefined {
+    const mapping: Record<string, string> = {
+      'casual': 'casual',
+      'formal': 'formal',
+      'work': 'business',
+      'party': 'party',
+      'wedding': 'formal',
+      'beach': 'swimwear',
+      'sport': 'activewear',
+    };
+    return mapping[occasion.toLowerCase()];
+  }
+
+  /**
+   * Log recommendation impressions for metrics
+   */
+  private async logRecommendationImpressions(userId: string, productIds: string[]): Promise<void> {
+    try {
+      // Use parameterized query to prevent SQL injection
+      const insertPromises = productIds.map((productId, idx) =>
+        vultrPostgres.query(
+          `INSERT INTO interactions (user_id, product_id, type, value, metadata, created_at)
+           VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)`,
+          [userId, productId, 'recommendation_impression', idx + 1, JSON.stringify({})]
+        )
+      );
+
+      await Promise.all(insertPromises);
+    } catch (error) {
+      // Non-critical, log but don't throw
+      console.warn('Failed to log recommendation impressions:', error);
+    }
   }
 }
 

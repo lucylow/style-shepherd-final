@@ -210,7 +210,7 @@ const AgentConfigSettings: React.FC<AgentConfigSettingsProps> = ({ agent, onAgen
   });
 
   const debouncedSave = React.useCallback(
-    debounce(async (updatedData) => {
+    debounce(async (updatedData: any) => {
       try {
         setIsSaving(true);
         const updatedAgent = await updateAgent(agent.id, updatedData);

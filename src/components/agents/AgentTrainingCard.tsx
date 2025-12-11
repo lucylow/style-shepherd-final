@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import { 
   Mic, Upload, CircleDashed, ArrowRight, Clock, BarChart, 
   ChevronUp, CheckCircle2, PlayCircle, User, Download, Trash2,
@@ -88,16 +88,16 @@ export const AgentTrainingCard: React.FC<AgentTrainingCardProps> = ({
     setUserPersonasSidebarOpen(false);
   };
 
-  const durationToMinutes = (duration: string): number => {
+  const durationToMinutes = useCallback((duration: string): number => {
     const [minutes, seconds] = duration.split(':').map(Number);
     return minutes + seconds / 60;
-  };
+  }, []);
 
-  const calculateTotalMinutes = (records: TrainingRecord[]): number => {
+  const calculateTotalMinutes = useCallback((records: TrainingRecord[]): number => {
     return records.reduce((total, record) => {
       return total + durationToMinutes(record.duration);
     }, 0);
-  };
+  }, [durationToMinutes]);
 
   const formatMinutes = (minutes: number): string => {
     return minutes.toFixed(1);
@@ -218,7 +218,7 @@ export const AgentTrainingCard: React.FC<AgentTrainingCardProps> = ({
   React.useEffect(() => {
     const minutes = calculateTotalMinutes(localTrainingRecords);
     setTotalRecordingMinutes(minutes);
-  }, []);
+  }, [calculateTotalMinutes, localTrainingRecords]);
 
   const progressPercentage = localStatus === 'completed' 
     ? 100 

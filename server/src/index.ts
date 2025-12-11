@@ -16,6 +16,7 @@ import vultrRoutes from './routes/vultr.js';
 import apiRoutes from './routes/api.js';
 import integrationsRoutes from './routes/integrations.js';
 import raindropRoutes from './routes/raindrop.js';
+import fraudRoutes from './routes/fraud.js';
 import { vultrPostgres } from './lib/vultr-postgres.js';
 import { vultrValkey } from './lib/vultr-valkey.js';
 import { initRaindrop } from './lib/raindropClient.js';
@@ -95,10 +96,18 @@ initRaindrop().catch((err) => {
   console.warn('Raindrop initialization error (will use mock mode):', err);
 });
 
+// Initialize provider registry
+initProviders().catch((err) => {
+  console.warn('Provider initialization error:', err);
+});
+
 // API routes
 app.use('/api/vultr', vultrRoutes);
 app.use('/api/integrations', integrationsRoutes);
 app.use('/api/raindrop', raindropRoutes);
+app.use('/api/admin/fraud', fraudRoutes);
+app.use('/api/personalize', personalizationRoutes);
+app.use('/api/admin', adminRoutes);
 app.use('/api', apiRoutes);
 
 // Serve static files from client build in production
@@ -136,39 +145,28 @@ app.get('/', (req: express.Request, res: express.Response) => {
 
 // Error handling middleware
 import { AppError, isAppError, toAppError } from './lib/errors.js';
+import { logError } from './lib/errorLogger.js';
 
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   // Convert to AppError if needed
   const error = isAppError(err) ? err : toAppError(err);
   
-  // Log error with context
-  const logData = {
+  // Log error with structured logging
+  logError(error, req);
+  
+  // Send error response
+  // Don't expose internal error details in production for non-operational errors
+  const shouldExposeDetails = env.NODE_ENV === 'development' || error.isOperational;
+  
+  res.status(error.statusCode).json({
     error: {
       code: error.code,
       message: error.message,
       statusCode: error.statusCode,
-      details: error.details,
+      ...(shouldExposeDetails && { details: error.details }),
+      timestamp: error.timestamp.toISOString(),
     },
-    request: {
-      method: req.method,
-      path: req.path,
-      query: req.query,
-      body: req.method !== 'GET' ? req.body : undefined,
-      ip: req.ip,
-      userAgent: req.get('user-agent'),
-    },
-    timestamp: new Date().toISOString(),
-    ...(env.NODE_ENV === 'development' && { stack: error.stack }),
-  };
-  
-  if (error.statusCode >= 500) {
-    console.error('Server Error:', logData);
-  } else {
-    console.warn('Client Error:', logData);
-  }
-  
-  // Send error response
-  res.status(error.statusCode).json(error.toJSON());
+  });
 });
 
 // 404 handler - for SPA routing in production

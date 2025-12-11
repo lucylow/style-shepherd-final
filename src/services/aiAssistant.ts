@@ -1,6 +1,20 @@
 import { supabase } from '@/integrations/supabase/client';
+import { getApiBaseUrl } from '@/lib/api-config';
 
 type Message = { role: 'user' | 'assistant'; content: string };
+
+interface FashioniResponse {
+  success: boolean;
+  source: string;
+  assistantText: string;
+  fields: {
+    raw: string;
+    size: string | null;
+    fabrics: string[];
+    colors: string[];
+  };
+  raw?: any;
+}
 
 export async function streamFashionChat({
   messages,
@@ -74,8 +88,46 @@ export async function streamFashionChat({
 
     onDone();
   } catch (error) {
-    console.error('Fashion chat error:', error);
-    if (onError) onError(error as Error);
+    const errorObj = error instanceof Error ? error : new Error(String(error));
+    if (onError) {
+      onError(errorObj);
+    } else {
+      // Fallback error handling if onError not provided
+      console.error('Fashion chat error:', errorObj);
+      throw errorObj;
+    }
+  }
+}
+
+/**
+ * Get Fashioni response using RAG (Retrieval-Augmented Generation)
+ * This uses the new /api/fashioni/respond endpoint with RAG, prompt templates, and field extraction
+ */
+export async function getFashioniResponse(
+  message: string,
+  userId: string = 'demo_user',
+  model?: string
+): Promise<FashioniResponse> {
+  try {
+    const apiBase = getApiBaseUrl();
+    const response = await fetch(`${apiBase}/fashioni/respond`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ userId, message, model }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Fashioni RAG response error:', error);
+    throw error;
   }
 }
 
@@ -102,10 +154,12 @@ export async function getStyleRecommendations({
       body: { userProfile, preferences, context },
     });
 
-    if (error) throw error;
+    if (error) {
+      throw new Error(error.message || 'Failed to get style recommendations');
+    }
     return data;
   } catch (error) {
-    console.error('Style recommendations error:', error);
+    // Re-throw to let caller handle with handleError
     throw error;
   }
 }

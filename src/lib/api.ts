@@ -31,23 +31,35 @@ if (import.meta.env.DEV) {
     }
   );
 
-  // Response interceptor for error logging
+  // Response interceptor for error logging and handling
   api.interceptors.response.use(
     (response) => {
       return response;
     },
     (error: AxiosError) => {
+      // Enhanced error logging with better context
+      const errorContext = {
+        method: error.config?.method?.toUpperCase(),
+        url: error.config?.url,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        isNetworkError: !error.response && !!error.request,
+        isTimeout: error.code === 'ECONNABORTED',
+      };
+      
       if (error.response) {
         console.error(
-          `[API] ${error.config?.method?.toUpperCase()} ${error.config?.url} failed:`,
-          error.response.status,
-          error.response.data
+          `[API] ${errorContext.method} ${errorContext.url} failed:`,
+          errorContext.status,
+          errorContext.data
         );
       } else if (error.request) {
-        console.error('[API] No response received:', error.request);
+        console.error('[API] No response received:', errorContext);
       } else {
         console.error('[API] Error setting up request:', error.message);
       }
+      
       return Promise.reject(error);
     }
   );
