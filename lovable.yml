@@ -4,7 +4,7 @@ build:
   # static framework with Node.js server (start_command will run the server)
   framework: static
   node_version: 18
-  build_command: "npm ci && npm run build"
+  build_command: "npm ci && npm run build && (cd server && npm ci && npm run build || true)"
   output_dir: "dist"
 
 deploy:
@@ -25,6 +25,11 @@ health:
 environment:
   NODE_ENV: production
   PORT: 3000
+  # Demo Mode - set to "true" to run without external services (recommended for demo)
+  DEMO_MODE: ${DEMO_MODE}
+  NEXT_PUBLIC_DEMO_MODE: ${DEMO_MODE}
+  # CORS - allow requests from Lovable domain (wildcard for flexibility)
+  CORS_ORIGIN: "*"
   # Integration Keys - map Lovable's secret names to runtime env variables (set these in Lovable UI)
   # Vultr Serverless Inference (primary name, also supports VULTR_API_KEY, VULTR_KEY)
   VULTR_SERVERLESS_INFERENCE_API_KEY: ${VULTR_SERVERLESS_INFERENCE_API_KEY}
@@ -33,11 +38,11 @@ environment:
   ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY}
   # Raindrop Memory Platform (also supports RAINDROP_KEY)
   RAINDROP_API_KEY: ${RAINDROP_API_KEY}
+  RAINDROP_PROJECT_ID: ${RAINDROP_PROJECT_ID}
   # Optional Configuration
   VULTR_INFERENCE_BASE_URL: ${VULTR_INFERENCE_BASE_URL}
   ELEVENLABS_BASE_URL: ${ELEVENLABS_BASE_URL}
   NEXT_PUBLIC_DEFAULT_VOICE_ID: ${NEXT_PUBLIC_DEFAULT_VOICE_ID}
-  NEXT_PUBLIC_DEMO_MODE: ${NEXT_PUBLIC_DEMO_MODE}
 
 # OPTIONAL: post-deploy hooks (run in the instance after starting)
 hooks:

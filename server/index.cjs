@@ -77,6 +77,28 @@ app.get('/metrics', async (req, res) => {
 // Basic ping
 app.get('/api/ping', (req, res) => res.json({ pong: true, env: process.env.NODE_ENV || 'development' }));
 
+// Catch-all for API routes not handled by simple server
+// If full server is built, it will handle these; otherwise return helpful error
+app.use('/api', (req, res, next) => {
+  // Check if full server exists
+  const fullServerPath = path.join(process.cwd(), 'server', 'dist', 'index.js');
+  if (fs.existsSync(fullServerPath)) {
+    // Full server should handle this, but if we're here, it's not running
+    return res.status(503).json({ 
+      error: 'API server not available', 
+      message: 'Full API server is built but not running. Please use the full server build.',
+      endpoint: req.path 
+    });
+  }
+  // Simple server mode - return not implemented
+  res.status(501).json({ 
+    error: 'API endpoint not implemented in simple server mode',
+    message: 'This endpoint requires the full TypeScript server. Please build the server: cd server && npm run build',
+    endpoint: req.path,
+    availableEndpoints: ['/api/ping', '/health', '/status', '/metrics']
+  });
+});
+
 // Graceful shutdown
 let shuttingDown = false;
 process.on('SIGTERM', () => {

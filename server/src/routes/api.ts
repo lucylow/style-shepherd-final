@@ -505,10 +505,7 @@ router.post(
       }
       
       res.json(responseData);
-    } catch (error) {
-      next(error);
-    }
-  }
+  })
 );
 
 router.get(
@@ -675,8 +672,7 @@ router.post(
       budget: z.number().positive().optional(),
     })
   ),
-  async (req: Request, res: Response, next: NextFunction) => {
-  try {
+  asyncHandler(async (req: Request, res: Response) => {
     const { userId, occasion, budget } = req.body;
     const recommendation = await fashionEngine.getPersonalizedRecommendation(
       userId,
@@ -684,10 +680,7 @@ router.post(
       budget
     );
     res.json(recommendation);
-  } catch (error) {
-      next(error);
-    }
-  }
+  })
 );
 
 // Payments

@@ -1,5 +1,6 @@
 import { CartItem } from '@/types/fashion';
-import { getApiBaseUrl } from '@/lib/api-config';
+import { apiPost, apiGet, ApiClientOptions } from '@/lib/apiClient';
+import { handleError } from '@/lib/errorHandler';
 
 export interface PaymentIntent {
   clientSecret: string;
@@ -38,40 +39,11 @@ interface PaymentMethod {
 }
 
 class PaymentService {
-  private API_BASE = getApiBaseUrl();
-  private readonly MAX_RETRIES = 3;
-  private readonly RETRY_DELAY = 1000;
-
-  /**
-   * Retry wrapper for API calls
-   */
-  private async retryApiCall<T>(
-    operation: () => Promise<T>,
-    retries: number = this.MAX_RETRIES
-  ): Promise<T> {
-    let lastError: any;
-    
-    for (let attempt = 0; attempt < retries; attempt++) {
-      try {
-        return await operation();
-      } catch (error: any) {
-        lastError = error;
-        
-        // Don't retry on client errors (4xx)
-        if (error.status >= 400 && error.status < 500) {
-          throw error;
-        }
-        
-        // Exponential backoff
-        if (attempt < retries - 1) {
-          const delay = this.RETRY_DELAY * Math.pow(2, attempt);
-          await new Promise(resolve => setTimeout(resolve, delay));
-        }
-      }
-    }
-    
-    throw lastError;
-  }
+  private readonly errorOptions: ApiClientOptions = {
+    retry: {
+      maxRetries: 3,
+    },
+  };
 
   /**
    * Create a payment intent for Stripe
@@ -101,7 +73,7 @@ class PaymentService {
       size: item.size || 'M', // Default size if not specified
     }));
 
-    return this.retryApiCall(async () => {
+    try {
       const requestBody: any = {
         userId,
         items: backendItems,
@@ -122,29 +94,15 @@ class PaymentService {
 
       // Use idempotent endpoint if key provided
       const endpoint = idempotencyKey 
-        ? `${this.API_BASE}/payments/intent-idempotent`
-        : `${this.API_BASE}/payments/intent`;
+        ? '/payments/intent-idempotent'
+        : '/payments/intent';
       
       if (idempotencyKey) {
         requestBody.idempotencyKey = idempotencyKey;
       }
 
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const error = new Error(errorData.message || `Failed to create payment intent: ${response.statusText}`);
-        (error as any).status = response.status;
-        throw error;
-      }
-
-      const data = await response.json();
+      const response = await apiPost<PaymentIntent>(endpoint, requestBody, undefined, this.errorOptions);
+      const data = response.data;
       
       // Return in format expected by frontend
       return {
@@ -152,7 +110,10 @@ class PaymentService {
         paymentIntentId: data.paymentIntentId,
         returnPrediction: data.returnPrediction,
       };
-    });
+    } catch (error) {
+      handleError(error);
+      throw error;
+    }
   }
 
   /**
@@ -196,13 +157,10 @@ class PaymentService {
         : undefined,
     }));
 
-    return this.retryApiCall(async () => {
-      const response = await fetch(`${this.API_BASE}/payments/checkout-session`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+    try {
+      const response = await apiPost<CheckoutSession>(
+        '/payments/checkout-session',
+        {
           userId,
           mode: 'payment',
           lineItems,
@@ -222,22 +180,20 @@ class PaymentService {
             cartItemCount: items.length.toString(),
             totalAmount: totalAmount.toString(),
           },
-        }),
-      });
+        },
+        undefined,
+        this.errorOptions
+      );
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const error = new Error(errorData.message || `Failed to create checkout session: ${response.statusText}`);
-        (error as any).status = response.status;
-        throw error;
-      }
-
-      const data = await response.json();
+      const data = response.data;
       return {
         sessionId: data.sessionId,
         url: data.url,
       };
-    });
+    } catch (error) {
+      handleError(error);
+      throw error;
+    }
   }
 
   /**
@@ -302,24 +258,18 @@ class PaymentService {
    * Get saved payment methods for a user
    */
   async getPaymentMethods(userId: string): Promise<PaymentMethod[]> {
-    return this.retryApiCall(async () => {
-      const response = await fetch(`${this.API_BASE}/payments/payment-methods/${userId}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+    try {
+      const response = await apiGet<{ paymentMethods: PaymentMethod[] }>(
+        `/payments/payment-methods/${userId}`,
+        undefined,
+        this.errorOptions
+      );
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const error = new Error(errorData.message || `Failed to get payment methods: ${response.statusText}`);
-        (error as any).status = response.status;
-        throw error;
-      }
-
-      const data = await response.json();
-      return data.paymentMethods || [];
-    });
+      return response.data.paymentMethods || [];
+    } catch (error) {
+      handleError(error);
+      throw error;
+    }
   }
 
   /**
@@ -354,49 +304,39 @@ class PaymentService {
    * Detach payment method from user
    */
   async detachPaymentMethod(paymentMethodId: string): Promise<void> {
-    return this.retryApiCall(async () => {
-      const response = await fetch(`${this.API_BASE}/payments/payment-methods/detach`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+    try {
+      await apiPost(
+        '/payments/payment-methods/detach',
+        {
           paymentMethodId,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const error = new Error(errorData.message || `Failed to detach payment method: ${response.statusText}`);
-        (error as any).status = response.status;
-        throw error;
-      }
-    });
+        },
+        undefined,
+        this.errorOptions
+      );
+    } catch (error) {
+      handleError(error);
+      throw error;
+    }
   }
 
   /**
    * Set default payment method for user
    */
   async setDefaultPaymentMethod(userId: string, paymentMethodId: string): Promise<void> {
-    return this.retryApiCall(async () => {
-      const response = await fetch(`${this.API_BASE}/payments/payment-methods/set-default`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+    try {
+      await apiPost(
+        '/payments/payment-methods/set-default',
+        {
           userId,
           paymentMethodId,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const error = new Error(errorData.message || `Failed to set default payment method: ${response.statusText}`);
-        (error as any).status = response.status;
-        throw error;
-      }
-    });
+        },
+        undefined,
+        this.errorOptions
+      );
+    } catch (error) {
+      handleError(error);
+      throw error;
+    }
   }
 }
 

@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { VoiceResponse } from '@/types/fashion';
 import { speakText } from '@/lib/ttsClient';
 import { productService } from './productService';
+import { handleError, handleErrorSilently } from '@/lib/errorHandler';
 
 export interface ConversationState {
   conversationId: string;
@@ -89,8 +90,9 @@ class VoiceService {
       };
 
       this.recognition.onerror = (event: any) => {
+        const errorMessage = this.getSpeechRecognitionErrorMessage(event.error);
         console.error('Speech recognition error:', event.error);
-        reject(new Error(`Speech recognition error: ${event.error}`));
+        reject(new Error(errorMessage));
       };
 
       this.recognition.onend = () => {
@@ -99,8 +101,10 @@ class VoiceService {
 
       try {
         this.recognition.start();
-      } catch (error) {
-        reject(error);
+      } catch (error: any) {
+        const errorMessage = error?.message || 'Failed to start speech recognition';
+        console.error('Error starting recognition:', error);
+        reject(new Error(errorMessage));
       }
     });
   }
@@ -145,7 +149,9 @@ class VoiceService {
 
       if (error) {
         console.error('Edge function error:', error);
-        throw new Error(error.message || 'Failed to process voice');
+        const errorMessage = error.message || 'Failed to process voice input';
+        handleErrorSilently(error);
+        throw new Error(errorMessage);
       }
 
       // Check if response indicates success
@@ -166,6 +172,7 @@ class VoiceService {
           products = await productService.searchProducts({ query });
           console.log(`Found ${products.length} products for search: ${query}`);
         } catch (searchError) {
+          handleErrorSilently(searchError);
           console.warn('Product search failed:', searchError);
           // Continue without products - the error is non-critical
         }
@@ -176,6 +183,7 @@ class VoiceService {
         try {
           await speakText(response.text);
         } catch (ttsError) {
+          handleErrorSilently(ttsError);
           console.warn('TTS failed:', ttsError);
         }
       }
@@ -247,6 +255,7 @@ class VoiceService {
             const query = searchTerms.join(' ');
             products = await productService.searchProducts({ query });
           } catch (searchError) {
+            handleErrorSilently(searchError);
             console.warn('Product search failed:', searchError);
           }
         }
@@ -276,6 +285,7 @@ class VoiceService {
           products = await productService.searchProducts({ query });
           console.log(`Found ${products.length} products for search: ${query}`);
         } catch (searchError) {
+          handleErrorSilently(searchError);
           console.warn('Product search failed:', searchError);
           // Continue without products - the error is non-critical
         }
@@ -286,6 +296,7 @@ class VoiceService {
         try {
           await speakText(response.text);
         } catch (ttsError) {
+          handleErrorSilently(ttsError);
           console.warn('TTS failed:', ttsError);
         }
       }
@@ -309,8 +320,11 @@ class VoiceService {
         products,
       };
     } catch (error: any) {
-      console.error('Failed to process text query:', error);
-      throw new Error(error.message || 'Failed to process query');
+      const errorMessage = error?.message || 'Failed to process query';
+      handleError(error, {
+        defaultMessage: 'Unable to process your request. Please try again.',
+      });
+      throw new Error(errorMessage);
     }
   }
 
@@ -355,13 +369,33 @@ class VoiceService {
    * Convert base64 string to Blob
    */
   private base64ToBlob(base64: string, mimeType: string = 'audio/mpeg'): Blob {
-    const byteCharacters = atob(base64);
-    const byteNumbers = new Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    try {
+      const byteCharacters = atob(base64);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      return new Blob([byteArray], { type: mimeType });
+    } catch (error) {
+      throw new Error('Failed to convert base64 to audio blob');
     }
-    const byteArray = new Uint8Array(byteNumbers);
-    return new Blob([byteArray], { type: mimeType });
+  }
+
+  /**
+   * Get user-friendly error message for speech recognition errors
+   */
+  private getSpeechRecognitionErrorMessage(error: string): string {
+    const errorMessages: Record<string, string> = {
+      'no-speech': 'No speech detected. Please try speaking again.',
+      'audio-capture': 'Microphone not available. Please check your microphone settings.',
+      'not-allowed': 'Microphone access denied. Please allow microphone access and try again.',
+      'network': 'Network error. Please check your connection and try again.',
+      'aborted': 'Speech recognition was interrupted. Please try again.',
+      'service-not-allowed': 'Speech recognition service is not available.',
+    };
+
+    return errorMessages[error] || `Speech recognition error: ${error}. Please try again.`;
   }
 
   /**

@@ -1,6 +1,21 @@
 /**
  * Enhanced API Client with Retry and Error Handling
- * Wraps the base API client with retry logic and better error handling
+ * 
+ * This module provides a higher-level API client that wraps the base axios instance
+ * with automatic retry logic and consistent error handling.
+ * 
+ * Usage:
+ * - Use `apiGet`, `apiPost`, `apiPut`, `apiDelete`, `apiPatch` for most API calls
+ * - Use the base `api` instance directly only when you need fine-grained control
+ * - All functions support retry logic and error handling via `ApiClientOptions`
+ * 
+ * Example:
+ * ```typescript
+ * const response = await apiGet<User>('/users/123', undefined, {
+ *   retry: { maxRetries: 3 },
+ *   showErrorToast: false
+ * });
+ * ```
  */
 
 import api from './api';
