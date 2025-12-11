@@ -54,6 +54,7 @@ interface VultrResponse {
   }>;
   status?: number;
   error?: string;
+  [key: string]: any; // Allow additional properties from API response
 }
 
 export async function callVultrInference({
@@ -113,9 +114,9 @@ export async function callVultrInference({
     
     const json = await res.json();
     if (typeof json === 'object' && json !== null) {
-      return { success: true, source: 'vultr', ...json };
+      return { success: true, source: 'vultr', ...json } as VultrResponse;
     }
-    return { success: true, source: 'vultr', data: json };
+    return { success: true, source: 'vultr', choices: [] } as VultrResponse;
   } catch (err) {
     clearTimeout(timeout);
     return {

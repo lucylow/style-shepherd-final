@@ -54,7 +54,7 @@ export class OpenAIEmbeddingsAdapter implements EmbeddingsAdapter {
         throw new Error(`OpenAI embedding error: ${response.status} ${errorText}`);
       }
 
-      const data = await response.json();
+      const data = await response.json() as { data: Array<{ embedding: number[] }> };
       const embeddings = data.data.map((item: any) => item.embedding as number[]);
 
       return isSingle ? embeddings[0] : embeddings;

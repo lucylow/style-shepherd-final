@@ -1796,7 +1796,7 @@ router.post(
       const { userId, productIds, sizeRecommendations } = req.body;
       
       const sizeMap = sizeRecommendations 
-        ? new Map(Object.entries(sizeRecommendations))
+        ? new Map<string, string>(Object.entries(sizeRecommendations) as [string, string][])
         : undefined;
       
       const result = await multiAgentOrchestrator.invokeReturnsProphet(

@@ -23,7 +23,7 @@ const possibleElevenNames = [
   'ELEVEN_LABS_API_KEY' // Legacy support
 ];
 
-interface KeyResult {
+export interface KeyResult {
   envName: string;
   key: string;
   ok: boolean;
@@ -133,10 +133,11 @@ export function validateAll(): ValidationReport {
     reasons.push(`Raindrop key (${raindrop.envName}) appears malformed`);
   }
 
-  const readyForLiveDemo = 
+  const readyForLiveDemo = Boolean(
     (vultr && vultr.ok) || 
     (eleven && eleven.ok) || 
-    (raindrop && raindrop.ok);
+    (raindrop && raindrop.ok)
+  );
 
   return {
     vultr: vultr 
