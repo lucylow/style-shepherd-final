@@ -30,6 +30,10 @@ export default defineConfig(({ mode }) => ({
       input: {
         main: path.resolve(__dirname, "index.html"),
       },
+      external: ['@liquidmetal-ai/raindrop', '@liquidmetal-ai/raindrop-code'],
     },
+  },
+  optimizeDeps: {
+    exclude: ['@liquidmetal-ai/raindrop', '@liquidmetal-ai/raindrop-code'],
   },
 }));

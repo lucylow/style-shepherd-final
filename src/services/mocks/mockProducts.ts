@@ -215,7 +215,7 @@ class MockProductService {
     try {
       await new Promise(resolve => setTimeout(resolve, this.DEFAULT_DELAY));
       
-      const { personalizationEngine } = await import('@/services/personalizationEngine.js');
+      const { personalizationEngine } = await import('@/services/ai/personalizationEngine');
       const { mockAuth } = await import('./mockAuth');
       
       const currentUser = mockAuth.getCurrentUser();

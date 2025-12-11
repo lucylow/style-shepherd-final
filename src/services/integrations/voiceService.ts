@@ -7,7 +7,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { VoiceResponse } from '@/types/fashion';
 import { speakText } from '@/lib/ttsClient';
-import { productService } from './productService';
+import { productService } from '../shopping/productService';
 import { handleError, handleErrorSilently } from '@/lib/errorHandler';
 
 export interface ConversationState {

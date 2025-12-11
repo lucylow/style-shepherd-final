@@ -9,7 +9,7 @@ import { apiGet, apiPost, extractApiData } from '@/lib/apiClient';
 import { Product } from '@/types/fashion';
 import { transformProduct, safeTransformProduct } from '@/lib/transform';
 import { handleErrorSilently } from '@/lib/errorHandler';
-import { mockProductService } from './mocks/mockProducts';
+import { mockProductService } from '../mocks/mockProducts';
 
 export interface SearchFilters {
   query?: string;

@@ -1,8 +1,8 @@
 import { Product, CartItem } from '@/types/fashion';
 import { fashionAIEngine } from './fashionAIEngine';
-import { returnsPredictor } from './returnsPredictor';
-import { userMemoryService, UserProfile } from './raindrop/userMemoryService';
-import { styleInferenceService } from './raindrop/styleInferenceService';
+import { returnsPredictor } from '../shopping/returnsPredictor';
+import { userMemoryService, UserProfile } from '../raindrop/userMemoryService';
+import { styleInferenceService } from '../raindrop/styleInferenceService';
 
 // UserProfile is now imported from raindrop/userMemoryService
 

@@ -1,6 +1,6 @@
 import { Product } from '@/types/fashion';
-import { styleInferenceService } from './raindrop/styleInferenceService';
-import { userMemoryService, UserProfile } from './raindrop/userMemoryService';
+import { styleInferenceService } from '../raindrop/styleInferenceService';
+import { userMemoryService, UserProfile } from '../raindrop/userMemoryService';
 
 // UserProfile is now imported from raindrop/userMemoryService
 

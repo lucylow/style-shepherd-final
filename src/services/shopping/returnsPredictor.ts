@@ -1,7 +1,7 @@
 import { Product, CartItem } from '@/types/fashion';
-import { userMemoryService, UserProfile } from './raindrop/userMemoryService';
-import { styleInferenceService } from './raindrop/styleInferenceService';
-import { orderSQLService } from './raindrop/orderSQLService';
+import { userMemoryService, UserProfile } from '../raindrop/userMemoryService';
+import { styleInferenceService } from '../raindrop/styleInferenceService';
+import { orderSQLService } from '../raindrop/orderSQLService';
 import { getApiBaseUrl } from '@/lib/api-config';
 
 interface ReturnRiskPrediction {
