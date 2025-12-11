@@ -90,8 +90,8 @@ const Footer = () => {
                   <li key={linkIdx}>
                     <motion.a
                       href={link.href}
-                      whileHover={{ x: 4 }}
-                      className="text-gray-400 hover:text-primary transition-colors inline-block hover:underline underline-offset-4 focus-visible-enhanced"
+                      whileHover={{ x: 6, scale: 1.05 }}
+                      className="text-gray-400 hover:text-primary transition-all inline-block hover:underline underline-offset-4 focus-visible-enhanced font-medium"
                     >
                       {link.label}
                     </motion.a>
