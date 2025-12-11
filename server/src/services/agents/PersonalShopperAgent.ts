@@ -10,6 +10,7 @@ import { vultrPostgres } from '../../lib/vultr-postgres.js';
 import { ExternalServiceError } from '../../lib/errors.js';
 import type { Product } from './SearchAgent.js';
 import { searchAgent } from './SearchAgent.js';
+import { trendService } from '../TrendService.js';
 
 export interface UserProfile {
   userId: string;
@@ -364,7 +365,7 @@ export class PersonalShopperAgent {
   private selectAccessories(accessories: Product[], budget: number, maxCount: number): Product[] {
     return accessories
       .filter((a) => a.price <= budget)
-      .sort((a, b) => b.rating - (a.rating || 0))
+      .sort((a, b) => (b.rating || 0) - (a.rating || 0))
       .slice(0, maxCount);
   }
 
@@ -387,12 +388,27 @@ export class PersonalShopperAgent {
     // Calculate style match using cosine similarity
     const styleMatch = await this.calculateStyleMatch(params.items, params.userProfile);
 
-    // Calculate confidence based on multiple factors
+    // Get trend data for trend-aware scoring
+    const keywords = this.extractKeywordsFromItems(params.items, params.userProfile);
+    let trendBoost = 0;
+    try {
+      const isAvailable = await trendService.isAvailable();
+      if (isAvailable && keywords.length > 0) {
+        const trendData = await trendService.getCombined(keywords, 8);
+        trendBoost = this.calculateTrendBoost(params.items, trendData);
+      }
+    } catch (error) {
+      // Trend service unavailable - continue without trend boost
+      console.warn('[PersonalShopperAgent] Trend service unavailable, continuing without trend boost:', error);
+    }
+
+    // Calculate confidence based on multiple factors (now includes trend boost)
     const confidence = this.calculateOutfitConfidence({
       items: params.items,
       styleMatch,
       budgetUtilization: totalPrice / params.budget,
       occasion: params.occasion,
+      trendBoost,
     });
 
     if (confidence < this.MIN_OUTFIT_CONFIDENCE) {
@@ -416,6 +432,80 @@ export class PersonalShopperAgent {
       reasoning: this.generateOutfitReasoning(outfitItems, styleMatch, params.userProfile),
       styleMatch,
     };
+  }
+
+  /**
+   * Extract keywords from items and user profile for trend lookup
+   */
+  private extractKeywordsFromItems(
+    items: Array<{ product: Product; role: string }>,
+    userProfile: UserProfile
+  ): string[] {
+    const keywords: string[] = [];
+    
+    // Extract from product categories and tags
+    for (const item of items) {
+      if (item.product.category) {
+        const cat = item.product.category.toLowerCase();
+        keywords.push(cat);
+      }
+      const productWithTags = item.product as Product & { tags?: string[] };
+      if (productWithTags.tags && Array.isArray(productWithTags.tags)) {
+        keywords.push(...productWithTags.tags.map((t: string) => t.toLowerCase()));
+      }
+    }
+
+    // Add user preferences
+    if (userProfile.preferences?.styles) {
+      keywords.push(...userProfile.preferences.styles.map(s => s.toLowerCase()));
+    }
+
+    // Deduplicate and limit
+    return [...new Set(keywords)].slice(0, 10);
+  }
+
+  /**
+   * Calculate trend boost score for items based on trend data
+   */
+  private calculateTrendBoost(
+    items: Array<{ product: Product; role: string }>,
+    trendData: any
+  ): number {
+    if (!trendData || !trendData.clusters) {
+      return 0;
+    }
+
+    let totalBoost = 0;
+    let count = 0;
+
+    for (const item of items) {
+      const productWithTags = item.product as Product & { tags?: string[] };
+      const category = item.product.category?.toLowerCase() || productWithTags.tags?.[0]?.toLowerCase() || '';
+      
+      // Check clusters for matching category
+      const clusterMatch = trendData.clusters.find((c: any) => 
+        c.category?.toLowerCase() === category || 
+        category.includes(c.category?.toLowerCase() || '')
+      );
+      
+      if (clusterMatch) {
+        totalBoost += clusterMatch.combined_score || 0;
+        count++;
+      } else {
+        // Check extra_trends
+        const trendMatch = trendData.extra_trends?.find((t: any) => 
+          t.category?.toLowerCase() === category ||
+          category.includes(t.category?.toLowerCase() || '')
+        );
+        
+        if (trendMatch) {
+          totalBoost += trendMatch.trend_score || 0;
+          count++;
+        }
+      }
+    }
+
+    return count > 0 ? totalBoost / count : 0;
   }
 
   /**
@@ -474,11 +564,17 @@ export class PersonalShopperAgent {
     styleMatch: number;
     budgetUtilization: number;
     occasion?: string;
+    trendBoost?: number;
   }): number {
     let confidence = 0.5; // Base confidence
 
-    // Style match contributes 40%
-    confidence += params.styleMatch * 0.4;
+    // Style match contributes 40% (reduced from original to make room for trend)
+    confidence += params.styleMatch * 0.35;
+
+    // Trend boost contributes 10% (new)
+    if (params.trendBoost !== undefined) {
+      confidence += params.trendBoost * 0.10;
+    }
 
     // Budget utilization (optimal is 70-90%)
     const budgetScore = params.budgetUtilization >= 0.7 && params.budgetUtilization <= 0.9
@@ -492,12 +588,12 @@ export class PersonalShopperAgent {
     const avgRating = params.items.reduce((sum, item) => sum + (item.product.rating || 3.5), 0) / params.items.length;
     confidence += (avgRating / 5) * 0.2;
 
-    // Completeness (has essential items) contributes 20%
+    // Completeness (has essential items) contributes 15% (reduced from 20%)
     const hasTopOrDress = params.items.some((i) => ['top', 'dress'].includes(i.role));
     const hasBottomOrDress = params.items.some((i) => ['bottom', 'dress'].includes(i.role));
     const hasShoes = params.items.some((i) => i.role === 'shoes');
     const completeness = (hasTopOrDress ? 0.33 : 0) + (hasBottomOrDress ? 0.33 : 0) + (hasShoes ? 0.34 : 0);
-    confidence += completeness * 0.2;
+    confidence += completeness * 0.15;
 
     return Math.min(confidence, 1.0);
   }

@@ -48,10 +48,10 @@ export function getVultrValkeyApiEndpoint(): string {
 
 /**
  * Get Raindrop API base URL
- * Uses environment variable or default Lovable/Raindrop API URL
+ * Uses environment variable or default Raindrop Platform API URL
  */
 export function getRaindropBaseUrl(): string {
-  return import.meta.env.VITE_RAINDROP_BASE_URL || 'https://api.raindrop.io';
+  return import.meta.env.VITE_RAINDROP_BASE_URL || 'https://platform.raindrop.ai';
 }
 
 /**

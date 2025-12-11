@@ -116,14 +116,13 @@ export class MakeupArtistAgent {
         // Try to get from user profile
         const userProfile = await this.getUserProfile(params.userId);
         if (userProfile.skinTone) {
+          const undertone = (userProfile.skinTone.undertone as 'warm' | 'cool' | 'neutral') || 'neutral';
+          const depth = (userProfile.skinTone.depth as 'light' | 'medium' | 'tan' | 'deep') || 'medium';
           skinAnalysis = {
-            undertone: userProfile.skinTone.undertone || 'neutral',
-            depth: userProfile.skinTone.depth || 'medium',
+            undertone,
+            depth,
             confidence: 0.6,
-            recommendedColors: this.getRecommendedColors(
-              userProfile.skinTone.undertone || 'neutral',
-              userProfile.skinTone.depth || 'medium'
-            ),
+            recommendedColors: this.getRecommendedColors(undertone, depth),
           };
         }
       }
@@ -347,7 +346,7 @@ export class MakeupArtistAgent {
     }
 
     if (params.budget) {
-      filtered = filtered.filter((p) => p.price <= params.budget * 0.4); // Individual items shouldn't exceed 40% of budget
+      filtered = filtered.filter((p) => p.price <= (params.budget || 0) * 0.4); // Individual items shouldn't exceed 40% of budget
     }
 
     return filtered;

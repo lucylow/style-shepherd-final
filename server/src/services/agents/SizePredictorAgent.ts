@@ -143,7 +143,7 @@ export class SizePredictorAgent {
       `;
 
       const result = await vultrPostgres.query(query, [userId]);
-      const rows = result.rows || [];
+      const rows = result || [];
 
       const successfulSizes: Record<string, string> = {};
       const returnHistory: Array<{ brand: string; size: string; reason: string }> = [];

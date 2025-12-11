@@ -546,7 +546,7 @@ export class FashionEngine {
     userId: string,
     occasion?: string,
     budget?: number
-  ): Promise<PersonalizedRecommendation & { trends: Awaited<ReturnType<typeof this.detectTrends>> }> {
+  ): Promise<PersonalizedRecommendation & { trends: Awaited<ReturnType<FashionEngine['detectTrends']>> }> {
     let baseRecommendation: PersonalizedRecommendation;
     try {
       baseRecommendation = await this.getPersonalizedRecommendation(userId, occasion, budget);

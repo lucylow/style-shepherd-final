@@ -34,7 +34,7 @@ export class WishlistService {
         [userId]
       );
 
-      return result.rows.map(row => ({
+      return result.map((row: any) => ({
         ...row,
         productData: typeof row.productData === 'string' 
           ? JSON.parse(row.productData) 
@@ -44,7 +44,6 @@ export class WishlistService {
     } catch (error: any) {
       throw new DatabaseError(
         `Failed to get wishlist: ${error.message}`,
-        ErrorCode.DATABASE_ERROR,
         error
       );
     }
@@ -66,7 +65,7 @@ export class WishlistService {
         [userId, productId]
       );
 
-      if (existing.rows.length > 0) {
+      if (existing.length > 0) {
         throw new BusinessLogicError(
           'Item already in wishlist',
           ErrorCode.VALIDATION_ERROR
@@ -102,7 +101,6 @@ export class WishlistService {
       }
       throw new DatabaseError(
         `Failed to add to wishlist: ${error.message}`,
-        ErrorCode.DATABASE_ERROR,
         error
       );
     }
@@ -118,11 +116,8 @@ export class WishlistService {
         [userId, productId]
       );
 
-      if (result.rowCount === 0) {
-        throw new NotFoundError(
-          'Item not found in wishlist',
-          ErrorCode.NOT_FOUND
-        );
+      if (result.length === 0) {
+        throw new NotFoundError('Item not found in wishlist');
       }
     } catch (error: any) {
       if (error instanceof NotFoundError) {
@@ -130,7 +125,6 @@ export class WishlistService {
       }
       throw new DatabaseError(
         `Failed to remove from wishlist: ${error.message}`,
-        ErrorCode.DATABASE_ERROR,
         error
       );
     }
@@ -145,7 +139,7 @@ export class WishlistService {
         'SELECT 1 FROM wishlists WHERE user_id = $1 AND product_id = $2 LIMIT 1',
         [userId, productId]
       );
-      return result.rows.length > 0;
+      return result.length > 0;
     } catch (error: any) {
       return false;
     }

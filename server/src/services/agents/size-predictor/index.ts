@@ -203,7 +203,7 @@ export class SizePredictorAgent {
       if (result.warnings) {
         result.warnings = result.warnings.map(w => sanitizeOutput('bodyLanguage', w));
       }
-    } catch (error) {
+    } catch (error: unknown) {
       if (error instanceof GuardrailError && error.guardrailName === 'LOW_CONFIDENCE') {
         // Low confidence - don't block, but add strong warning
         result.warnings = [

@@ -118,7 +118,7 @@ export class CerebrasAdapter implements LLMAdapter {
         throw new Error(`Cerebras API error: ${response.status} ${errorText}`);
       }
 
-      const data: CerebrasChatCompletionResponse = await response.json();
+      const data = await response.json() as CerebrasChatCompletionResponse;
 
       const choice = data.choices[0];
       if (!choice || !choice.message) {

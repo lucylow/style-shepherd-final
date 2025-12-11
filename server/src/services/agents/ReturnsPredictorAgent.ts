@@ -150,7 +150,7 @@ export class ReturnsPredictorAgent {
       
       // Calculate return rate
       const totalOrders = await this.getUserOrderCount(userId);
-      const returnRate = totalOrders > 0 ? returnHistory.length / totalOrders : 0;
+      const returnRate = totalOrders > 0 ? (returnHistory?.length || 0) / totalOrders : 0;
 
       return {
         userId,
@@ -186,7 +186,7 @@ export class ReturnsPredictorAgent {
       `;
 
       const result = await vultrPostgres.query(query, [userId]);
-      return (result.rows || []).map((row) => ({
+      return (result || []).map((row: any) => ({
         productId: row.product_id,
         reason: row.return_reason || 'unknown',
         category: row.category || 'unknown',
@@ -204,8 +204,8 @@ export class ReturnsPredictorAgent {
   private async getUserOrderCount(userId: string): Promise<number> {
     try {
       const query = `SELECT COUNT(*) as count FROM orders WHERE user_id = $1`;
-      const result = await vultrPostgres.query(query, [userId]);
-      return parseInt(result.rows[0]?.count || '0', 10);
+      const result = await vultrPostgres.query<{ count: string }>(query, [userId]);
+      return parseInt(result[0]?.count || '0', 10);
     } catch (error) {
       return 0;
     }
@@ -228,8 +228,8 @@ export class ReturnsPredictorAgent {
           WHERE brand = $1 AND category = $2
         `;
 
-        const result = await vultrPostgres.query(query, [item.brand, item.category]);
-        const row = result.rows[0];
+        const result = await vultrPostgres.query<{ total_orders: string; total_returns: string; return_rate: string }>(query, [item.brand, item.category]);
+        const row = result[0];
 
         if (row) {
           data[item.productId] = {

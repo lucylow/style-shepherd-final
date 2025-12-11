@@ -350,7 +350,8 @@ export class RoutineBuilder {
    * Get foundation shade recommendation
    */
   private getFoundationShade(analysis: SkinAnalysis): string {
-    const { fitzpatrickScale, undertone } = analysis.skinTone;
+    const { fitzpatrickScale } = analysis.skinTone;
+    const undertone = analysis.undertone;
 
     // Map Fitzpatrick scale + undertone to common shade systems
     const shadeMap: Record<string, Record<number, string>> = {
@@ -402,7 +403,7 @@ export class RoutineBuilder {
     preferences?: string[]
   ): string {
     const occasionStyle = this.getOccasionStyle(occasion);
-    const { undertone } = analysis.skinTone;
+    const undertone = analysis.undertone;
 
     if (preferences?.includes('smoky eyes')) {
       return 'Neutral Smoky Palette';
@@ -464,7 +465,8 @@ export class RoutineBuilder {
    * Get blush shade
    */
   private getBlushShade(analysis: SkinAnalysis, occasion: string): string {
-    const { undertone, fitzpatrickScale } = analysis.skinTone;
+    const undertone = analysis.undertone;
+    const { fitzpatrickScale } = analysis.skinTone;
     const occasionStyle = this.getOccasionStyle(occasion);
 
     if (undertone === 'warm') {
@@ -500,7 +502,8 @@ export class RoutineBuilder {
     occasion: string,
     preferences?: string[]
   ): string {
-    const { undertone, fitzpatrickScale } = analysis.skinTone;
+    const undertone = analysis.undertone;
+    const { fitzpatrickScale } = analysis.skinTone;
     const occasionStyle = this.getOccasionStyle(occasion);
 
     if (preferences?.includes('bold lips')) {
@@ -552,7 +555,7 @@ export class RoutineBuilder {
     analysis: SkinAnalysis,
     occasion: string
   ): MakeupRoutine['colorPalette'] {
-    const { undertone } = analysis.skinTone;
+    const undertone = analysis.undertone;
     const occasionStyle = this.getOccasionStyle(occasion);
 
     if (undertone === 'warm') {

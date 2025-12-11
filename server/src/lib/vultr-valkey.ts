@@ -4,19 +4,20 @@
  */
 
 import Redis from 'ioredis';
+import type { Redis as RedisType } from 'ioredis';
 import env from '../config/env.js';
 import { CacheError, CacheConnectionError } from './errors.js';
 
 const OPERATION_TIMEOUT_MS = 5000; // 5 seconds default timeout
 
 class VultrValkeyService {
-  private client: Redis;
+  private client: RedisType;
   private operationTimeout: number;
 
   constructor() {
     this.operationTimeout = OPERATION_TIMEOUT_MS;
     
-    this.client = new Redis({
+    this.client = new (Redis as any)({
       host: env.VULTR_VALKEY_HOST,
       port: env.VULTR_VALKEY_PORT,
       password: env.VULTR_VALKEY_PASSWORD,
@@ -208,7 +209,7 @@ class VultrValkeyService {
   /**
    * Get Redis client for advanced operations
    */
-  getClient(): Redis {
+  getClient(): RedisType {
     return this.client;
   }
 

@@ -14,6 +14,7 @@ import { makeupArtistAgent, type MakeupRecommendationParams, type MakeupRecommen
 import { sizePredictorAgent, type SizePredictionParams, type SizePredictionResult } from './SizePredictorAgent.js';
 import { returnsPredictorAgent, type ReturnPredictionParams, type ReturnPredictionResult } from './ReturnsPredictorAgent.js';
 import { ExternalServiceError } from '../../lib/errors.js';
+import { trendService } from '../TrendService.js';
 
 export type AgentType = 'personal-shopper' | 'makeup-artist' | 'size-predictor' | 'returns-predictor';
 
@@ -130,12 +131,14 @@ export class AgentOrchestrator {
     const intentLower = intent.toLowerCase();
     const agents: AgentType[] = [];
 
-    // Personal Shopper: outfit recommendations, shopping, styling
+    // Personal Shopper: outfit recommendations, shopping, styling, trends
     if (
       intentLower.includes('outfit') ||
       intentLower.includes('styling') ||
       intentLower.includes('wardrobe') ||
       intentLower.includes('complete look') ||
+      intentLower.includes('trend') ||
+      intentLower.includes('style-trend') ||
       (intentLower.includes('recommend') && context?.budget)
     ) {
       agents.push('personal-shopper');
@@ -201,6 +204,22 @@ export class AgentOrchestrator {
             style: query.context?.style,
             preferences: query.context?.preferences,
           };
+          
+          // If intent includes trend keywords, ensure trend service is available
+          const intentLower = query.intent.toLowerCase();
+          const isTrendQuery = intentLower.includes('trend') || intentLower.includes('style-trend') || intentLower.includes('what\'s trending');
+          
+          if (isTrendQuery) {
+            try {
+              const isAvailable = await trendService.isAvailable();
+              if (!isAvailable) {
+                console.warn('[AgentOrchestrator] Trend query detected but service unavailable - using mock mode');
+              }
+            } catch (error) {
+              console.warn('[AgentOrchestrator] Trend service check failed:', error);
+            }
+          }
+          
           const result = await personalShopperAgent.recommendOutfits(params);
           data = result;
           confidence = result.averageConfidence;

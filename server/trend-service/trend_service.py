@@ -97,6 +97,7 @@ app.add_middleware(
 )
 
 # reference image path (developer uploaded asset)
+# Note: Update this path if you have a design reference image
 REFERENCE_ASSET_PATH = '/mnt/data/A_presentation_slide_titled_"The_Challenge_in_Fash.png'
 
 # ---------------------------

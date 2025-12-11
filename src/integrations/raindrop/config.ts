@@ -49,7 +49,7 @@ class SmartMemoryClient {
 
   async set(key: string, value: any): Promise<void> {
     // Implementation: Store user profile, preferences, history
-    const response = await fetch(`${this.config.baseUrl || 'https://api.raindrop.io'}/v1/memory/${this.namespace}/${key}`, {
+    const response = await fetch(`${this.config.baseUrl || 'https://platform.raindrop.ai'}/v1/memory/${this.namespace}/${key}`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${this.config.apiKey}`,
@@ -62,7 +62,7 @@ class SmartMemoryClient {
 
   async get(key: string): Promise<any> {
     // Implementation: Retrieve user profile, preferences, history
-    const response = await fetch(`${this.config.baseUrl || 'https://api.raindrop.io'}/v1/memory/${this.namespace}/${key}`, {
+    const response = await fetch(`${this.config.baseUrl || 'https://platform.raindrop.ai'}/v1/memory/${this.namespace}/${key}`, {
       headers: {
         'Authorization': `Bearer ${this.config.apiKey}`,
       },
@@ -83,7 +83,7 @@ class SmartMemoryClient {
   }
 
   async delete(key: string): Promise<void> {
-    const response = await fetch(`${this.config.baseUrl || 'https://api.raindrop.io'}/v1/memory/${this.namespace}/${key}`, {
+    const response = await fetch(`${this.config.baseUrl || 'https://platform.raindrop.ai'}/v1/memory/${this.namespace}/${key}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${this.config.apiKey}`,
@@ -111,7 +111,7 @@ class SmartBucketsClient {
       formData.append('metadata', JSON.stringify(metadata));
     }
 
-    const response = await fetch(`${this.config.baseUrl || 'https://api.raindrop.io'}/v1/buckets/${this.namespace}/${path}`, {
+    const response = await fetch(`${this.config.baseUrl || 'https://platform.raindrop.ai'}/v1/buckets/${this.namespace}/${path}`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${this.config.apiKey}`,
@@ -125,7 +125,7 @@ class SmartBucketsClient {
 
   async findSimilar(imageUrl: string, options?: { limit?: number; category?: string }): Promise<any[]> {
     // Implementation: Visual search for similar products
-    const response = await fetch(`${this.config.baseUrl || 'https://api.raindrop.io'}/v1/buckets/${this.namespace}/similar`, {
+    const response = await fetch(`${this.config.baseUrl || 'https://platform.raindrop.ai'}/v1/buckets/${this.namespace}/similar`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${this.config.apiKey}`,
@@ -140,11 +140,11 @@ class SmartBucketsClient {
 
   async getUrl(path: string): Promise<string> {
     // Implementation: Get CDN URL for product images
-    return `${this.config.baseUrl || 'https://api.raindrop.io'}/v1/buckets/${this.namespace}/${path}`;
+    return `${this.config.baseUrl || 'https://platform.raindrop.ai'}/v1/buckets/${this.namespace}/${path}`;
   }
 
   async delete(path: string): Promise<void> {
-    const response = await fetch(`${this.config.baseUrl || 'https://api.raindrop.io'}/v1/buckets/${this.namespace}/${path}`, {
+    const response = await fetch(`${this.config.baseUrl || 'https://platform.raindrop.ai'}/v1/buckets/${this.namespace}/${path}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${this.config.apiKey}`,
@@ -165,7 +165,7 @@ class SmartSQLClient {
 
   async insert(table: string, data: Record<string, any>): Promise<void> {
     // Implementation: Insert structured order, catalog, returns data
-    const response = await fetch(`${this.config.baseUrl || 'https://api.raindrop.io'}/v1/sql/${this.namespace}/${table}`, {
+    const response = await fetch(`${this.config.baseUrl || 'https://platform.raindrop.ai'}/v1/sql/${this.namespace}/${table}`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${this.config.apiKey}`,
@@ -178,7 +178,7 @@ class SmartSQLClient {
 
   async query(sql: string, params?: any[]): Promise<any[]> {
     // Implementation: Query orders, catalog, returns using SQL or natural language
-    const response = await fetch(`${this.config.baseUrl || 'https://api.raindrop.io'}/v1/sql/${this.namespace}/query`, {
+    const response = await fetch(`${this.config.baseUrl || 'https://platform.raindrop.ai'}/v1/sql/${this.namespace}/query`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${this.config.apiKey}`,
@@ -192,7 +192,7 @@ class SmartSQLClient {
   }
 
   async update(table: string, id: string | number, data: Record<string, any>): Promise<void> {
-    const response = await fetch(`${this.config.baseUrl || 'https://api.raindrop.io'}/v1/sql/${this.namespace}/${table}/${id}`, {
+    const response = await fetch(`${this.config.baseUrl || 'https://platform.raindrop.ai'}/v1/sql/${this.namespace}/${table}/${id}`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${this.config.apiKey}`,
@@ -204,7 +204,7 @@ class SmartSQLClient {
   }
 
   async delete(table: string, id: string | number): Promise<void> {
-    const response = await fetch(`${this.config.baseUrl || 'https://api.raindrop.io'}/v1/sql/${this.namespace}/${table}/${id}`, {
+    const response = await fetch(`${this.config.baseUrl || 'https://platform.raindrop.ai'}/v1/sql/${this.namespace}/${table}/${id}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${this.config.apiKey}`,
@@ -225,7 +225,7 @@ class SmartInferenceClient {
 
   async predict(input: Record<string, any>): Promise<any> {
     // Implementation: AI recommendations, intent analysis, style advice
-    const response = await fetch(`${this.config.baseUrl || 'https://api.raindrop.io'}/v1/inference/${this.namespace}/predict`, {
+    const response = await fetch(`${this.config.baseUrl || 'https://platform.raindrop.ai'}/v1/inference/${this.namespace}/predict`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${this.config.apiKey}`,
@@ -238,7 +238,7 @@ class SmartInferenceClient {
   }
 
   async batchPredict(inputs: Record<string, any>[]): Promise<any[]> {
-    const response = await fetch(`${this.config.baseUrl || 'https://api.raindrop.io'}/v1/inference/${this.namespace}/batch-predict`, {
+    const response = await fetch(`${this.config.baseUrl || 'https://platform.raindrop.ai'}/v1/inference/${this.namespace}/batch-predict`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${this.config.apiKey}`,

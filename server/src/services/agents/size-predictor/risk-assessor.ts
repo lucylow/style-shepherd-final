@@ -375,7 +375,7 @@ export class RiskAssessor {
               sizeOrdered: item.size || 'M',
               sizeKept: returnData ? null : item.size,
               returned: !!returnData,
-              returnReason: returnData?.reason,
+              returnReason: (returnData as any)?.reason,
               date: order.created_at || new Date().toISOString(),
             });
           }

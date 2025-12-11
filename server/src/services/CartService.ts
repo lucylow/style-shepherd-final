@@ -59,8 +59,8 @@ export class CartService {
         [userId]
       );
 
-      if (result.rows.length > 0) {
-        const cart = this.mapCartFromDb(result.rows[0]);
+      if (result.length > 0) {
+        const cart = this.mapCartFromDb(result[0]);
         // Clean expired guest carts
         if (cart.expiresAt && cart.expiresAt < new Date()) {
           await this.deleteCart(cart.cartId);
@@ -110,7 +110,6 @@ export class CartService {
     } catch (error: any) {
       throw new DatabaseError(
         `Failed to get guest cart: ${error.message}`,
-        ErrorCode.DATABASE_ERROR,
         error
       );
     }
@@ -152,7 +151,6 @@ export class CartService {
     } catch (error: any) {
       throw new DatabaseError(
         `Failed to create cart: ${error.message}`,
-        ErrorCode.DATABASE_ERROR,
         error
       );
     }
@@ -224,7 +222,6 @@ export class CartService {
       }
       throw new DatabaseError(
         `Failed to add to cart: ${error.message}`,
-        ErrorCode.DATABASE_ERROR,
         error
       );
     }
@@ -299,7 +296,6 @@ export class CartService {
       }
       throw new DatabaseError(
         `Failed to update quantity: ${error.message}`,
-        ErrorCode.DATABASE_ERROR,
         error
       );
     }
@@ -339,7 +335,6 @@ export class CartService {
     } catch (error: any) {
       throw new DatabaseError(
         `Failed to remove from cart: ${error.message}`,
-        ErrorCode.DATABASE_ERROR,
         error
       );
     }
@@ -360,7 +355,6 @@ export class CartService {
     } catch (error: any) {
       throw new DatabaseError(
         `Failed to clear cart: ${error.message}`,
-        ErrorCode.DATABASE_ERROR,
         error
       );
     }
@@ -440,7 +434,6 @@ export class CartService {
     } catch (error: any) {
       throw new DatabaseError(
         `Failed to merge guest cart: ${error.message}`,
-        ErrorCode.DATABASE_ERROR,
         error
       );
     }

@@ -91,14 +91,7 @@ export class MakeupArtistAgent {
 
       // Step 4: Validate through guardrails
       const makeupRecommendation = {
-        products: products.products?.map((p: any) => ({
-          productId: p.id || p.productId,
-          name: p.name,
-          ingredients: p.ingredients,
-          shade: p.shade,
-          fitzpatrickScale: analysis.fitzpatrickScale,
-          ageRating: p.ageRating,
-        })) || [],
+        products: products.products || [],
         routine,
       };
 
@@ -117,7 +110,7 @@ export class MakeupArtistAgent {
         analysis,
         products: {
           ...products,
-          products: validated.products || products.products,
+          products: (validated as typeof makeupRecommendation).products || products.products,
         },
         createdAt: new Date(),
         userId,

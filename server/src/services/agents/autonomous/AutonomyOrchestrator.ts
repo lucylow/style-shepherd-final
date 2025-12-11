@@ -188,13 +188,13 @@ export class AutonomyOrchestrator {
 
     // Calculate metrics
     const proactiveTriggersFired = triggers.filter(
-      t => t.triggerType !== 'return' && t.action !== 'learned'
+      (t: any) => t.triggerType !== 'return' && t.action !== 'learned'
     ).length;
 
     const autoCompletedPurchases = autoPurchases.length;
 
     const selfHealingActions = triggers.filter(
-      t => t.action.includes('swap') || t.action.includes('auto')
+      (t: any) => t.action.includes('swap') || t.action.includes('auto')
     ).length;
     const selfHealingSuccesses = selfHealingActions; // Simplified
 

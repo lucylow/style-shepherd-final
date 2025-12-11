@@ -208,7 +208,7 @@ async function ipRisk(ip?: string): Promise<RuleResult> {
 
     if (!res.ok) return { score: 0.1, reason: 'ipinfo_failed' };
 
-    const j = await res.json();
+    const j = await res.json() as { org?: string; country?: string };
     const proxy =
       j.org &&
       /amazon|digitalocean|linode|vultr|google|azure|aws/i.test(j.org);
@@ -247,7 +247,7 @@ async function paymentPatternRisk(params: {
 
     if (!res.ok) return { score: 0.1, reason: 'bin_failed' };
 
-    const j = await res.json();
+    const j = await res.json() as { country?: { alpha2?: string } };
     const country = j.country && j.country.alpha2;
     const mismatch =
       country &&

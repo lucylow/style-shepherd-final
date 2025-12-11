@@ -29,7 +29,7 @@ function initializeRaindrop() {
     raindropInstance = new RaindropSDK({
       apiKey: env.RAINDROP_API_KEY,
       projectId: env.RAINDROP_PROJECT_ID,
-      baseUrl: env.RAINDROP_BASE_URL || 'https://api.raindrop.io',
+      baseUrl: env.RAINDROP_BASE_URL || 'https://platform.raindrop.ai',
     });
 
     // Initialize Smart Components

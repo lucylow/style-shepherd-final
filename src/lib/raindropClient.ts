@@ -1,8 +1,10 @@
 /**
  * Raindrop (LiquidMetal) Client for Style Shepherd
- * - Uses official Raindrop SDK when available and RAINDROP_API_KEY is set
- * - Falls back to localStorage mock for demo purposes
+ * - Uses real Raindrop Platform API when RAINDROP_API_KEY is set
+ * - Makes actual API calls to platform.raindrop.ai
  */
+
+import { getRaindropBaseUrl } from './api-config';
 
 type MemoryType = 'working' | 'semantic' | 'episodic' | 'procedural';
 
@@ -15,38 +17,54 @@ interface MemoryEntry {
   createdAt: string;
 }
 
-interface MockStore {
-  memories: MemoryEntry[];
-  buckets: Record<string, Record<string, { filename: string; contentType: string; url: string }>>;
+// Get Raindrop API configuration
+function getApiKey(): string {
+  return import.meta.env.VITE_RAINDROP_API_KEY || '';
 }
 
-const STORAGE_KEY = 'style-shepherd-raindrop-mock';
-
-// Read mock data from localStorage
-function readMock(): MockStore {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch (e) {
-    console.warn('Failed to read Raindrop mock store:', e);
-  }
-  return { memories: [], buckets: {} };
+function getProjectId(): string {
+  return import.meta.env.VITE_RAINDROP_PROJECT_ID || '';
 }
 
-// Write mock data to localStorage
-function writeMock(data: MockStore): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch (e) {
-    console.warn('Failed to write Raindrop mock store:', e);
-  }
+function getBaseUrl(): string {
+  return getRaindropBaseUrl();
 }
 
-// Check if Raindrop is enabled (would need API key in production)
+// Check if Raindrop is enabled
 export function isRaindropEnabled(): boolean {
-  // In browser environment, we use mock mode
-  // Production would check for API key via edge function
-  return false;
+  return !!import.meta.env.VITE_RAINDROP_API_KEY;
+}
+
+// Helper function to make API calls
+async function apiCall<T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const apiKey = getApiKey();
+  const projectId = getProjectId();
+  const baseUrl = getBaseUrl();
+
+  if (!apiKey || !projectId) {
+    throw new Error('Raindrop API key and project ID are required');
+  }
+
+  const url = `${baseUrl}${endpoint}`;
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'X-Project-Id': projectId,
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Raindrop API error: ${response.status} ${response.statusText} - ${errorText}`);
+  }
+
+  return response.json();
 }
 
 // Store a memory entry
@@ -56,18 +74,31 @@ export async function storeMemory(
   text: string,
   metadata?: Record<string, unknown>
 ): Promise<{ success: boolean; source: string; entry?: MemoryEntry }> {
-  const db = readMock();
-  const entry: MemoryEntry = {
-    id: `${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-    userId: userId || 'demo_user',
-    type: memoryType || 'working',
-    text: text || '',
-    metadata: metadata || {},
-    createdAt: new Date().toISOString()
-  };
-  db.memories.push(entry);
-  writeMock(db);
-  return { success: true, source: 'mock', entry };
+  try {
+    const response = await apiCall<{ id: string; createdAt: string }>('/v1/memory/store', {
+      method: 'POST',
+      body: JSON.stringify({
+        userId,
+        type: memoryType,
+        text,
+        metadata: metadata || {},
+      }),
+    });
+
+    const entry: MemoryEntry = {
+      id: response.id,
+      userId,
+      type: memoryType,
+      text,
+      metadata: metadata || {},
+      createdAt: response.createdAt || new Date().toISOString(),
+    };
+
+    return { success: true, source: 'raindrop', entry };
+  } catch (error) {
+    console.error('Failed to store memory:', error);
+    throw error;
+  }
 }
 
 // Search memories
@@ -76,15 +107,21 @@ export async function searchMemory(
   query: string,
   topK = 5
 ): Promise<{ success: boolean; source: string; results: MemoryEntry[] }> {
-  const db = readMock();
-  const results = db.memories
-    .filter(m => 
-      m.userId === (userId || 'demo_user') && 
-      (m.text || '').toLowerCase().includes((query || '').toLowerCase())
-    )
-    .slice(-topK)
-    .reverse();
-  return { success: true, source: 'mock', results };
+  try {
+    const response = await apiCall<{ results: MemoryEntry[] }>('/v1/memory/search', {
+      method: 'POST',
+      body: JSON.stringify({
+        userId,
+        query,
+        topK,
+      }),
+    });
+
+    return { success: true, source: 'raindrop', results: response.results || [] };
+  } catch (error) {
+    console.error('Failed to search memories:', error);
+    throw error;
+  }
 }
 
 // Update a memory entry
@@ -95,21 +132,25 @@ export async function updateMemory(
   memoryType?: MemoryType,
   metadata?: Record<string, unknown>
 ): Promise<{ success: boolean; source: string; entry?: MemoryEntry }> {
-  const db = readMock();
-  const index = db.memories.findIndex(m => 
-    m.userId === (userId || 'demo_user') && m.id === id
-  );
-  if (index === -1) {
-    return { success: false, source: 'mock' };
+  try {
+    const response = await apiCall<MemoryEntry>(`/v1/memory/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        userId,
+        text,
+        type: memoryType,
+        metadata,
+      }),
+    });
+
+    return { success: true, source: 'raindrop', entry: response };
+  } catch (error) {
+    console.error('Failed to update memory:', error);
+    if (error instanceof Error && error.message.includes('404')) {
+      return { success: false, source: 'raindrop' };
+    }
+    throw error;
   }
-  db.memories[index] = {
-    ...db.memories[index],
-    text: text || db.memories[index].text,
-    type: memoryType || db.memories[index].type,
-    metadata: metadata !== undefined ? metadata : db.memories[index].metadata,
-  };
-  writeMock(db);
-  return { success: true, source: 'mock', entry: db.memories[index] };
 }
 
 // Delete a memory entry
@@ -117,29 +158,51 @@ export async function deleteMemory(
   userId: string,
   id: string
 ): Promise<{ success: boolean; source: string; deleted: number }> {
-  const db = readMock();
-  const before = db.memories.length;
-  db.memories = db.memories.filter(m => 
-    !(m.userId === (userId || 'demo_user') && m.id === id)
-  );
-  writeMock(db);
-  return { success: true, source: 'mock', deleted: before - db.memories.length };
+  try {
+    await apiCall(`/v1/memory/${id}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ userId }),
+    });
+
+    return { success: true, source: 'raindrop', deleted: 1 };
+  } catch (error) {
+    console.error('Failed to delete memory:', error);
+    if (error instanceof Error && error.message.includes('404')) {
+      return { success: false, source: 'raindrop', deleted: 0 };
+    }
+    throw error;
+  }
 }
 
 // Get all memories for a user
 export async function getAllMemories(
   userId: string
 ): Promise<{ success: boolean; source: string; results: MemoryEntry[] }> {
-  const db = readMock();
-  const results = db.memories
-    .filter(m => m.userId === (userId || 'demo_user'))
-    .reverse();
-  return { success: true, source: 'mock', results };
+  try {
+    const response = await apiCall<{ results: MemoryEntry[] }>('/v1/memory/list', {
+      method: 'POST',
+      body: JSON.stringify({ userId }),
+    });
+
+    return { success: true, source: 'raindrop', results: response.results || [] };
+  } catch (error) {
+    console.error('Failed to get all memories:', error);
+    throw error;
+  }
 }
 
 // Clear all memories (for testing)
-export function clearAllMemories(): void {
-  writeMock({ memories: [], buckets: {} });
+export async function clearAllMemories(): Promise<void> {
+  // Note: This endpoint may not exist in the actual API
+  // If not available, this would need to be implemented differently
+  try {
+    await apiCall('/v1/memory/clear', {
+      method: 'DELETE',
+    });
+  } catch (error) {
+    console.warn('Clear all memories endpoint may not be available:', error);
+    throw error;
+  }
 }
 
 export type { MemoryEntry, MemoryType };

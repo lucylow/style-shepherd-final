@@ -41,7 +41,7 @@ export class SavedAddressService {
         [userId]
       );
 
-      return result.rows.map(row => ({
+      return result.map((row: any) => ({
         ...row,
         createdAt: new Date(row.createdAt),
         updatedAt: new Date(row.updatedAt),
@@ -49,7 +49,6 @@ export class SavedAddressService {
     } catch (error: any) {
       throw new DatabaseError(
         `Failed to get addresses: ${error.message}`,
-        ErrorCode.DATABASE_ERROR,
         error
       );
     }
@@ -70,11 +69,11 @@ export class SavedAddressService {
         [userId]
       );
 
-      if (result.rows.length === 0) {
+      if (result.length === 0) {
         return null;
       }
 
-      const row = result.rows[0];
+      const row = result[0];
       return {
         ...row,
         createdAt: new Date(row.createdAt),
@@ -83,7 +82,6 @@ export class SavedAddressService {
     } catch (error: any) {
       throw new DatabaseError(
         `Failed to get default address: ${error.message}`,
-        ErrorCode.DATABASE_ERROR,
         error
       );
     }
@@ -144,7 +142,6 @@ export class SavedAddressService {
     } catch (error: any) {
       throw new DatabaseError(
         `Failed to add address: ${error.message}`,
-        ErrorCode.DATABASE_ERROR,
         error
       );
     }
@@ -220,8 +217,8 @@ export class SavedAddressService {
         values
       );
 
-      if (result.rowCount === 0) {
-        throw new NotFoundError('Address not found', ErrorCode.NOT_FOUND);
+      if (result.length === 0) {
+        throw new NotFoundError('Address not found');
       }
 
       // Return updated address
@@ -253,8 +250,8 @@ export class SavedAddressService {
         [addressId, userId]
       );
 
-      if (result.rowCount === 0) {
-        throw new NotFoundError('Address not found', ErrorCode.NOT_FOUND);
+      if (result.length === 0) {
+        throw new NotFoundError('Address not found');
       }
     } catch (error: any) {
       if (error instanceof NotFoundError) {
@@ -262,7 +259,6 @@ export class SavedAddressService {
       }
       throw new DatabaseError(
         `Failed to delete address: ${error.message}`,
-        ErrorCode.DATABASE_ERROR,
         error
       );
     }

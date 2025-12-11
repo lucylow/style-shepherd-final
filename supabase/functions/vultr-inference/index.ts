@@ -8,6 +8,14 @@ const corsHeaders = {
 const VULTR_API_KEY = Deno.env.get("VULTR_API_KEY") || "";
 const VULTR_URL = "https://api.vultrinference.com/v1/chat/completions";
 
+// Supported models for different use cases
+const SUPPORTED_MODELS = {
+  chat: "llama2-7b-chat-Q5_K_M",
+  sizePrediction: "llama2-7b-chat-Q5_K_M",
+  returnRisk: "llama2-7b-chat-Q5_K_M",
+  trendAnalysis: "llama2-7b-chat-Q5_K_M",
+} as const;
+
 interface ChatMessage {
   role: "system" | "user" | "assistant";
   content: string;
@@ -69,17 +77,46 @@ serve(async (req) => {
   }
 
   try {
-    const { model = "llama2-7b-chat-Q5_K_M", messages } = await req.json();
+    const body = await req.json();
+    const { 
+      model = SUPPORTED_MODELS.chat, 
+      messages,
+      useCase,
+      temperature = 0.7,
+      maxTokens = 1000,
+    } = body;
 
-    if (!Array.isArray(messages)) {
+    // Validate messages array
+    if (!Array.isArray(messages) || messages.length === 0) {
       return new Response(
-        JSON.stringify({ success: false, message: "messages array required" }),
+        JSON.stringify({ 
+          success: false, 
+          error: "messages array is required and must not be empty" 
+        }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Cache key based on request
-    const cacheKey = `vultr:${btoa(JSON.stringify({ model, messages }))}`;
+    // Validate message structure
+    for (const msg of messages) {
+      if (!msg.role || !msg.content) {
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: "Each message must have 'role' and 'content' fields" 
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    // Select model based on use case if provided
+    const selectedModel = useCase && SUPPORTED_MODELS[useCase as keyof typeof SUPPORTED_MODELS]
+      ? SUPPORTED_MODELS[useCase as keyof typeof SUPPORTED_MODELS]
+      : model;
+
+    // Cache key based on request (exclude temperature for caching)
+    const cacheKey = `vultr:${btoa(JSON.stringify({ model: selectedModel, messages, useCase }))}`;
     const cached = getCached(cacheKey);
     if (cached) {
       return new Response(
@@ -116,6 +153,13 @@ serve(async (req) => {
     const timeout = setTimeout(() => controller.abort(), 25000);
 
     try {
+      const requestBody = {
+        model: selectedModel,
+        messages,
+        temperature: Math.max(0, Math.min(2, temperature)), // Clamp between 0 and 2
+        max_tokens: Math.max(1, Math.min(4000, maxTokens)), // Clamp between 1 and 4000
+      };
+
       const response = await fetchWithRetry(
         VULTR_URL,
         {
@@ -124,7 +168,7 @@ serve(async (req) => {
             Authorization: `Bearer ${VULTR_API_KEY}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ model, messages }),
+          body: JSON.stringify(requestBody),
           signal: controller.signal,
         },
         3,
@@ -148,10 +192,16 @@ serve(async (req) => {
       }
 
       const data = await response.json();
-      const result: VultrResponse = { success: true, source: "vultr", ...data };
+      const result: VultrResponse = { 
+        success: true, 
+        source: "vultr", 
+        model: selectedModel,
+        ...data 
+      };
 
-      // Cache successful responses
-      setCache(cacheKey, result, 30000);
+      // Cache successful responses (longer TTL for deterministic requests)
+      const cacheTTL = temperature === 0 ? 60000 : 30000; // 60s for deterministic, 30s for creative
+      setCache(cacheKey, result, cacheTTL);
 
       return new Response(
         JSON.stringify(result),
@@ -162,11 +212,45 @@ serve(async (req) => {
       throw e;
     }
   } catch (error) {
-    console.error("vultr-inference error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
+    console.error("vultr-inference error:", {
+      message: errorMessage,
+      stack: errorStack,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Handle specific error types
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "Request timeout - Vultr Inference API did not respond in time",
+            timeout: true,
+          }),
+          { status: 504, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      if (error.message.includes('fetch')) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "Network error - Unable to reach Vultr Inference API",
+            networkError: true,
+          }),
+          { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: errorMessage,
+        timestamp: new Date().toISOString(),
       }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

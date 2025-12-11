@@ -6,10 +6,11 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { validateBody } from '../middleware/validation.js';
 import { z } from 'zod';
-import { ReturnRiskPredictionService } from '../services/ReturnRiskPredictionService.js';
+// import { ReturnRiskPredictionService } from '../services/ReturnRiskPredictionService.js';
 
 const router = Router();
-const riskService = new ReturnRiskPredictionService();
+// const riskService = new ReturnRiskPredictionService();
+// TODO: Re-enable when ReturnRiskPredictionService is properly set up in server directory
 
 /**
  * POST /api/functions/v1/return-risk-prediction
@@ -77,6 +78,12 @@ router.post(
     })
   ),
   async (req: Request, res: Response, next: NextFunction) => {
+    // TODO: Re-enable when ReturnRiskPredictionService is properly set up
+    return res.status(503).json({
+      error: 'Service temporarily unavailable',
+      message: 'Return risk prediction service is not yet configured in the server directory',
+    });
+    /* 
     try {
       const { user, product, context, batch } = req.body;
 
@@ -117,6 +124,7 @@ router.post(
         message: error?.message || 'Unknown error',
       });
     }
+    */
   }
 );
 

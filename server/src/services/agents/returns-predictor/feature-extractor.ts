@@ -167,7 +167,7 @@ export class FeatureExtractor {
   /**
    * Analyze product reviews for sentiment and size-related mentions
    */
-  private analyzeReviews(product: Product): { sentiment: number; sizeMentions: number } {
+  private analyzeReviews(product: Product & { reviews?: Array<{ comment?: string; rating?: number }> }): { sentiment: number; sizeMentions: number } {
     // If reviews exist in product data
     if (product.reviews && Array.isArray(product.reviews)) {
       let totalSentiment = 0;
@@ -240,7 +240,7 @@ export class FeatureExtractor {
           
           // Cache result
           try {
-            await vultrValkey.set(cacheKey, keepRate, this.CACHE_TTL);
+            await vultrValkey.set(cacheKey, String(keepRate), this.CACHE_TTL);
           } catch (error) {
             // Non-critical
           }
@@ -280,8 +280,9 @@ export class FeatureExtractor {
     }
 
     // Promotion type (sale items have different return patterns)
-    const isOnSale = cartItem.product.originalPrice && 
-                     cartItem.product.price < cartItem.product.originalPrice;
+    const productWithPrice = cartItem.product as Product & { originalPrice?: number };
+    const isOnSale = productWithPrice.originalPrice && 
+                     cartItem.product.price < productWithPrice.originalPrice;
     const promotionType = isOnSale ? 0.8 : 1.0; // Sale items = 0.8
 
     // Basket diversity (single item vs bundle - simplified for cart item)

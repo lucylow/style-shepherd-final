@@ -9,7 +9,7 @@ import { personalShopperAgent } from './agents/PersonalShopperAgent.js';
 import { sizePredictorAgent } from './agents/size-predictor/index.js';
 import { returnsPredictorAgent } from './agents/returns-predictor/index.js';
 import { makeupArtistAgent } from './agents/MakeupArtistAgent/index.js';
-import { AppError, ExternalServiceError, toAppError } from '../lib/errors.js';
+import { AppError, ExternalServiceError, toAppError, ErrorCode } from '../lib/errors.js';
 import type { OutfitRecommendationParams, OutfitRecommendationResult } from './agents/PersonalShopperAgent.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
@@ -284,7 +284,7 @@ export class HITLOrchestrator {
       await this.updateSession(sessionId, {
         status: 'checkout_ready',
         overall_confidence: this.calculateOverallConfidence(sizePredictions, returnRisks),
-        completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       });
 
       return {
@@ -321,7 +321,7 @@ export class HITLOrchestrator {
       const session = await this.getSession(sessionId);
 
       if (!session) {
-        throw new AppError('Session not found', 404);
+        throw new AppError('Session not found', ErrorCode.NOT_FOUND, 404);
       }
 
       // Check if target status reached
@@ -334,14 +334,14 @@ export class HITLOrchestrator {
 
       // Check if cancelled
       if (session.status === 'cancelled') {
-        throw new AppError('Session was cancelled', 400);
+        throw new AppError('Session was cancelled', ErrorCode.INVALID_OPERATION, 400);
       }
 
       // Wait before polling again
       await new Promise(resolve => setTimeout(resolve, this.POLL_INTERVAL));
     }
 
-    throw new AppError(`Timeout waiting for human action. Expected status: ${targetStatus}`, 408);
+    throw new AppError(`Timeout waiting for human action. Expected status: ${targetStatus}`, ErrorCode.API_TIMEOUT, 408);
   }
 
   /**
@@ -417,7 +417,7 @@ export class HITLOrchestrator {
     // Determine next status based on action
     const session = await this.getSession(sessionId);
     if (!session) {
-      throw new AppError('Session not found', 404);
+      throw new AppError('Session not found', ErrorCode.NOT_FOUND, 404);
     }
 
     if (action === 'approved') {

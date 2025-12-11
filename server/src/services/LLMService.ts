@@ -691,7 +691,7 @@ User preferences: ${preferences ? JSON.stringify(preferences).substring(0, 200) 
   /**
    * Generate streaming response (for real-time responses) - callback version
    */
-  async generateStreamingResponse(
+  async generateStreamingResponseCallback(
     query: string,
     intentAnalysis: IntentAnalysis,
     conversationHistory: any[],

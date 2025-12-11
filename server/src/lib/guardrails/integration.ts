@@ -76,7 +76,7 @@ export async function withGuardrails<T>(
     } as T & { guardrailWarnings?: string[] };
   }
 
-  return output as T;
+  return output as T & { guardrailWarnings?: string[] };
 }
 
 /**

@@ -236,7 +236,8 @@ class StyleInferenceService {
         },
       }));
     } catch (error) {
-      console.error('Failed to batch predict recommendations:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`[StyleInferenceService] Failed to batch predict recommendations:`, errorMessage);
       return products.map(product => ({
         productId: product.id,
         score: 0.5,
@@ -249,6 +250,195 @@ class StyleInferenceService {
           novelty: 0.3,
         },
       }));
+    }
+  }
+
+  /**
+   * Predict optimal size for a user based on measurements, brand, and category
+   * Uses a size prediction model deployed on SmartInference
+   */
+  async predictSize(
+    measurements: {
+      height?: number;
+      weight?: number;
+      chest?: number;
+      waist?: number;
+      hips?: number;
+      shoeSize?: number;
+    },
+    brand: string,
+    category: string
+  ): Promise<{
+    recommendedSize: string;
+    confidence: number;
+    alternativeSizes?: string[];
+    reasoning: string;
+    fitPrediction: {
+      chest?: 'tight' | 'fit' | 'loose';
+      waist?: 'tight' | 'fit' | 'loose';
+      length?: 'short' | 'fit' | 'long';
+    };
+  }> {
+    try {
+      if (!brand || !category) {
+        throw new Error('Brand and category are required for size prediction');
+      }
+
+      const result = await styleInference.predict({
+        type: 'size_prediction',
+        measurements,
+        brand,
+        category,
+      });
+
+      return {
+        recommendedSize: result.recommendedSize || 'M',
+        confidence: result.confidence || 0.75,
+        alternativeSizes: result.alternativeSizes || [],
+        reasoning: result.reasoning || `Based on your measurements and ${brand}'s sizing for ${category}`,
+        fitPrediction: result.fitPrediction || {
+          chest: 'fit',
+          waist: 'fit',
+          length: 'fit',
+        },
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`[StyleInferenceService] Failed to predict size:`, errorMessage);
+      // Return default prediction on error
+      return {
+        recommendedSize: 'M',
+        confidence: 0.5,
+        alternativeSizes: ['S', 'L'],
+        reasoning: 'Unable to generate size prediction',
+        fitPrediction: {
+          chest: 'fit',
+          waist: 'fit',
+          length: 'fit',
+        },
+      };
+    }
+  }
+
+  /**
+   * Assess return risk for a user-product combination
+   * Uses a model on SmartInference to predict the likelihood of a return
+   */
+  async assessReturnRisk(
+    userId: string,
+    productId: string
+  ): Promise<{
+    riskScore: number;
+    riskLevel: 'low' | 'medium' | 'high';
+    factors: Array<{
+      factor: string;
+      impact: number;
+      description: string;
+    }>;
+    confidence: number;
+    recommendations?: string[];
+  }> {
+    try {
+      if (!userId || !productId) {
+        throw new Error('User ID and product ID are required');
+      }
+
+      const result = await styleInference.predict({
+        type: 'return_risk_assessment',
+        userId,
+        productId,
+      });
+
+      const riskScore = result.riskScore || 0.5;
+      let riskLevel: 'low' | 'medium' | 'high' = 'medium';
+      if (riskScore < 0.3) riskLevel = 'low';
+      else if (riskScore > 0.7) riskLevel = 'high';
+
+      return {
+        riskScore,
+        riskLevel,
+        factors: result.factors || [],
+        confidence: result.confidence || 0.8,
+        recommendations: result.recommendations || [],
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`[StyleInferenceService] Failed to assess return risk for user ${userId}, product ${productId}:`, errorMessage);
+      // Return default assessment on error
+      return {
+        riskScore: 0.5,
+        riskLevel: 'medium',
+        factors: [],
+        confidence: 0.5,
+        recommendations: [],
+      };
+    }
+  }
+
+  /**
+   * Analyze fashion trends from product images
+   * Uses a trend analysis model on SmartInference to score products based on current fashion trends
+   */
+  async analyzeTrends(
+    productImages: string[]
+  ): Promise<{
+    trendScore: number;
+    trendLevel: 'outdated' | 'neutral' | 'trending' | 'hot';
+    trendFactors: Array<{
+      factor: string;
+      score: number;
+      description: string;
+    }>;
+    seasonality: {
+      currentSeason: 'spring' | 'summer' | 'fall' | 'winter';
+      seasonScore: number;
+    };
+    styleTags: string[];
+    confidence: number;
+  }> {
+    try {
+      if (!productImages || productImages.length === 0) {
+        throw new Error('At least one product image is required');
+      }
+
+      const result = await styleInference.predict({
+        type: 'trend_analysis',
+        productImages,
+      });
+
+      const trendScore = result.trendScore || 0.5;
+      let trendLevel: 'outdated' | 'neutral' | 'trending' | 'hot' = 'neutral';
+      if (trendScore < 0.3) trendLevel = 'outdated';
+      else if (trendScore < 0.6) trendLevel = 'neutral';
+      else if (trendScore < 0.8) trendLevel = 'trending';
+      else trendLevel = 'hot';
+
+      return {
+        trendScore,
+        trendLevel,
+        trendFactors: result.trendFactors || [],
+        seasonality: result.seasonality || {
+          currentSeason: 'all-season',
+          seasonScore: 0.5,
+        },
+        styleTags: result.styleTags || [],
+        confidence: result.confidence || 0.8,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`[StyleInferenceService] Failed to analyze trends:`, errorMessage);
+      // Return default analysis on error
+      return {
+        trendScore: 0.5,
+        trendLevel: 'neutral',
+        trendFactors: [],
+        seasonality: {
+          currentSeason: 'all-season',
+          seasonScore: 0.5,
+        },
+        styleTags: [],
+        confidence: 0.5,
+      };
     }
   }
 }
