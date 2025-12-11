@@ -1,11 +1,18 @@
-// server/index.js
+// server/index.cjs
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
-const fetch = require('node-fetch'); // add to package.json if not present
-const promClient = require('prom-client'); // add to package.json
+const promClient = require('prom-client');
 
-const { runServiceChecks } = require('../lib/healthChecks.cjs');
+// Try to load healthChecks, but make it optional if it fails
+let runServiceChecks;
+try {
+  const healthChecks = require('../lib/healthChecks.cjs');
+  runServiceChecks = healthChecks.runServiceChecks;
+} catch (err) {
+  console.warn('Could not load healthChecks:', err.message);
+  runServiceChecks = async () => ({ vultr: { ok: false, reason: 'not_loaded' }, elevenlabs: { ok: false, reason: 'not_loaded' }, raindrop: { ok: false, reason: 'not_loaded' } });
+}
 
 const PORT = process.env.PORT || 3000;
 const app = express();
@@ -79,7 +86,7 @@ process.on('SIGTERM', () => {
   setTimeout(() => process.exit(0), 5000);
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server started on port ${PORT}`);
   console.log(`Health: http://localhost:${PORT}/health`);
   console.log(`Status: http://localhost:${PORT}/status`);
