@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -9,6 +9,7 @@ import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import RouteLoadingIndicator from "@/components/common/RouteLoadingIndicator";
 import { routeConfigs, createRouteElement } from "@/config/routes";
 import { KeyboardShortcutsProvider } from "@/components/KeyboardShortcutsProvider";
+import { initGlobalErrorHandlers } from "@/lib/globalErrorHandler";
 
 // Create QueryClient outside component to prevent recreation on every render
 const queryClient = new QueryClient({

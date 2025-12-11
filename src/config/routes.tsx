@@ -70,6 +70,7 @@ const FashioniDemo = lazy(() => import('@/pages/demo/FashioniDemo'));
 
 // Admin pages
 const AdminRisk = lazy(() => import('@/pages/AdminRisk'));
+const AdminProviders = lazy(() => import('@/pages/admin/Providers'));
 
 // Error pages
 const NotFound = lazy(() => import('@/pages/NotFound'));
