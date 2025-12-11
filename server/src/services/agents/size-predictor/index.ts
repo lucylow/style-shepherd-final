@@ -7,11 +7,11 @@
 import { measurementNormalizer, BodyMeasurements, NormalizedFeatures } from './measurement-normalizer.js';
 import { svmModel, SizePrediction } from './svm-model.js';
 import { riskAssessor, SizeHistory, FabricProperties, RiskAssessment } from './risk-assessor.js';
-import { userMemory } from '../../lib/raindrop-config.js';
-import { vultrValkey } from '../../lib/vultr-valkey.js';
+import { userMemory } from '../../../lib/raindrop-config.js';
+import { vultrValkey } from '../../../lib/vultr-valkey.js';
 import type { Product } from '../SearchAgent.js';
-import { withGuardrails, validateInput, sanitizeOutput } from '../../lib/guardrails/integration.js';
-import { GuardrailError } from '../../lib/guardrails/errors.js';
+import { withGuardrails, validateInput, sanitizeOutput } from '../../../lib/guardrails/integration.js';
+import { GuardrailError } from '../../../lib/guardrails/errors.js';
 
 export interface SizePredictionResult {
   recommendedSize: string;
@@ -204,12 +204,17 @@ export class SizePredictorAgent {
         result.warnings = result.warnings.map(w => sanitizeOutput('bodyLanguage', w));
       }
     } catch (error: unknown) {
-      if (error instanceof GuardrailError && error.guardrailName === 'LOW_CONFIDENCE') {
-        // Low confidence - don't block, but add strong warning
-        result.warnings = [
-          ...(result.warnings || []),
-          '⚠️ Low confidence prediction - try on recommended before purchase',
-        ];
+      if (error instanceof GuardrailError) {
+        const guardrailError = error as GuardrailError & { guardrailName?: string };
+        if (guardrailError.guardrailName === 'LOW_CONFIDENCE') {
+          // Low confidence - don't block, but add strong warning
+          result.warnings = [
+            ...(result.warnings || []),
+            '⚠️ Low confidence prediction - try on recommended before purchase',
+          ];
+        } else {
+          throw error;
+        }
       } else {
         throw error;
       }

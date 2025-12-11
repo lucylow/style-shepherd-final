@@ -234,7 +234,6 @@ export class SavedAddressService {
       }
       throw new DatabaseError(
         `Failed to update address: ${error.message}`,
-        ErrorCode.DATABASE_ERROR,
         error
       );
     }
