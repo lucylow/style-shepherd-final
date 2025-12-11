@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Learn-to-rank generated files
+training_data.csv
+models/
+*.joblib
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

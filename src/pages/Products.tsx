@@ -198,10 +198,11 @@ const Products = () => {
           {/* Filter Panel */}
           {isFilterOpen && (
             <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="bg-card border border-border rounded-lg p-4 space-y-4"
+              initial={{ opacity: 0, height: 0, y: -10 }}
+              animate={{ opacity: 1, height: 'auto', y: 0 }}
+              exit={{ opacity: 0, height: 0, y: -10 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+              className="bg-card border border-border rounded-lg p-4 sm:p-6 space-y-6 shadow-elevated"
             >
               <div>
                 <h4 className="text-sm font-semibold mb-2">Return Risk</h4>
@@ -221,33 +222,51 @@ const Products = () => {
               </div>
 
               <div>
-                <h4 className="text-sm font-semibold mb-2">Size</h4>
+                <h4 className="text-sm font-semibold mb-3 text-foreground">Size</h4>
                 <div className="flex flex-wrap gap-2">
                   {['XS', 'S', 'M', 'L', 'XL'].map(size => (
-                    <Button
+                    <motion.div
                       key={size}
-                      variant={sizeFilter === size ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => handleFilterChange('size', size)}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                     >
-                      {size}
-                    </Button>
+                      <Button
+                        variant={sizeFilter === size ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => handleFilterChange('size', size)}
+                        className={cn(
+                          "transition-all duration-200",
+                          sizeFilter === size && "shadow-sm shadow-primary/20"
+                        )}
+                      >
+                        {size}
+                      </Button>
+                    </motion.div>
                   ))}
                 </div>
               </div>
 
               <div>
-                <h4 className="text-sm font-semibold mb-2">Category</h4>
+                <h4 className="text-sm font-semibold mb-3 text-foreground">Category</h4>
                 <div className="flex flex-wrap gap-2">
                   {['dress', 'top', 'pants', 'shoes', 'jacket'].map(category => (
-                    <Button
+                    <motion.div
                       key={category}
-                      variant={categoryFilter === category ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => handleFilterChange('category', category)}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                     >
-                      {category.charAt(0).toUpperCase() + category.slice(1)}
-                    </Button>
+                      <Button
+                        variant={categoryFilter === category ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => handleFilterChange('category', category)}
+                        className={cn(
+                          "transition-all duration-200",
+                          categoryFilter === category && "shadow-sm shadow-primary/20"
+                        )}
+                      >
+                        {category.charAt(0).toUpperCase() + category.slice(1)}
+                      </Button>
+                    </motion.div>
                   ))}
                 </div>
               </div>

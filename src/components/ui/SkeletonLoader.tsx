@@ -16,12 +16,15 @@ export function SkeletonLoader({
     switch (variant) {
       case 'product':
         return (
-          <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
-            <Skeleton className="aspect-[3/4] w-full" />
-            <div className="p-4 space-y-2">
-              <Skeleton className="h-4 w-3/4" />
-              <Skeleton className="h-3 w-1/2" />
-              <Skeleton className="h-4 w-1/3" />
+          <div className="bg-card rounded-xl shadow-elevated border border-border overflow-hidden animate-pulse">
+            <Skeleton className="aspect-[3/4] w-full bg-gradient-to-br from-muted to-muted/50" />
+            <div className="p-4 space-y-3">
+              <Skeleton className="h-4 w-3/4 bg-gradient-to-r from-muted to-muted/70" />
+              <Skeleton className="h-3 w-1/2 bg-gradient-to-r from-muted to-muted/70" />
+              <div className="flex items-center justify-between pt-2">
+                <Skeleton className="h-5 w-1/3 bg-gradient-to-r from-muted to-muted/70" />
+                <Skeleton className="h-8 w-8 rounded-full bg-gradient-to-r from-muted to-muted/70" />
+              </div>
             </div>
           </div>
         );
