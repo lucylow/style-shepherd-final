@@ -24,17 +24,9 @@ try {
   console.warn('Could not load fraud model:', e.message);
 }
 
-// Use global fetch if available; fallback to node-fetch if required
-let fetchFn = globalThis.fetch;
-if (!fetchFn) {
-  try {
-    // node-fetch v2 (CJS) compatibility; if using node-fetch v3 adjust accordingly
-    fetchFn = require('node-fetch');
-  } catch (e) {
-    fetchFn = null;
-  }
-}
-const fetch = fetchFn;
+// Use Node.js built-in fetch (available in Node 18+)
+// No need to require node-fetch
+const fetch = globalThis.fetch;
 
 function sha256Hex(s) {
   return crypto.createHash('sha256').update(s).digest('hex');
