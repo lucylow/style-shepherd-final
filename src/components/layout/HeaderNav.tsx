@@ -12,7 +12,8 @@ import {
 import {
   User, LogOut, Home, Package, Mic, LayoutDashboard, Brain, Layers,
   Target, TrendingUp, BarChart3, Shield, Award,
-  PlayCircle, LineChart, Calculator, Building2, Cloud, ChevronDown
+  PlayCircle, LineChart, Calculator, Building2, Cloud, ChevronDown,
+  Sparkles, Ruler
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -42,6 +43,13 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    label: "Shopping & Style",
+    items: [
+      { href: "/style-recommendations", label: "Style Recommendations", icon: Sparkles },
+      { href: "/size-prediction", label: "Size Prediction", icon: Ruler },
+    ],
+  },
+  {
     label: "Demo & Metrics",
     items: [
       { href: "/demo", label: "Judge Demo", icon: PlayCircle },
@@ -52,14 +60,11 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    label: "Lovable Cloud",
+    label: "Admin",
     items: [
-      { href: "/lovable", label: "Dashboard", icon: Cloud },
-      { href: "/lovable/deployment", label: "Deployment", icon: Cloud },
-      { href: "/lovable/monitoring", label: "Monitoring", icon: BarChart3 },
-      { href: "/lovable/analytics", label: "Analytics", icon: LineChart },
-      { href: "/lovable/logs", label: "Logs", icon: LayoutDashboard },
-      { href: "/lovable/health", label: "Health", icon: Shield },
+      { href: "/monitoring", label: "Admin Dashboard", icon: Cloud },
+      { href: "/admin/risk", label: "Risk & Compliance", icon: Shield },
+      { href: "/admin/providers", label: "Provider Management", icon: Building2 },
     ],
   },
 ];

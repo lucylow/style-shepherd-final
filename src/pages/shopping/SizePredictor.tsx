@@ -1,4 +1,4 @@
-import SizePredictionDemo from "@/components/SizePredictionDemo";
+import SizePredictionDemo from "@/components/shopping/SizePredictionDemo";
 
 export default function SizePredictorPage() {
   return (

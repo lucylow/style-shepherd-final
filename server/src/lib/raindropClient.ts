@@ -227,6 +227,74 @@ export function isEnabled(): boolean {
   return raindropEnabled;
 }
 
+interface UpdateMemoryResponse {
+  success: boolean;
+  source: 'raindrop' | 'mock';
+  resp?: any;
+  entry?: MemoryEntry;
+}
+
+/**
+ * Update a memory entry
+ * Note: Raindrop SDK may not support direct updates, so we delete and recreate
+ */
+export async function updateMemory(
+  userId: string = 'demo_user',
+  id: string,
+  text: string,
+  type?: string,
+  metadata?: Record<string, any>
+): Promise<UpdateMemoryResponse> {
+  if (raindropEnabled && raindropClient) {
+    try {
+      // Try to update if SDK supports it
+      if (typeof raindropClient.smartMemory?.update === 'function') {
+        const resp = await raindropClient.smartMemory.update({
+          userId,
+          id,
+          text,
+          type,
+          metadata
+        });
+        return { success: true, source: 'raindrop', resp };
+      }
+      // Fallback: delete and recreate
+      if (typeof raindropClient.smartMemory?.delete === 'function' && 
+          typeof raindropClient.smartMemory?.create === 'function') {
+        await raindropClient.smartMemory.delete({ userId, id });
+        const resp = await raindropClient.smartMemory.create({
+          userId,
+          type: type || 'working',
+          text,
+          metadata: metadata || {}
+        });
+        return { success: true, source: 'raindrop', resp };
+      }
+    } catch (e) {
+      console.warn('Raindrop SDK update error — falling back to mock', e);
+    }
+  }
+
+  // Mock path
+  const db = readMock();
+  const index = db.memories.findIndex(
+    m => m.userId === userId && m.id === id
+  );
+  
+  if (index === -1) {
+    return { success: false, source: 'mock' };
+  }
+
+  db.memories[index] = {
+    ...db.memories[index],
+    text: text || db.memories[index].text,
+    type: type || db.memories[index].type,
+    metadata: metadata !== undefined ? metadata : db.memories[index].metadata,
+  };
+  writeMock(db);
+  return { success: true, source: 'mock', entry: db.memories[index] };
+}
+
 /**
  * Batch store multiple memories
  */

@@ -14,7 +14,9 @@ import {
   X,
   Calendar,
   Tag,
-  Sparkles
+  Sparkles,
+  Zap,
+  Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,6 +54,9 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { getApiBaseUrl } from '@/lib/api-config';
 import InteractiveIntegrationPanel from '@/components/integrations/InteractiveIntegrationPanel';
+import { useRaindrop } from '@/hooks/useRaindrop';
+import { RaindropConnectionStatus } from '@/components/integrations/RaindropConnectionStatus';
+import { VultrConnectionStatus } from '@/components/integrations/VultrConnectionStatus';
 
 type MemoryType = 'working' | 'semantic' | 'episodic' | 'procedural';
 
@@ -85,6 +90,17 @@ const MEMORY_TYPE_LABELS: Record<MemoryType, string> = {
 };
 
 export default function AIMemory() {
+  const {
+    storeMemory,
+    searchMemory,
+    deleteMemory,
+    updateMemory,
+    clearMemory,
+    getMemoryStats,
+    exportMemory,
+    loading: raindropLoading,
+  } = useRaindrop();
+  
   const [memories, setMemories] = useState<MemoryEntry[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<MemoryType | 'all'>('all');
@@ -99,6 +115,9 @@ export default function AIMemory() {
   const [editText, setEditText] = useState('');
   const [editType, setEditType] = useState<MemoryType>('working');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [memorySource, setMemorySource] = useState<'raindrop' | 'mock' | null>(null);
+  const [stats, setStats] = useState<{ total: number; byType: Record<string, number> } | null>(null);
+  const [vultrAnalyzing, setVultrAnalyzing] = useState(false);
 
   // Debounced search
   useEffect(() => {
@@ -116,25 +135,22 @@ export default function AIMemory() {
   const loadMemories = async (query?: string, typeFilter?: MemoryType | 'all') => {
     setIsLoading(true);
     try {
-      const apiBase = getApiBaseUrl();
-      const res = await fetch(`${apiBase}/raindrop/search-memory`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: 'demo_user',
-          q: query || '',
-          topK: 200,
-        }),
-      });
-
-      if (!res.ok) {
-        const error = await res.json().catch(() => ({ message: 'Search failed' }));
-        throw new Error(error?.message || error?.error || 'Search failed');
-      }
-
-      const data = await res.json();
+      const result = await searchMemory('demo_user', query || '', 200);
+      
       // Normalize results (handle both mock and raindrop SDK formats)
-      const items: MemoryEntry[] = data.results || data.resp?.results || data.resp || [];
+      const rawItems = result.results || [];
+      const items: MemoryEntry[] = rawItems.map((item: any) => ({
+        id: item.id || item.resp?.id || `${Date.now()}-${Math.random()}`,
+        userId: item.userId || 'demo_user',
+        type: (item.type || 'working') as MemoryType,
+        text: item.text || item.resp?.text || '',
+        metadata: item.metadata || item.resp?.metadata || {},
+        createdAt: item.createdAt || item.resp?.createdAt || new Date().toISOString(),
+        resp: item.resp || item,
+      }));
+      
+      // Track source
+      setMemorySource(result.source);
       
       let filtered = items;
       if (typeFilter && typeFilter !== 'all') {
@@ -142,6 +158,14 @@ export default function AIMemory() {
       }
       
       setMemories(filtered);
+      
+      // Load stats
+      try {
+        const statsResult = await getMemoryStats('demo_user');
+        setStats(statsResult);
+      } catch (e) {
+        console.warn('Failed to load stats:', e);
+      }
     } catch (e) {
       console.error('Failed to load memories:', e);
       toast.error('Failed to load memories');
@@ -161,7 +185,7 @@ export default function AIMemory() {
 
   const handleDelete = async (id: string) => {
     try {
-      await deleteMemory('demo_user', id);
+      const result = await deleteMemory('demo_user', id);
       toast.success('Memory deleted');
       loadMemories(searchQuery, filterType);
     } catch (e) {
@@ -175,14 +199,14 @@ export default function AIMemory() {
       return;
     }
     try {
-      await storeMemory(
+      const result = await storeMemory(
         'demo_user',
         newMemoryType,
         newMemoryText,
         { source: 'manual', page: '/ai-memory' }
       );
       setNewMemoryText('');
-      toast.success('Memory added successfully');
+      toast.success(`Memory added successfully (${result.source === 'raindrop' ? 'Raindrop' : 'Mock'})`);
       loadMemories(searchQuery, filterType);
     } catch (e) {
       toast.error('Failed to add memory');
@@ -192,7 +216,7 @@ export default function AIMemory() {
   const handleEdit = (memory: MemoryEntry) => {
     setSelectedMemory(memory);
     setEditText(memory.text);
-    setEditType(memory.type);
+    setEditType((memory.type || 'working') as MemoryType);
     setEditDialogOpen(true);
   };
 
@@ -202,8 +226,8 @@ export default function AIMemory() {
       return;
     }
     try {
-      await updateMemory('demo_user', selectedMemory.id, editText, editType);
-      toast.success('Memory updated');
+      const result = await updateMemory('demo_user', selectedMemory.id, editText, editType);
+      toast.success(`Memory updated (${result.source === 'raindrop' ? 'Raindrop' : 'Mock'})`);
       setEditDialogOpen(false);
       setSelectedMemory(null);
       loadMemories(searchQuery, filterType);
@@ -214,18 +238,18 @@ export default function AIMemory() {
 
   const handleClearAll = async () => {
     try {
-      clearAllMemories();
-      toast.success('All memories cleared');
+      const result = await clearMemory('demo_user');
+      toast.success(`All memories cleared (${result.deleted} deleted)`);
       setMemories([]);
+      setStats(null);
     } catch (e) {
       toast.error('Failed to clear memories');
     }
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     try {
-      const data = JSON.stringify(memories, null, 2);
-      const blob = new Blob([data], { type: 'application/json' });
+      const blob = await exportMemory('demo_user');
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -250,7 +274,7 @@ export default function AIMemory() {
       let imported = 0;
       for (const memory of importedMemories) {
         if (memory.text) {
-          await storeMemory(
+          const result = await storeMemory(
             'demo_user',
             memory.type || 'working',
             memory.text,
@@ -265,6 +289,59 @@ export default function AIMemory() {
       loadMemories(searchQuery, filterType);
     } catch (e) {
       toast.error('Failed to import memories. Please check the file format.');
+    }
+  };
+
+  const handleVultrAnalysis = async () => {
+    if (memories.length === 0) {
+      toast.error('No memories to analyze');
+      return;
+    }
+    
+    setVultrAnalyzing(true);
+    try {
+      const memoryTexts = memories.slice(0, 10).map(m => m.text).join('\n');
+      const response = await fetch(`${getApiBaseUrl()}/integrations/vultr/infer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'gpt-3.5-turbo',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a fashion style analyst. Analyze the user\'s style preferences from their memories and provide insights.'
+            },
+            {
+              role: 'user',
+              content: `Analyze these style memories and provide insights:\n\n${memoryTexts}\n\nProvide a brief analysis of style preferences, patterns, and suggestions.`
+            }
+          ]
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.success && data.choices?.[0]?.message?.content) {
+        const analysis = data.choices[0].message.content;
+        
+        // Store the analysis as a new memory
+        await storeMemory(
+          'demo_user',
+          'semantic',
+          `Style Analysis: ${analysis}`,
+          { source: 'vultr_analysis', analyzedAt: new Date().toISOString() }
+        );
+        
+        toast.success(`Analysis complete (${data.source === 'vultr' ? 'Vultr' : 'Mock'})`);
+        loadMemories(searchQuery, filterType);
+      } else {
+        toast.error('Failed to analyze memories');
+      }
+    } catch (e) {
+      console.error('Vultr analysis error:', e);
+      toast.error('Failed to analyze memories');
+    } finally {
+      setVultrAnalyzing(false);
     }
   };
 
@@ -316,10 +393,30 @@ export default function AIMemory() {
                   AI Memory
                   <Sparkles className="w-5 h-5 text-primary" />
                 </h1>
-                <p className="text-muted-foreground">Powered by Raindrop SmartMemory</p>
+                <p className="text-muted-foreground">
+                  Powered by Raindrop SmartMemory
+                  {memorySource && (
+                    <Badge variant="outline" className="ml-2">
+                      {memorySource === 'raindrop' ? 'Live' : 'Mock'}
+                    </Badge>
+                  )}
+                </p>
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
+              <Button 
+                variant="outline" 
+                onClick={handleVultrAnalysis}
+                className="gap-2"
+                disabled={memories.length === 0 || vultrAnalyzing}
+              >
+                {vultrAnalyzing ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Zap className="w-4 h-4" />
+                )}
+                AI Analysis
+              </Button>
               <Button 
                 variant="outline" 
                 onClick={() => setImportDialogOpen(true)}
@@ -473,10 +570,10 @@ export default function AIMemory() {
                         <div className="flex flex-wrap items-center gap-3">
                           <Badge 
                             variant="outline" 
-                            className={cn("text-xs font-medium", MEMORY_TYPE_COLORS[memory.type])}
+                            className={cn("text-xs font-medium", MEMORY_TYPE_COLORS[memory.type || 'working'])}
                           >
                             <Tag className="w-3 h-3 mr-1" />
-                            {MEMORY_TYPE_LABELS[memory.type]}
+                            {MEMORY_TYPE_LABELS[memory.type || 'working']}
                           </Badge>
                           <div className="flex items-center gap-1 text-xs text-muted-foreground">
                             <Calendar className="w-3 h-3" />
@@ -528,28 +625,52 @@ export default function AIMemory() {
           </div>
 
           {/* Stats */}
-          {memories.length > 0 && (
+          {(memories.length > 0 || stats) && (
             <Card className="bg-muted/30">
               <CardContent className="pt-6">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div className="flex flex-wrap gap-6">
                     <div>
                       <p className="text-sm text-muted-foreground">Total Memories</p>
-                      <p className="text-2xl font-bold text-foreground">{memories.length}</p>
+                      <p className="text-2xl font-bold text-foreground">
+                        {stats?.total ?? memories.length}
+                      </p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Showing</p>
                       <p className="text-2xl font-bold text-foreground">{filteredMemories.length}</p>
                     </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Storage</p>
-                      <p className="text-sm font-medium text-foreground">Mock (localStorage)</p>
-                    </div>
+                    {memorySource && (
+                      <div>
+                        <p className="text-sm text-muted-foreground">Storage</p>
+                        <p className="text-sm font-medium text-foreground">
+                          {memorySource === 'raindrop' ? 'Raindrop API' : 'Mock Mode'}
+                        </p>
+                      </div>
+                    )}
+                    {stats && Object.keys(stats.byType).length > 0 && (
+                      <div>
+                        <p className="text-sm text-muted-foreground">By Type</p>
+                        <div className="flex gap-2 mt-1">
+                          {Object.entries(stats.byType).map(([type, count]) => (
+                            <Badge key={type} variant="outline" className="text-xs">
+                              {type}: {count}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardContent>
             </Card>
           )}
+
+          {/* Connection Status */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <RaindropConnectionStatus autoRefresh={true} refreshInterval={30000} />
+            <VultrConnectionStatus autoRefresh={true} refreshInterval={30000} />
+          </div>
 
           {/* Interactive Integration Panel */}
           <div className="mt-8">

@@ -64,17 +64,6 @@ const navGroups: NavGroup[] = [
       { href: "/sponsor-metrics", label: "Sponsor Metrics", icon: Building2 },
     ],
   },
-  {
-    label: "Lovable Cloud",
-    items: [
-      { href: "/lovable", label: "Dashboard", icon: Cloud },
-      { href: "/lovable/deployment", label: "Deployment", icon: Cloud },
-      { href: "/lovable/monitoring", label: "Monitoring", icon: BarChart3 },
-      { href: "/lovable/analytics", label: "Analytics", icon: LineChart },
-      { href: "/lovable/logs", label: "Logs", icon: LayoutDashboard },
-      { href: "/lovable/health", label: "Health", icon: Shield },
-    ],
-  },
 ];
 
 export default function MainNav() {

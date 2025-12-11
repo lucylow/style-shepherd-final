@@ -5,7 +5,7 @@
  */
 
 import { Router, Request, Response, NextFunction } from 'express';
-import { initRaindrop, storeMemory, searchMemory, deleteMemory } from '../lib/raindropClient.js';
+import { initRaindrop, storeMemory, searchMemory, deleteMemory, updateMemory } from '../lib/raindropClient.js';
 import { z } from 'zod';
 import { validateBody, validateQuery } from '../middleware/validation.js';
 
@@ -262,6 +262,47 @@ router.post(
       const { batchStoreMemory } = await import('../lib/raindropClient.js');
       const results = await batchStoreMemory(memories);
       res.status(200).json({ success: true, results });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+/**
+ * POST /api/raindrop/update-memory
+ * Update a memory entry
+ */
+router.post(
+  '/update-memory',
+  validateBody(
+    z.object({
+      userId: z.string().default('demo_user'),
+      id: z.string().min(1, 'Memory ID is required'),
+      text: z.string().min(1, 'Text is required'),
+      type: z.string().optional(),
+      metadata: z.record(z.any()).optional(),
+    })
+  ),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId = 'demo_user', id, text, type, metadata } = req.body;
+      
+      if (!id) {
+        return res.status(400).json({ success: false, message: 'id required' });
+      }
+      
+      const result = await updateMemory(userId, id, text, type, metadata);
+      
+      if (!result.success) {
+        return res.status(404).json({ success: false, message: 'Memory not found' });
+      }
+      
+      return res.status(200).json({
+        success: true,
+        source: result.source,
+        entry: result.entry,
+        resp: result.resp,
+      });
     } catch (err) {
       next(err);
     }

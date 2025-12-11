@@ -25,16 +25,26 @@ Style Shepherd combines conversational AI with specialized machine learning mode
 ## 📑 Table of Contents
 
 - [System Architecture](#-system-architecture)
+  - [Backend Architecture](#backend-architecture)
+  - [Database Schema](#database-schema)
+  - [API Routes Structure](#api-routes-structure)
+- [Security & Compliance](#-security--compliance)
+- [Monitoring & Observability](#-monitoring--observability)
+- [Testing & Quality Assurance](#-testing--quality-assurance)
+- [Build & Deployment Pipeline](#️-build--deployment-pipeline)
 - [AI Architecture & Multi-Agent System](#-ai-architecture--multi-agent-system)
 - [Vultr Infrastructure Integration](#-vultr-infrastructure-integration)
-- [Raindrop Smart Components Integration](#-raindrop-smart-components-integration)
+- [Raindrop Smart Components Integration](#️-raindrop-smart-components-integration)
 - [Data Flow & Processing Pipeline](#-data-flow--processing-pipeline)
 - [Demo & Quick Start](#-demo--quick-start)
 - [API Reference](#-api-reference)
+  - [Code Patterns & Best Practices](#-code-patterns--best-practices)
 - [Local Development](#-local-development)
+  - [Troubleshooting](#troubleshooting)
+- [Performance Optimization](#-performance-optimization)
 - [Deployment](#-deployment)
 - [Evaluation & Metrics](#-evaluation--metrics)
-- [Roadmap](#-roadmap)
+- [Roadmap](#️-roadmap)
 - [Credits & References](#-credits--references)
 
 ---
@@ -142,6 +152,458 @@ graph TB
 │ Payments:        Stripe                                           │
 │ Deployment:      Raindrop Platform (GCP)                         │
 └─────────────────────────────────────────────────────────────────┘
+```
+
+### Backend Architecture
+
+**Server Implementation** (`server/src/index.ts`):
+- **Framework**: Express.js 4.18 with TypeScript 5.8
+- **Security Middleware**: Helmet, CORS, rate limiting
+- **Body Parsing**: JSON (10MB limit), raw body for Stripe webhooks
+- **Monitoring**: Custom middleware with Prometheus metrics
+- **Error Handling**: Centralized error handler with structured logging
+- **Request Validation**: Zod schema validation
+
+**Key Architectural Patterns**:
+- **Modular Route Organization**: Routes organized by domain (agents, fraud, monitoring, etc.)
+- **Service Layer Pattern**: Business logic separated from HTTP handlers
+- **Provider Abstraction**: Abstract LLM providers for flexibility (OpenAI, Vultr, etc.)
+- **Connection Pooling**: PostgreSQL connection pool (20 connections)
+- **Circuit Breaker Pattern**: Resilient external API calls with exponential backoff
+
+**Database Schema** (`prisma/schema.prisma`):
+```prisma
+// Core models for risk assessment and agent autonomy
+model Evidence {
+  id        String   @id @default(cuid())
+  action    String
+  userId    String?
+  payload   Json
+  hash      String   @unique
+  createdAt DateTime @default(now())
+  incidents RiskIncident[]
+}
+
+model RiskIncident {
+  id                String   @id @default(cuid())
+  evidenceId        String?
+  action            String
+  userId            String?
+  score             Float
+  decision          String
+  reasons           Json?
+  handledBy         String?
+  handledAt         DateTime?
+  createdAt         DateTime @default(now())
+  evidence          Evidence? @relation(fields: [evidenceId], references: [id])
+  
+  // ML features for training
+  price              Int?
+  returnsProbability Float?
+  userReturnRate     Float?
+  brandTrustScore    Float?
+  anomalyFlagsCount  Int?
+  actionType         String?
+}
+
+// Autonomous agent system models
+model UserAutonomySettings {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  autonomyLevel   Int      @default(1) // 1-5 scale
+  maxAutoPrice    Int?
+  allowedCategories Json?
+  approvalMode    String   @default("above_100")
+  personalShopper Json?
+  makeupArtist    Json?
+  sizePredictor   Json?
+  returnsPredictor Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model AgentMemory {
+  id                String   @id @default(cuid())
+  userId            String
+  agentType         String
+  memoryVector      Json?
+  context           Json?
+  performanceMetrics Json?
+  autonomyLevel     Int      @default(1)
+  lastTriggered     DateTime?
+  lastLearned       DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@unique([userId, agentType])
+  @@index([userId])
+}
+```
+
+**API Routes Structure**:
+```
+server/src/routes/
+├── api.ts                    # Core API endpoints (200+ routes)
+├── agents.ts                 # Agent management
+├── specialized-agents.ts     # Multi-agent orchestration
+├── vultr.ts                  # Vultr service integration
+├── raindrop.ts               # Raindrop Smart Components
+├── fraud.ts                  # Fraud detection
+├── risk.ts                   # Risk assessment
+├── monitoring.ts             # Metrics & health checks
+├── personalization.ts        # User personalization
+├── workflows.ts              # Automated workflows
+├── shopping-sessions.ts      # Session management
+├── guardrails.ts             # AI guardrails
+└── admin.ts                  # Admin endpoints
+```
+
+**Request/Response Flow**:
+```typescript
+// Example: Multi-agent orchestration pattern
+router.post('/api/assistant', async (req, res, next) => {
+  try {
+    // 1. Validate input with Zod
+    const validated = assistantSchema.parse(req.body);
+    
+    // 2. Check cache (Vultr Valkey)
+    const cached = await cache.get(`session:${validated.userId}`);
+    if (cached) return res.json(cached);
+    
+    // 3. Extract intent (parallel agent execution)
+    const [intent, sizePred, riskPred] = await Promise.all([
+      voiceAgent.extractIntent(validated.query),
+      sizeAgent.predict(validated.productId, validated.measurements),
+      returnAgent.predict(validated.productId, validated.userId)
+    ]);
+    
+    // 4. Aggregate results
+    const response = orchestrator.aggregate(intent, sizePred, riskPred);
+    
+    // 5. Cache and return
+    await cache.set(`session:${validated.userId}`, response, 1800);
+    res.json(response);
+  } catch (error) {
+    next(error); // Centralized error handler
+  }
+});
+```
+
+**Performance Optimizations**:
+- **Multi-layer Caching**: Browser → Valkey → PostgreSQL → Raindrop
+- **Connection Pooling**: Reused database connections
+- **Parallel Agent Execution**: Promise.all() for concurrent AI calls
+- **Batch Operations**: Bulk inserts/updates where possible
+- **Query Optimization**: Indexed queries, prepared statements
+- **Compression**: Gzip compression for responses
+- **Rate Limiting**: 100 requests per 15 minutes per IP
+
+---
+
+## 🔒 Security & Compliance
+
+### Security Implementation
+
+**Authentication & Authorization**:
+- **WorkOS Integration**: Enterprise-grade authentication with SSO support
+- **JWT Token Validation**: Token verification on protected routes
+- **Role-Based Access Control (RBAC)**: Admin, merchant, and user roles
+- **Session Management**: Secure session storage in Vultr Valkey with TTL
+
+**Data Protection**:
+- **HTTPS/TLS**: All API communications encrypted
+- **Environment Variables**: Sensitive data stored in environment variables (never committed)
+- **Input Validation**: Zod schema validation on all API endpoints
+- **SQL Injection Prevention**: Parameterized queries via Prisma ORM
+- **XSS Protection**: Helmet.js security headers
+- **CORS Configuration**: Whitelisted origins only
+
+**API Security**:
+```typescript
+// Rate limiting configuration
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // 100 requests per window
+  message: 'Too many requests, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Helmet security headers
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+    },
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  }
+}));
+
+// Stripe webhook signature verification
+app.post('/api/payments/webhook', 
+  express.raw({ type: 'application/json' }),
+  (req, res) => {
+    const sig = req.headers['stripe-signature'];
+    try {
+      const event = stripe.webhooks.constructEvent(
+        req.body, 
+        sig, 
+        process.env.STRIPE_WEBHOOK_SECRET
+      );
+      // Process webhook
+    } catch (err) {
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+  }
+);
+```
+
+**Fraud Detection**:
+- **Anomaly Detection**: Real-time scoring of suspicious activities
+- **Risk Scoring**: Multi-factor risk assessment (user history, product, price)
+- **Evidence Tracking**: Immutable audit trail for all actions
+- **Guardrails**: AI output validation and content filtering
+
+**Compliance**:
+- **GDPR Ready**: User data deletion endpoints
+- **Audit Logging**: All sensitive operations logged
+- **Data Retention**: Configurable retention policies
+- **Privacy Controls**: User consent management
+
+---
+
+## 📊 Monitoring & Observability
+
+### Monitoring Architecture
+
+**Metrics Collection**:
+- **Prometheus Metrics**: Exported at `/api/monitoring/metrics`
+- **Custom Metrics**: Request latency, error rates, cache hit rates
+- **Business Metrics**: Return rates, conversion, recommendation accuracy
+- **Infrastructure Metrics**: Database connections, cache performance
+
+**Health Checks**:
+```bash
+# Comprehensive health check endpoint
+GET /health
+
+Response:
+{
+  "status": "healthy",
+  "services": {
+    "postgres": { "connected": true, "latency": "12ms" },
+    "valkey": { "connected": true, "latency": "3ms" },
+    "raindrop": { "connected": true, "latency": "45ms" }
+  },
+  "timestamp": "2025-01-15T10:00:00Z",
+  "uptime": 3600
+}
+```
+
+**Structured Logging**:
+```typescript
+// Winston logger configuration
+import winston from 'winston';
+
+const logger = winston.createLogger({
+  level: process.env.LOG_LEVEL || 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.errors({ stack: true }),
+    winston.format.json()
+  ),
+  transports: [
+    new winston.transports.Console(),
+    new winston.transports.File({ filename: 'error.log', level: 'error' }),
+    new winston.transports.File({ filename: 'combined.log' })
+  ]
+});
+
+// Usage in routes
+logger.info('Agent orchestration started', {
+  userId: req.user.id,
+  intent: extractedIntent,
+  agentCount: 3,
+  timestamp: Date.now()
+});
+```
+
+**Distributed Tracing**:
+- **OpenTelemetry**: Instrumented for distributed tracing
+- **Request Context**: Request IDs propagated across services
+- **Performance Monitoring**: End-to-end latency tracking
+- **Error Tracking**: Stack traces with context
+
+**Monitoring Endpoints**:
+- `GET /api/monitoring/metrics` - Prometheus metrics (text/plain)
+- `GET /api/monitoring/metrics/json` - JSON format metrics
+- `GET /api/monitoring/stats` - Application statistics
+- `GET /api/monitoring/health` - Detailed health check
+
+---
+
+## 🧪 Testing & Quality Assurance
+
+### Testing Strategy
+
+**Test Types**:
+- **Unit Tests**: Vitest for component and function testing
+- **Integration Tests**: API endpoint testing with test database
+- **E2E Tests**: Full workflow testing (future)
+- **Performance Tests**: Load testing for critical endpoints
+
+**Test Configuration** (`vitest.config.ts`):
+```typescript
+import { defineConfig } from 'vitest/config';
+import react from '@vitejs/plugin-react-swc';
+
+export default defineConfig({
+  plugins: [react()],
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: './src/test/setup.ts',
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      exclude: ['node_modules/', 'dist/']
+    }
+  }
+});
+```
+
+**Running Tests**:
+```bash
+# Run all tests
+npm test
+
+# Watch mode
+npm run test:watch
+
+# Coverage report
+npm run test:coverage
+
+# UI mode
+npm run test:ui
+```
+
+**Test Examples**:
+```typescript
+// Example unit test
+import { describe, it, expect } from 'vitest';
+import { calculateReturnRisk } from './return-risk-calculator';
+
+describe('Return Risk Calculator', () => {
+  it('should calculate low risk for good size match', () => {
+    const risk = calculateReturnRisk({
+      sizeConfidence: 0.92,
+      brandReturnRate: 0.15,
+      userReturnRate: 0.20
+    });
+    expect(risk.score).toBeLessThan(0.15);
+    expect(risk.level).toBe('low');
+  });
+});
+```
+
+**Code Quality**:
+- **ESLint**: Code linting with TypeScript rules
+- **TypeScript**: Strict type checking
+- **Prettier**: Code formatting (via ESLint)
+- **Pre-commit Hooks**: Linting before commits (future)
+
+---
+
+## 🏗️ Build & Deployment Pipeline
+
+### Build Configuration
+
+**Frontend Build** (`vite.config.ts`):
+```typescript
+export default defineConfig({
+  plugins: [react()],
+  build: {
+    outDir: 'dist',
+    assetsDir: 'assets',
+    sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          router: ['react-router-dom'],
+          ui: ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu']
+        }
+      }
+    },
+    chunkSizeWarningLimit: 1000
+  },
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true
+      }
+    }
+  }
+});
+```
+
+**Backend Build**:
+```typescript
+// TypeScript compilation
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  }
+}
+```
+
+**Build Commands**:
+```bash
+# Frontend
+npm run build              # Production build
+npm run build:dev          # Development build
+
+# Backend
+cd server && npm run build # TypeScript compilation
+
+# Full stack
+npm run build:all          # Build both frontend and backend
+```
+
+**Deployment Steps**:
+1. **Build**: Compile TypeScript, bundle frontend assets
+2. **Test**: Run test suite, ensure all tests pass
+3. **Lint**: Verify code quality
+4. **Deploy**: Push to Raindrop platform or Vultr
+5. **Verify**: Health checks, smoke tests
+6. **Monitor**: Watch logs and metrics
+
+**Environment Management**:
+```bash
+# Development
+NODE_ENV=development
+DEMO_MODE=true  # Allows running without all API keys
+
+# Production
+NODE_ENV=production
+DEMO_MODE=false
+# All API keys required
 ```
 
 ---
@@ -1265,6 +1727,68 @@ STRIPE_SECRET_KEY=your_stripe_key
 ### Authentication
 Most endpoints require authentication via WorkOS. Include `Authorization: Bearer <token>` header.
 
+**Authentication Flow**:
+```typescript
+// 1. Client requests auth token from WorkOS
+const response = await fetch('https://api.workos.com/sso/token', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ code, clientId, clientSecret })
+});
+
+// 2. Include token in API requests
+fetch('https://api.style-shepherd.com/api/products', {
+  headers: {
+    'Authorization': `Bearer ${accessToken}`,
+    'Content-Type': 'application/json'
+  }
+});
+
+// 3. Server validates token
+// Middleware validates JWT and extracts user info
+```
+
+### API Versioning
+- Current version: `v1` (default)
+- Version via header: `X-API-Version: v1`
+- Future versions will maintain backward compatibility
+
+### Rate Limiting
+- **Standard**: 100 requests per 15 minutes per IP
+- **Headers**:
+  - `X-RateLimit-Limit`: Request limit
+  - `X-RateLimit-Remaining`: Remaining requests
+  - `X-RateLimit-Reset`: Reset time (Unix timestamp)
+
+### Error Response Format
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid input parameters",
+    "details": [
+      {
+        "field": "measurements.waist",
+        "message": "Must be a positive number"
+      }
+    ],
+    "timestamp": "2025-01-15T10:00:00Z",
+    "requestId": "req_abc123"
+  }
+}
+```
+
+### Common HTTP Status Codes
+- `200` - Success
+- `201` - Created
+- `400` - Bad Request (validation error)
+- `401` - Unauthorized (missing/invalid token)
+- `403` - Forbidden (insufficient permissions)
+- `404` - Not Found
+- `429` - Too Many Requests (rate limit exceeded)
+- `500` - Internal Server Error
+- `502` - Bad Gateway (external service error)
+
 ### Key Endpoints
 
 #### `POST /api/recommend/size`
@@ -1469,6 +1993,254 @@ Store data in Raindrop SmartMemory.
 }
 ```
 
+### Additional API Endpoints
+
+#### Agent Endpoints
+- `GET /api/agents` - List all agents
+- `GET /api/agents/:agentId` - Get agent details
+- `POST /api/agents/:agentId/trigger` - Manually trigger agent
+- `GET /api/agents/:agentId/memory` - Get agent memory state
+
+#### Specialized Agent Endpoints
+- `POST /api/specialized-agents/voice-concierge` - Voice concierge agent
+- `POST /api/specialized-agents/size-oracle` - Size prediction
+- `POST /api/specialized-agents/returns-prophet` - Return risk prediction
+- `POST /api/specialized-agents/trend-agent` - Trend analysis
+- `POST /api/specialized-agents/personal-shopper` - Personal shopping agent
+
+#### Vultr Integration Endpoints
+- `GET /api/integrations/vultr/postgres/health` - PostgreSQL health check
+- `GET /api/integrations/vultr/postgres/products` - Query products
+- `POST /api/integrations/vultr/postgres/orders` - Create order
+- `GET /api/integrations/vultr/valkey/health` - Valkey health check
+- `POST /api/integrations/vultr/valkey/session/:sessionId` - Store session
+- `GET /api/integrations/vultr/valkey/session/:sessionId` - Get session
+- `POST /api/integrations/vultr/infer` - LLM inference
+
+#### Raindrop Integration Endpoints
+- `POST /api/integrations/raindrop/store-memory` - Store memory
+- `GET /api/integrations/raindrop/search-memory` - Search memory
+- `POST /api/integrations/raindrop/upload-image` - Upload to SmartBuckets
+- `POST /api/integrations/raindrop/find-similar` - Visual search
+- `POST /api/integrations/raindrop/inference/predict` - AI prediction
+
+#### Monitoring Endpoints
+- `GET /api/monitoring/metrics` - Prometheus metrics
+- `GET /api/monitoring/metrics/json` - JSON metrics
+- `GET /api/monitoring/stats` - Application statistics
+- `GET /api/monitoring/health` - Health check
+- `GET /health` - Simple health check
+
+#### Risk & Fraud Endpoints
+- `POST /api/risk/assess` - Risk assessment
+- `POST /api/fraud/detect` - Fraud detection
+- `GET /api/risk/incidents` - List risk incidents
+- `POST /api/guardrails/validate` - Validate AI output
+
+#### Workflow Endpoints
+- `POST /api/workflows/execute` - Execute workflow
+- `GET /api/workflows` - List workflows
+- `GET /api/workflows/:workflowId` - Get workflow details
+- `POST /api/workflows/:workflowId/trigger` - Trigger workflow
+
+---
+
+## 💡 Code Patterns & Best Practices
+
+### Service Layer Pattern
+
+**Separation of Concerns**:
+```typescript
+// ❌ Bad: Business logic in route handler
+router.post('/api/recommend/size', async (req, res) => {
+  const measurements = req.body.measurements;
+  const brand = req.body.brand;
+  // Complex ML logic here...
+  const size = await xgboost.predict(/* ... */);
+  res.json({ size });
+});
+
+// ✅ Good: Service layer separation
+// routes/api.ts
+router.post('/api/recommend/size', async (req, res, next) => {
+  try {
+    const result = await sizeRecommendationService.predict(req.body);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// services/size-recommendation.ts
+export class SizeRecommendationService {
+  async predict(input: SizeInput): Promise<SizePrediction> {
+    // Business logic isolated
+    const features = this.extractFeatures(input);
+    const prediction = await this.model.predict(features);
+    return this.formatPrediction(prediction);
+  }
+}
+```
+
+### Error Handling Pattern
+
+**Centralized Error Handling**:
+```typescript
+// middleware/error-handler.ts
+export const errorHandler = (
+  err: Error,
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  logger.error('Error occurred', {
+    error: err.message,
+    stack: err.stack,
+    path: req.path,
+    method: req.method,
+    requestId: req.id
+  });
+
+  if (err instanceof ValidationError) {
+    return res.status(400).json({
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: err.message,
+        details: err.details
+      }
+    });
+  }
+
+  if (err instanceof DatabaseError) {
+    return res.status(502).json({
+      error: {
+        code: 'DATABASE_ERROR',
+        message: 'Database operation failed'
+      }
+    });
+  }
+
+  // Generic error
+  res.status(500).json({
+    error: {
+      code: 'INTERNAL_ERROR',
+      message: process.env.NODE_ENV === 'production' 
+        ? 'Internal server error' 
+        : err.message
+    }
+  });
+};
+```
+
+### Caching Pattern
+
+**Multi-Level Cache Strategy**:
+```typescript
+// services/cache-service.ts
+export class CacheService {
+  async get<T>(key: string): Promise<T | null> {
+    // Layer 1: Memory cache (if available)
+    if (this.memoryCache.has(key)) {
+      return this.memoryCache.get(key);
+    }
+
+    // Layer 2: Valkey cache
+    const cached = await vultrValkey.get(key);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      this.memoryCache.set(key, parsed, 60); // 1min memory cache
+      return parsed;
+    }
+
+    return null;
+  }
+
+  async set<T>(key: string, value: T, ttl: number): Promise<void> {
+    // Set in both layers
+    this.memoryCache.set(key, value, Math.min(ttl, 60));
+    await vultrValkey.setex(key, ttl, JSON.stringify(value));
+  }
+}
+```
+
+### Provider Abstraction Pattern
+
+**LLM Provider Abstraction**:
+```typescript
+// interfaces/llm-provider.ts
+interface LLMProvider {
+  chatCompletion(request: ChatRequest): Promise<ChatResponse>;
+  embeddings(text: string): Promise<number[]>;
+}
+
+// providers/openai-provider.ts
+export class OpenAIProvider implements LLMProvider {
+  async chatCompletion(request: ChatRequest): Promise<ChatResponse> {
+    // OpenAI-specific implementation
+  }
+}
+
+// providers/vultr-provider.ts
+export class VultrProvider implements LLMProvider {
+  async chatCompletion(request: ChatRequest): Promise<ChatResponse> {
+    // Vultr-specific implementation
+  }
+}
+
+// services/llm-service.ts
+export class LLMService {
+  constructor(private provider: LLMProvider) {}
+
+  async generate(prompt: string): Promise<string> {
+    return this.provider.chatCompletion({
+      messages: [{ role: 'user', content: prompt }]
+    });
+  }
+}
+```
+
+### Type Safety with Zod
+
+**Schema Validation**:
+```typescript
+import { z } from 'zod';
+
+// Define schemas
+const sizeRecommendationSchema = z.object({
+  userId: z.string().uuid(),
+  productId: z.string().min(1),
+  measurements: z.object({
+    height: z.number().positive(),
+    weight: z.number().positive(),
+    chest: z.number().positive(),
+    waist: z.number().positive(),
+    hips: z.number().positive()
+  }),
+  brand: z.string().min(1),
+  category: z.enum(['dress', 'top', 'bottom', 'outerwear'])
+});
+
+// Use in route
+router.post('/api/recommend/size', async (req, res, next) => {
+  try {
+    const validated = sizeRecommendationSchema.parse(req.body);
+    // TypeScript knows the shape of validated
+    const result = await service.predict(validated);
+    res.json(result);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        error: {
+          code: 'VALIDATION_ERROR',
+          details: error.errors
+        }
+      });
+    }
+    next(error);
+  }
+});
+```
+
 ---
 
 ## 💻 Local Development
@@ -1502,6 +2274,7 @@ cd ..
 ```bash
 npm run dev
 # Frontend available at http://localhost:5173
+# Vite dev server with HMR (Hot Module Replacement)
 ```
 
 **Terminal 2 - Backend**:
@@ -1509,6 +2282,118 @@ npm run dev
 cd server
 npm run dev
 # Backend API available at http://localhost:3001
+# TypeScript compilation in watch mode with ts-node-dev
+```
+
+**Terminal 3 - Mock Data Server** (Optional):
+```bash
+npm run mock:server
+# JSON server available at http://localhost:4000
+# Provides mock data for development
+```
+
+### Development Tools
+
+**Environment Setup**:
+```bash
+# Copy example environment file
+cp .env.example .env
+
+# Enable demo mode (allows running without all API keys)
+echo "DEMO_MODE=true" >> .env
+echo "NODE_ENV=development" >> .env
+```
+
+**Code Quality Tools**:
+```bash
+# Lint code
+npm run lint
+
+# Format code (if Prettier configured)
+npm run format
+
+# Type checking
+npm run type-check
+```
+
+**Database Setup**:
+```bash
+# Generate Prisma client
+npx prisma generate
+
+# Run migrations
+npx prisma migrate dev
+
+# Open Prisma Studio (GUI)
+npx prisma studio
+```
+
+### Troubleshooting
+
+**Common Issues**:
+
+1. **Port Already in Use**:
+   ```bash
+   # Find process using port 3001
+   lsof -ti:3001 | xargs kill -9
+   
+   # Or use different port
+   PORT=3002 npm run dev
+   ```
+
+2. **Database Connection Errors**:
+   ```bash
+   # Check PostgreSQL connection
+   psql -h $VULTR_POSTGRES_HOST -U $VULTR_POSTGRES_USER -d $VULTR_POSTGRES_DATABASE
+   
+   # Verify environment variables
+   echo $VULTR_POSTGRES_HOST
+   ```
+
+3. **Valkey Connection Issues**:
+   ```bash
+   # Test Valkey connection
+   redis-cli -h $VULTR_VALKEY_HOST -p $VULTR_VALKEY_PORT -a $VULTR_VALKEY_PASSWORD ping
+   ```
+
+4. **Build Errors**:
+   ```bash
+   # Clear node_modules and reinstall
+   rm -rf node_modules server/node_modules
+   npm install
+   cd server && npm install
+   
+   # Clear build cache
+   rm -rf dist server/dist .vite
+   ```
+
+5. **TypeScript Errors**:
+   ```bash
+   # Regenerate TypeScript config
+   npx tsc --init
+   
+   # Check for type errors
+   npx tsc --noEmit
+   ```
+
+**Debugging**:
+```typescript
+// Enable debug logging
+DEBUG=* npm run dev
+
+// Enable specific module debugging
+DEBUG=express:* npm run dev
+
+// View request/response logs
+// Add to middleware
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.path}`, {
+    query: req.query,
+    body: req.body,
+    headers: req.headers
+  });
+  next();
+});
 ```
 
 ### Testing Integrations
@@ -1638,6 +2523,210 @@ ELEVENLABS_API_KEY=...
 OPENAI_API_KEY=...
 WORKOS_API_KEY=...
 STRIPE_SECRET_KEY=...
+```
+
+---
+
+## ⚡ Performance Optimization
+
+### Frontend Optimizations
+
+**Code Splitting**:
+```typescript
+// Lazy load routes
+const VoiceShop = lazy(() => import('./pages/VoiceShop'));
+const Wardrobe = lazy(() => import('./pages/Wardrobe'));
+
+// Lazy load components
+const HeavyChart = lazy(() => import('./components/HeavyChart'));
+
+// Suspense boundaries
+<Suspense fallback={<Loading />}>
+  <VoiceShop />
+</Suspense>
+```
+
+**Bundle Optimization**:
+- **Tree Shaking**: Remove unused code
+- **Minification**: Production builds minified
+- **Compression**: Gzip/Brotli compression
+- **CDN**: Static assets served from CDN
+- **Image Optimization**: WebP format, lazy loading
+
+**React Optimizations**:
+```typescript
+// Memoization for expensive computations
+const expensiveValue = useMemo(() => {
+  return computeExpensiveValue(data);
+}, [data]);
+
+// Callback memoization
+const handleClick = useCallback((id: string) => {
+  // Handler logic
+}, [dependencies]);
+
+// React Query for caching
+const { data } = useQuery({
+  queryKey: ['products', productId],
+  queryFn: () => fetchProduct(productId),
+  staleTime: 5 * 60 * 1000, // 5 minutes
+  cacheTime: 10 * 60 * 1000  // 10 minutes
+});
+```
+
+### Backend Optimizations
+
+**Database Query Optimization**:
+```typescript
+// ✅ Use indexes
+CREATE INDEX idx_products_brand_category ON products(brand, category);
+CREATE INDEX idx_orders_user_created ON orders(user_id, created_at DESC);
+
+// ✅ Use prepared statements (Prisma does this automatically)
+const products = await prisma.product.findMany({
+  where: { brand: 'Zara', category: 'dress' },
+  // Prisma optimizes the query
+});
+
+// ✅ Batch operations
+await prisma.product.createMany({ data: products });
+
+// ✅ Select only needed fields
+const products = await prisma.product.findMany({
+  select: { id: true, name: true, price: true }
+});
+```
+
+**Connection Pooling**:
+```typescript
+// PostgreSQL connection pool configuration
+const pool = new Pool({
+  host: process.env.VULTR_POSTGRES_HOST,
+  port: parseInt(process.env.VULTR_POSTGRES_PORT || '5432'),
+  database: process.env.VULTR_POSTGRES_DATABASE,
+  user: process.env.VULTR_POSTGRES_USER,
+  password: process.env.VULTR_POSTGRES_PASSWORD,
+  max: 20, // Maximum pool size
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000
+});
+```
+
+**Caching Strategies**:
+```typescript
+// Cache-aside pattern
+async function getProduct(id: string): Promise<Product> {
+  // 1. Check cache
+  const cached = await cache.get(`product:${id}`);
+  if (cached) return JSON.parse(cached);
+
+  // 2. Query database
+  const product = await db.product.findById(id);
+
+  // 3. Store in cache
+  await cache.setex(`product:${id}`, 3600, JSON.stringify(product));
+
+  return product;
+}
+
+// Write-through pattern
+async function updateProduct(id: string, data: Partial<Product>): Promise<Product> {
+  // 1. Update database
+  const product = await db.product.update(id, data);
+
+  // 2. Update cache
+  await cache.setex(`product:${id}`, 3600, JSON.stringify(product));
+
+  return product;
+}
+```
+
+**Parallel Processing**:
+```typescript
+// ✅ Parallel agent execution
+const [sizePred, riskPred, trendPred] = await Promise.all([
+  sizeAgent.predict(productId, measurements),
+  returnAgent.predict(productId, userId),
+  trendAgent.predict(productId, userId)
+]);
+
+// ✅ Parallel database queries
+const [user, products, orders] = await Promise.all([
+  db.user.findById(userId),
+  db.product.findByCategory(category),
+  db.order.findByUser(userId)
+]);
+
+// ❌ Sequential (slow)
+const sizePred = await sizeAgent.predict(...);
+const riskPred = await returnAgent.predict(...);
+const trendPred = await trendAgent.predict(...);
+```
+
+**Response Compression**:
+```typescript
+import compression from 'compression';
+
+app.use(compression({
+  filter: (req, res) => {
+    // Compress responses > 1KB
+    if (req.headers['x-no-compression']) {
+      return false;
+    }
+    return compression.filter(req, res);
+  },
+  level: 6 // Compression level (0-9)
+}));
+```
+
+**Request Batching**:
+```typescript
+// Batch API requests on frontend
+const productIds = ['prod1', 'prod2', 'prod3'];
+const products = await Promise.all(
+  productIds.map(id => fetchProduct(id))
+);
+
+// Or use batch endpoint
+const products = await fetch('/api/products/batch', {
+  method: 'POST',
+  body: JSON.stringify({ ids: productIds })
+});
+```
+
+### Performance Metrics
+
+**Target Latencies**:
+- API Response (p95): < 200ms
+- Database Query: < 50ms
+- Cache Lookup: < 10ms
+- LLM Inference: < 500ms
+- Frontend TTI (Time to Interactive): < 3s
+- First Contentful Paint: < 1.5s
+
+**Monitoring Performance**:
+```typescript
+// Add performance middleware
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    logger.info('Request completed', {
+      method: req.method,
+      path: req.path,
+      status: res.statusCode,
+      duration,
+      userId: req.user?.id
+    });
+    
+    // Track metrics
+    metrics.httpRequestDuration.observe(
+      { method: req.method, status: res.statusCode },
+      duration
+    );
+  });
+  next();
+});
 ```
 
 ---

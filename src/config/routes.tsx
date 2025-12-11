@@ -23,8 +23,10 @@ const AuthCallback = lazy(() => import('@/pages/auth/AuthCallback'));
 
 // Dashboard & User pages
 const DashboardPage = lazy(() => import('@/pages/DashboardPage'));
-const Dashboard = lazy(() => import('@/pages/Dashboard')); // Legacy
 const AIMemory = lazy(() => import('@/pages/AIMemory'));
+const ScanItem = lazy(() => import('@/pages/user/ScanItem'));
+const Wardrobe = lazy(() => import('@/pages/user/Wardrobe'));
+const AIChat = lazy(() => import('@/pages/user/AIChat'));
 
 // Agent pages
 const AgentsDashboard = lazy(() => import('@/pages/agents/AgentsDashboard'));
@@ -38,6 +40,9 @@ const Checkout = lazy(() => import('@/pages/shopping/Checkout'));
 const OrderSuccess = lazy(() => import('@/pages/shopping/OrderSuccess'));
 const SubscriptionCheckout = lazy(() => import('@/pages/shopping/SubscriptionCheckout'));
 const SubscriptionSuccess = lazy(() => import('@/pages/shopping/SubscriptionSuccess'));
+const StyleRecommendations = lazy(() => import('@/pages/shopping/StyleRecommendations'));
+const SizePredictor = lazy(() => import('@/pages/shopping/SizePredictor'));
+const SizeComparison = lazy(() => import('@/pages/shopping/SizeComparison'));
 
 // Makeup Artist page
 const MakeupArtist = lazy(() => import('@/pages/MakeupArtist'));
@@ -49,25 +54,15 @@ const PilotKPIsPage = lazy(() => import('@/pages/demo/PilotKPIs'));
 const UnitEconomicsPage = lazy(() => import('@/pages/demo/UnitEconomics'));
 const SponsorMetricsPage = lazy(() => import('@/pages/demo/SponsorMetrics'));
 
-// Lovable Cloud pages
-const LovableDashboard = lazy(() => import('@/pages/lovable/LovableDashboard'));
-const LovableDeployment = lazy(() => import('@/pages/lovable/LovableDeployment'));
-const LovableMonitoring = lazy(() => import('@/pages/lovable/LovableMonitoring'));
-const LovableSettings = lazy(() => import('@/pages/lovable/LovableSettings'));
-const LovableAnalytics = lazy(() => import('@/pages/lovable/LovableAnalytics'));
-const LovableEnvironment = lazy(() => import('@/pages/lovable/LovableEnvironment'));
-const LovableLogs = lazy(() => import('@/pages/lovable/LovableLogs'));
-const LovableHealth = lazy(() => import('@/pages/lovable/LovableHealth'));
+// Lovable Cloud features have been integrated into MonitoringDashboard
 
 // Demo & Integration pages
 const DemoIntegrations = lazy(() => import('@/pages/demo/DemoIntegrations'));
 const FashioniDemo = lazy(() => import('@/pages/demo/FashioniDemo'));
 const TrendAnalysisPage = lazy(() => import('@/pages/demo/TrendAnalysisPage'));
-const SizePredictor = lazy(() => import('@/pages/SizePredictor'));
-const SizeComparison = lazy(() => import('@/pages/SizeComparison'));
 
 // Admin pages
-const AdminRisk = lazy(() => import('@/pages/AdminRisk'));
+const AdminRisk = lazy(() => import('@/pages/admin/AdminRisk'));
 const AdminProviders = lazy(() => import('@/pages/admin/Providers'));
 
 // Monitoring pages
@@ -183,9 +178,21 @@ export const routeConfigs: RouteConfig[] = [
     group: 'user',
   },
   {
-    path: '/old-dashboard',
-    component: Dashboard,
-    label: 'Legacy Dashboard',
+    path: '/scan-item',
+    component: ScanItem,
+    label: 'Scan Item',
+    group: 'user',
+  },
+  {
+    path: '/wardrobe',
+    component: Wardrobe,
+    label: 'My Wardrobe',
+    group: 'user',
+  },
+  {
+    path: '/ai-chat',
+    component: AIChat,
+    label: 'AI Chat',
     group: 'user',
   },
 
@@ -222,6 +229,12 @@ export const routeConfigs: RouteConfig[] = [
   },
 
   // Shopping & Checkout routes
+  {
+    path: '/style-recommendations',
+    component: StyleRecommendations,
+    label: 'Style Recommendations',
+    group: 'shopping',
+  },
   {
     path: '/size-prediction',
     component: SizePredictor,
@@ -285,55 +298,7 @@ export const routeConfigs: RouteConfig[] = [
     group: 'demo',
   },
 
-  // Lovable Cloud routes
-  {
-    path: '/lovable',
-    component: LovableDashboard,
-    label: 'Lovable Dashboard',
-    group: 'lovable',
-  },
-  {
-    path: '/lovable/deployment',
-    component: LovableDeployment,
-    label: 'Deployment',
-    group: 'lovable',
-  },
-  {
-    path: '/lovable/monitoring',
-    component: LovableMonitoring,
-    label: 'Monitoring',
-    group: 'lovable',
-  },
-  {
-    path: '/lovable/settings',
-    component: LovableSettings,
-    label: 'Settings',
-    group: 'lovable',
-  },
-  {
-    path: '/lovable/analytics',
-    component: LovableAnalytics,
-    label: 'Analytics',
-    group: 'lovable',
-  },
-  {
-    path: '/lovable/environment',
-    component: LovableEnvironment,
-    label: 'Environment',
-    group: 'lovable',
-  },
-  {
-    path: '/lovable/logs',
-    component: LovableLogs,
-    label: 'Logs',
-    group: 'lovable',
-  },
-  {
-    path: '/lovable/health',
-    component: LovableHealth,
-    label: 'Health',
-    group: 'lovable',
-  },
+  // Lovable Cloud features integrated into /monitoring route
 
   // Demo & Integration routes
   {

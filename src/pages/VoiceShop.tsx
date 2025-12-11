@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Mic, MicOff, Sparkles, ShoppingBag, AlertCircle, X } from 'lucide-react';
+import { Mic, MicOff, Sparkles, ShoppingBag, AlertCircle, X, Volume2, Loader2 } from 'lucide-react';
 import { VoiceInterface } from '@/components/voice/VoiceInterface';
 import { ProductCard } from '@/components/shopping/ProductCard';
 import { ShoppingCart } from '@/components/shopping/ShoppingCart';
@@ -16,6 +16,7 @@ import HeaderNav from '@/components/layout/HeaderNav';
 import MobileBottomNav from '@/components/layout/MobileBottomNav';
 import RouteLoadingIndicator from '@/components/common/RouteLoadingIndicator';
 import useScrollRestoration from '@/hooks/useScrollRestoration';
+import { speakText } from '@/lib/ttsClient';
 
 const VoiceShop = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -25,6 +26,7 @@ const VoiceShop = () => {
   const [isListening, setIsListening] = useState(false);
   const [lastCommand, setLastCommand] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  const [processingCommand, setProcessingCommand] = useState<string | null>(null);
 
   const { user } = useAuth();
   const userId = user?.id || 'guest';
@@ -123,6 +125,32 @@ const VoiceShop = () => {
         
         setError(errorMessage);
       }
+    }
+  };
+
+  const handleDemoCommand = async (command: string) => {
+    setProcessingCommand(command);
+    setError(null);
+    
+    try {
+      // First, speak the command using TTS
+      await speakText(command);
+      
+      // Small delay to let TTS finish before processing
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Then process it as a voice command
+      const response: VoiceResponse = {
+        text: command,
+        confidence: 1.0,
+      };
+      
+      await handleVoiceCommand(response);
+    } catch (error: any) {
+      console.error('Error processing demo command:', error);
+      setError('Failed to process command. Please try again.');
+    } finally {
+      setProcessingCommand(null);
     }
   };
 
@@ -287,14 +315,30 @@ const VoiceShop = () => {
               'Show me low return risk items',
               'What do you recommend?',
               'Find something for a wedding',
-            ].map((command, index) => (
-              <div
-                key={index}
-                className="bg-muted rounded-lg p-3 text-sm text-muted-foreground"
-              >
-                "{command}"
-              </div>
-            ))}
+            ].map((command, index) => {
+              const isProcessing = processingCommand === command;
+              return (
+                <Button
+                  key={index}
+                  onClick={() => handleDemoCommand(command)}
+                  disabled={isProcessing || isLoading}
+                  variant="outline"
+                  className="h-auto p-4 flex flex-col items-center gap-2 hover:bg-primary/5 hover:border-primary/50 transition-all min-h-[80px] justify-center"
+                >
+                  {isProcessing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                      <span className="text-sm font-medium text-center">Speaking...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Volume2 className="w-4 h-4 text-primary flex-shrink-0" />
+                      <span className="text-sm font-medium text-foreground text-center leading-tight">"{command}"</span>
+                    </>
+                  )}
+                </Button>
+              );
+            })}
           </div>
         </motion.div>
 

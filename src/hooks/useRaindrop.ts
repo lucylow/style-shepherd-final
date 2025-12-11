@@ -56,6 +56,14 @@ interface UseRaindropReturn {
   exportMemory: (userId: string) => Promise<Blob>;
   clearMemory: (userId: string) => Promise<{ success: boolean; deleted: number }>;
   
+  updateMemory: (
+    userId: string,
+    id: string,
+    text: string,
+    type?: string,
+    metadata?: Record<string, any>
+  ) => Promise<{ success: boolean; source: 'raindrop' | 'mock'; entry?: MemoryEntry }>;
+  
   // State
   loading: boolean;
   error: Error | null;
@@ -229,6 +237,33 @@ export function useRaindrop(): UseRaindropReturn {
     }, 'clearMemory');
   }, [handleOperation]);
 
+  const updateMemory = useCallback(async (
+    userId: string,
+    id: string,
+    text: string,
+    type?: string,
+    metadata?: Record<string, any>
+  ) => {
+    return handleOperation(async () => {
+      const response = await fetch(`${getApiBaseUrl()}/raindrop/update-memory`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, id, text, type, metadata }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to update memory: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      return {
+        success: data.success,
+        source: data.source,
+        entry: data.entry,
+      };
+    }, 'updateMemory');
+  }, [handleOperation]);
+
   return {
     storeMemory,
     searchMemory,
@@ -237,6 +272,7 @@ export function useRaindrop(): UseRaindropReturn {
     getMemoryStats,
     exportMemory,
     clearMemory,
+    updateMemory,
     loading,
     error,
     clearError,
