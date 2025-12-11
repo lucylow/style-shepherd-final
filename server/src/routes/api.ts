@@ -15,8 +15,12 @@ import { NotFoundError } from '../lib/errors.js';
 import { validateBody, validateParams, validateQuery, commonSchemas } from '../middleware/validation.js';
 import { z } from 'zod';
 import agentRoutes from './agents.js';
+import returnsPredictorRoutes from './returns-predictor.js';
 import { retailOrchestrator } from '../services/RetailOrchestrator.js';
 import { analyticsService } from '../services/AnalyticsService.js';
+import { personalShopperAgent } from '../services/agents/PersonalShopperAgent.js';
+import { sizePredictorAgent } from '../services/agents/size-predictor/index.js';
+import { makeupArtistAgent } from '../services/agents/MakeupArtistAgent/index.js';
 
 const router = Router();
 
@@ -1106,8 +1110,46 @@ router.get(
   }
 );
 
+// Personal Shopper Agent - Outfit Curation
+router.post(
+  '/agents/personal-shopper',
+  validateBody(
+    z.object({
+      style: z.string().optional(),
+      budget: z.number().positive('Budget must be positive'),
+      occasion: z.string().min(1, 'Occasion is required'),
+      measurements: z.object({
+        height: z.number().optional(),
+        weight: z.number().optional(),
+        chest: z.number().optional(),
+        waist: z.number().optional(),
+        hips: z.number().optional(),
+        shoeSize: z.string().optional(),
+      }).optional(),
+      userId: z.string().optional(),
+      preferredColors: z.array(z.string()).optional(),
+      excludeCategories: z.array(z.string()).optional(),
+    })
+  ),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const outfits = await personalShopperAgent.curateOutfits(req.body);
+      res.json({
+        outfits,
+        count: outfits.length,
+        query: req.body,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 // Agent management routes
 router.use(agentRoutes);
+
+// Returns Predictor Agent routes
+router.use('/agents/returns-predictor', returnsPredictorRoutes);
 
 // Agentic Retail Experience - Multi-Agent Orchestration
 router.post(
@@ -1514,6 +1556,107 @@ router.post(
     } catch (err) {
       console.error('eval/run error', err);
       return res.status(500).json({ success: false, error: String(err) });
+    }
+  }
+);
+
+// Size Predictor Agent endpoint
+router.post(
+  '/agents/size-predictor',
+  validateBody(
+    z.object({
+      userId: z.string().min(1, 'User ID is required'),
+      products: z.array(
+        z.object({
+          id: z.string(),
+          name: z.string(),
+          brand: z.string(),
+          category: z.string(),
+          price: z.number().optional(),
+          description: z.string().optional(),
+          sizes: z.array(z.string()).optional(),
+        })
+      ).min(1, 'At least one product is required'),
+      measurements: z.object({
+        height: z.number().optional(),
+        weight: z.number().optional(),
+        bust: z.number().optional(),
+        chest: z.number().optional(),
+        waist: z.number().optional(),
+        hips: z.number().optional(),
+        inseam: z.number().optional(),
+        shoulder: z.number().optional(),
+        armLength: z.number().optional(),
+        thigh: z.number().optional(),
+        neck: z.number().optional(),
+        sleeve: z.number().optional(),
+        shoeSize: z.number().optional(),
+      }).optional(),
+    })
+  ),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId, products, measurements } = req.body;
+      
+      const response = await sizePredictorAgent.predictSizes({
+        userId,
+        products,
+        measurements,
+      });
+      
+      res.json(response);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Makeup Artist Agent endpoint
+router.post(
+  '/agents/makeup-artist/create-look',
+  validateBody(
+    z.object({
+      selfieUrl: z.string().url('Valid selfie URL is required'),
+      occasion: z.string().min(1, 'Occasion is required'),
+      preferences: z.array(z.string()).optional(),
+      userId: z.string().optional(),
+    })
+  ),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { selfieUrl, occasion, preferences, userId } = req.body;
+      
+      const look = await makeupArtistAgent.createLook({
+        selfieUrl,
+        occasion,
+        preferences,
+        userId,
+      });
+      
+      res.json(look);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Makeup Artist Agent - Analyze selfie only
+router.post(
+  '/agents/makeup-artist/analyze',
+  validateBody(
+    z.object({
+      selfieUrl: z.string().url('Valid selfie URL is required'),
+    })
+  ),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { selfieUrl } = req.body;
+      
+      const analysis = await makeupArtistAgent.analyzeSelfie(selfieUrl);
+      
+      res.json(analysis);
+    } catch (error) {
+      next(error);
     }
   }
 );

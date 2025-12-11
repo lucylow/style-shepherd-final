@@ -17,6 +17,7 @@ import apiRoutes from './routes/api.js';
 import integrationsRoutes from './routes/integrations.js';
 import raindropRoutes from './routes/raindrop.js';
 import fraudRoutes from './routes/fraud.js';
+import specializedAgentsRoutes from './routes/specialized-agents.js';
 import { vultrPostgres } from './lib/vultr-postgres.js';
 import { vultrValkey } from './lib/vultr-valkey.js';
 import { initRaindrop } from './lib/raindropClient.js';
@@ -108,6 +109,7 @@ app.use('/api/raindrop', raindropRoutes);
 app.use('/api/admin/fraud', fraudRoutes);
 app.use('/api/personalize', personalizationRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/agents', specializedAgentsRoutes);
 app.use('/api', apiRoutes);
 
 // Serve static files from client build in production

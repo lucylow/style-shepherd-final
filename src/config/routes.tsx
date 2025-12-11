@@ -37,6 +37,9 @@ const OrderSuccess = lazy(() => import('@/pages/shopping/OrderSuccess'));
 const SubscriptionCheckout = lazy(() => import('@/pages/shopping/SubscriptionCheckout'));
 const SubscriptionSuccess = lazy(() => import('@/pages/shopping/SubscriptionSuccess'));
 
+// Makeup Artist page
+const MakeupArtist = lazy(() => import('@/pages/MakeupArtist'));
+
 // Idea Quality Framework pages
 const IdeaQualityIndex = lazy(() => import('@/pages/idea-quality/IdeaQualityIndex'));
 const CompetitiveAnalysis = lazy(() => import('@/pages/idea-quality/CompetitiveAnalysis'));
@@ -130,6 +133,12 @@ export const routeConfigs: RouteConfig[] = [
     path: '/voice-shop',
     component: VoiceShop,
     label: 'Voice Shop',
+    group: 'public',
+  },
+  {
+    path: '/makeup-artist',
+    component: MakeupArtist,
+    label: 'Makeup Artist',
     group: 'public',
   },
 

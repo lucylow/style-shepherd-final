@@ -10,6 +10,7 @@ import { productRecommendationAPI } from './ProductRecommendationAPI.js';
 import { userMemory } from '../lib/raindrop-config.js';
 import { vultrValkey } from '../lib/vultr-valkey.js';
 import { vultrPostgres } from '../lib/vultr-postgres.js';
+import { makeupArtistAgent } from './agents/MakeupArtistAgent/index.js';
 import {
   AppError,
   ExternalServiceError,
@@ -345,6 +346,30 @@ export class MultiAgentOrchestrator {
         recommendations: [],
         styleConfidence: 0.5,
       };
+    }
+  }
+
+  /**
+   * Invoke Makeup Artist Agent (for coordination with Personal Shopper)
+   * Can be called when creating complete looks that include makeup
+   */
+  async invokeMakeupArtist(
+    selfieUrl: string,
+    occasion: string,
+    preferences?: string[],
+    userId?: string
+  ) {
+    try {
+      return await makeupArtistAgent.createLook({
+        selfieUrl,
+        occasion,
+        preferences,
+        userId,
+      });
+    } catch (error) {
+      console.error('Makeup Artist Agent invocation failed:', error);
+      // Return null on error - makeup is optional for outfit coordination
+      return null;
     }
   }
 
