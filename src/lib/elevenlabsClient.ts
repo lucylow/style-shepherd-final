@@ -18,14 +18,28 @@ interface VoicesResponse {
   success: boolean;
   source: "eleven" | "mock";
   voices: Voice[];
+  total_count?: number;
+  execution_time_ms?: number;
+  optimized_voices?: Voice[];
   error?: string;
 }
 
-interface Voice {
+export interface Voice {
   voice_id: string;
   name: string;
+  category: string;
+  description: string;
+  preview_url: string;
+  image_url?: string;
   language?: string;
-  category?: string;
+  accent?: string;
+  gender?: "male" | "female";
+  optimized_for_fashion?: boolean;
+  category_display?: string;
+  stability?: number;
+  similarity_boost?: number;
+  use_cases?: string[];
+  popularity?: number;
 }
 
 interface TTSOptions {
@@ -66,10 +80,30 @@ export type VoiceName = keyof typeof ELEVEN_VOICES;
 
 /**
  * Fetch available voices from ElevenLabs
+ * @param options - Optional query parameters
  */
-export async function getVoices(): Promise<{ success: boolean; voices: Voice[]; error?: string }> {
+export async function getVoices(options?: {
+  category?: string;
+  limit?: number;
+  recommend?: boolean;
+}): Promise<{ 
+  success: boolean; 
+  voices: Voice[]; 
+  optimized_voices?: Voice[];
+  total_count?: number;
+  error?: string;
+}> {
   try {
-    const response = await fetch(VOICES_FUNCTION_URL, {
+    const params = new URLSearchParams();
+    if (options?.category) params.append("category", options.category);
+    if (options?.limit) params.append("limit", options.limit.toString());
+    if (options?.recommend) params.append("recommend", "true");
+
+    const url = params.toString() 
+      ? `${VOICES_FUNCTION_URL}?${params.toString()}`
+      : VOICES_FUNCTION_URL;
+
+    const response = await fetch(url, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
@@ -82,7 +116,12 @@ export async function getVoices(): Promise<{ success: boolean; voices: Voice[]; 
       return { success: false, voices: [], error: data.error || "Failed to fetch voices" };
     }
 
-    return { success: true, voices: data.voices };
+    return { 
+      success: true, 
+      voices: data.voices,
+      optimized_voices: data.optimized_voices,
+      total_count: data.total_count,
+    };
   } catch (error) {
     return {
       success: false,
@@ -162,4 +201,71 @@ export async function speakText(
   }
 
   return { success: true };
+}
+
+/**
+ * Get fashion-optimized voices for Style Shepherd
+ */
+export async function getFashionVoices(): Promise<{
+  success: boolean;
+  voices: Voice[];
+  error?: string;
+}> {
+  const result = await getVoices({ recommend: true });
+  
+  if (result.success && result.optimized_voices) {
+    return {
+      success: true,
+      voices: result.optimized_voices,
+    };
+  }
+  
+  // Fallback to filtering fashion-optimized voices
+  if (result.success) {
+    const fashionVoices = result.voices.filter(v => v.optimized_for_fashion);
+    return {
+      success: true,
+      voices: fashionVoices,
+    };
+  }
+  
+  return {
+    success: false,
+    voices: [],
+    error: result.error,
+  };
+}
+
+/**
+ * Get voices by category
+ */
+export async function getVoicesByCategory(
+  category: "professional" | "friendly" | "trendy"
+): Promise<{
+  success: boolean;
+  voices: Voice[];
+  error?: string;
+}> {
+  const result = await getVoices({ category: "professional" });
+  
+  if (!result.success) {
+    return result;
+  }
+  
+  // Filter by use cases for friendly/trendy
+  if (category === "friendly") {
+    const friendlyVoices = result.voices.filter(v =>
+      v.use_cases?.some(uc => uc.includes("friendly") || uc.includes("personal-shopping"))
+    );
+    return { success: true, voices: friendlyVoices };
+  }
+  
+  if (category === "trendy") {
+    const trendyVoices = result.voices.filter(v =>
+      v.use_cases?.some(uc => uc.includes("trends") || uc.includes("youthful"))
+    );
+    return { success: true, voices: trendyVoices };
+  }
+  
+  return result;
 }

@@ -24,11 +24,15 @@ import workflowRoutes from './routes/workflows.js';
 import shoppingSessionsRoutes from './routes/shopping-sessions.js';
 import guardrailsRoutes from './routes/guardrails.js';
 import errorRoutes from './routes/errors.js';
+import monitoringRoutes from './routes/monitoring.js';
+import trendAnalysisRoutes from './routes/trend-analysis.js';
 import { vultrPostgres } from './lib/vultr-postgres.js';
 import { vultrValkey } from './lib/vultr-valkey.js';
 import { initRaindrop } from './lib/raindropClient.js';
 import { initializeGuardrails } from './lib/guardrails/index.js';
 import { initProviders } from './lib/initProviders.js';
+import { monitoringMiddleware, contextMiddleware } from './middleware/monitoring.js';
+import { logger } from './lib/monitoring.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -66,6 +70,10 @@ app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 // Body parsing for all other routes
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Monitoring middleware - must be after body parsing but before routes
+app.use(monitoringMiddleware);
+app.use(contextMiddleware);
 
 // Rate limiting
 const limiter = rateLimit({
@@ -125,7 +133,9 @@ app.use('/api/shopping', shoppingSessionsRoutes);
 app.use('/api/workflows', workflowRoutes);
 app.use('/api/guardrails', guardrailsRoutes);
 app.use('/api/errors', errorRoutes);
-app.use('/api/functions', returnRiskPredictionRoutes);
+app.use('/api/monitoring', monitoringRoutes);
+app.use('/api/functions', trendAnalysisRoutes);
+// Note: returns-predictor routes are mounted under /api/agents/returns-predictor in apiRoutes
 app.use('/api', apiRoutes);
 
 // Serve static files from client build in production

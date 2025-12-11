@@ -94,57 +94,63 @@ export class MultiAgentOrchestrator {
    * Process a fashion query through all relevant agents
    */
   async processQuery(query: AgentQuery): Promise<OrchestratedResponse> {
-    const startTime = Date.now();
+    const { executeAgentTask } = await import('../lib/agentExecutor.js');
+    
+    return executeAgentTask(
+      'processQuery',
+      async () => {
+        // Validate query
+        this.validateQuery(query);
 
-    try {
-      // Validate query
-      this.validateQuery(query);
+        // Get user profile if not provided
+        if (!query.userProfile) {
+          query.userProfile = await this.getUserProfile(query.userId);
+        }
 
-      // Get user profile if not provided
-      if (!query.userProfile) {
-        query.userProfile = await this.getUserProfile(query.userId);
-      }
+        // Determine which agents to invoke based on intent
+        const agentsToInvoke = this.determineAgents(query.intent, query.entities);
 
-      // Determine which agents to invoke based on intent
-      const agentsToInvoke = this.determineAgents(query.intent, query.entities);
+        // Invoke agents in parallel (with intelligent batching)
+        const agentResults = await this.invokeAgentsInParallel(query, agentsToInvoke);
 
-      // Invoke agents in parallel (with intelligent batching)
-      const agentResults = await this.invokeAgentsInParallel(query, agentsToInvoke);
+        // Aggregate results from all agents
+        const aggregated = await this.aggregateResults(query, agentResults);
 
-      // Aggregate results from all agents
-      const aggregated = await this.aggregateResults(query, agentResults);
+        // Generate natural language response
+        const naturalResponse = await this.generateNaturalResponse(query, agentResults, aggregated);
 
-      // Generate natural language response
-      const naturalResponse = await this.generateNaturalResponse(query, agentResults, aggregated);
-
-      const processingTime = Date.now() - startTime;
-
-      return {
-        query,
-        sizeOracle: agentResults.sizeOracle,
-        returnsProphet: agentResults.returnsProphet,
-        personalStylist: agentResults.personalStylist,
-        aggregatedRecommendations: aggregated,
-        naturalLanguageResponse: naturalResponse,
+        return {
+          query,
+          sizeOracle: agentResults.sizeOracle,
+          returnsProphet: agentResults.returnsProphet,
+          personalStylist: agentResults.personalStylist,
+          aggregatedRecommendations: aggregated,
+          naturalLanguageResponse: naturalResponse,
+          metadata: {
+            processingTime: 0, // Will be set by executor
+            agentsUsed: agentsToInvoke,
+            confidence: this.calculateOverallConfidence(agentResults),
+          },
+        };
+      },
+      {
+        agentName: 'MultiAgentOrchestrator',
+        userId: query.userId,
+        intent: query.intent,
         metadata: {
-          processingTime,
-          agentsUsed: agentsToInvoke,
-          confidence: this.calculateOverallConfidence(agentResults),
+          entities: query.entities,
+        },
+      }
+    ).then((executionResult) => {
+      // Update metadata with actual processing time
+      return {
+        ...executionResult.result,
+        metadata: {
+          ...executionResult.result.metadata,
+          processingTime: executionResult.durationMs,
         },
       };
-    } catch (error) {
-      const appError = isAppError(error) ? error : toAppError(error);
-      throw new ExternalServiceError(
-        'MultiAgentOrchestrator',
-        `Failed to process query: ${appError.message}`,
-        error as Error,
-        {
-          userId: query.userId,
-          intent: query.intent,
-          operation: 'process-query',
-        }
-      );
-    }
+    });
   }
 
   /**

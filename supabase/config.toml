@@ -17,3 +17,12 @@ verify_jwt = false
 
 [functions.voice-to-text]
 verify_jwt = false
+
+[functions.size-prediction]
+verify_jwt = false
+
+[functions.size-prediction]
+verify_jwt = false
+
+[functions.size-comparison]
+verify_jwt = false

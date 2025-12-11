@@ -2024,5 +2024,388 @@ router.get(
   }
 );
 
+// ============================================
+// Cart Management Routes (Seamless Purchasing)
+// ============================================
+
+import { cartService } from '../services/CartService.js';
+
+// Get user cart
+router.get(
+  '/cart',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = (req as any).user?.id || req.query.userId as string || 'guest';
+      const sessionId = req.query.sessionId as string | undefined;
+      
+      if (!userId || userId === 'guest') {
+        if (!sessionId) {
+          return res.json({ items: [], cartId: null });
+        }
+        const guestCart = await cartService.getGuestCart(sessionId);
+        return res.json(guestCart || { items: [], cartId: null });
+      }
+
+      const cart = await cartService.getCart(userId, sessionId);
+      res.json(cart);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Get cart summary
+router.get(
+  '/cart/summary',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = (req as any).user?.id || req.query.userId as string || 'guest';
+      const sessionId = req.query.sessionId as string | undefined;
+      
+      if (!userId || userId === 'guest') {
+        if (!sessionId) {
+          return res.json({ items: [], totalItems: 0, subtotal: 0, estimatedShipping: 0, estimatedTax: 0, total: 0 });
+        }
+        const guestCart = await cartService.getGuestCart(sessionId);
+        if (!guestCart) {
+          return res.json({ items: [], totalItems: 0, subtotal: 0, estimatedShipping: 0, estimatedTax: 0, total: 0 });
+        }
+        const summary = await cartService.getCartSummary('guest', sessionId);
+        return res.json(summary);
+      }
+
+      const summary = await cartService.getCartSummary(userId, sessionId);
+      res.json(summary);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Add item to cart
+router.post(
+  '/cart/items',
+  validateBody(
+    z.object({
+      userId: z.string().optional(),
+      sessionId: z.string().optional(),
+      productId: z.string().min(1),
+      quantity: z.number().int().positive(),
+      size: z.string().optional(),
+      price: z.number().positive(),
+      productData: z.any().optional(),
+    })
+  ),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = (req as any).user?.id || req.body.userId || 'guest';
+      const { sessionId, productId, quantity, size, price, productData } = req.body;
+
+      const cart = await cartService.addToCart(
+        userId,
+        { productId, quantity, size, price, productData },
+        sessionId
+      );
+      res.json(cart);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Update item quantity
+router.put(
+  '/cart/items/:productId',
+  validateParams(z.object({ productId: z.string() })),
+  validateBody(
+    z.object({
+      userId: z.string().optional(),
+      sessionId: z.string().optional(),
+      size: z.string().optional(),
+      quantity: z.number().int().min(0),
+    })
+  ),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = (req as any).user?.id || req.body.userId || 'guest';
+      const { productId } = req.params;
+      const { sessionId, size, quantity } = req.body;
+
+      const cart = await cartService.updateQuantity(userId, productId, size, quantity, sessionId);
+      res.json(cart);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Remove item from cart
+router.delete(
+  '/cart/items/:productId',
+  validateParams(z.object({ productId: z.string() })),
+  validateBody(
+    z.object({
+      userId: z.string().optional(),
+      sessionId: z.string().optional(),
+      size: z.string().optional(),
+    }).optional()
+  ),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = (req as any).user?.id || req.body.userId || req.query.userId as string || 'guest';
+      const { productId } = req.params;
+      const { sessionId, size } = req.body || req.query;
+
+      const cart = await cartService.removeFromCart(userId, productId, size, sessionId);
+      res.json(cart);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Clear cart
+router.delete(
+  '/cart',
+  validateBody(
+    z.object({
+      userId: z.string().optional(),
+      sessionId: z.string().optional(),
+    }).optional()
+  ),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = (req as any).user?.id || req.body?.userId || req.query.userId as string || 'guest';
+      const sessionId = req.body?.sessionId || req.query.sessionId as string | undefined;
+
+      await cartService.clearCart(userId, sessionId);
+      res.json({ success: true });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Merge guest cart into user cart (when user logs in)
+router.post(
+  '/cart/merge',
+  validateBody(
+    z.object({
+      userId: z.string().min(1),
+      guestSessionId: z.string().min(1),
+    })
+  ),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId, guestSessionId } = req.body;
+      const cart = await cartService.mergeGuestCart(userId, guestSessionId);
+      res.json(cart);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// ============================================
+// Wishlist Routes
+// ============================================
+
+import { wishlistService } from '../services/WishlistService.js';
+
+// Get wishlist
+router.get(
+  '/wishlist',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = (req as any).user?.id || req.query.userId as string;
+      if (!userId || userId === 'guest') {
+        return res.json([]);
+      }
+      const wishlist = await wishlistService.getWishlist(userId);
+      res.json(wishlist);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Add to wishlist
+router.post(
+  '/wishlist',
+  validateBody(
+    z.object({
+      userId: z.string().min(1),
+      productId: z.string().min(1),
+      productData: z.any(),
+      notes: z.string().optional(),
+    })
+  ),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId, productId, productData, notes } = req.body;
+      const item = await wishlistService.addToWishlist(userId, productId, productData, notes);
+      res.json(item);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Remove from wishlist
+router.delete(
+  '/wishlist/:productId',
+  validateParams(z.object({ productId: z.string() })),
+  validateBody(
+    z.object({
+      userId: z.string().min(1),
+    })
+  ),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { productId } = req.params;
+      const { userId } = req.body;
+      await wishlistService.removeFromWishlist(userId, productId);
+      res.json({ success: true });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Check if in wishlist
+router.get(
+  '/wishlist/check/:productId',
+  validateParams(z.object({ productId: z.string() })),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { productId } = req.params;
+      const userId = (req as any).user?.id || req.query.userId as string;
+      if (!userId || userId === 'guest') {
+        return res.json({ inWishlist: false });
+      }
+      const inWishlist = await wishlistService.isInWishlist(userId, productId);
+      res.json({ inWishlist });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// ============================================
+// Saved Addresses Routes
+// ============================================
+
+import { savedAddressService } from '../services/SavedAddressService.js';
+
+// Get saved addresses
+router.get(
+  '/addresses',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = (req as any).user?.id || req.query.userId as string;
+      if (!userId || userId === 'guest') {
+        return res.json([]);
+      }
+      const addresses = await savedAddressService.getAddresses(userId);
+      res.json(addresses);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Get default address
+router.get(
+  '/addresses/default',
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = (req as any).user?.id || req.query.userId as string;
+      if (!userId || userId === 'guest') {
+        return res.json(null);
+      }
+      const address = await savedAddressService.getDefaultAddress(userId);
+      res.json(address);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Add saved address
+router.post(
+  '/addresses',
+  validateBody(
+    z.object({
+      userId: z.string().min(1),
+      label: z.string().optional(),
+      name: z.string().min(1),
+      address: z.string().min(1),
+      city: z.string().min(1),
+      state: z.string().min(1),
+      zipCode: z.string().min(1),
+      country: z.string().default('US'),
+      isDefault: z.boolean().optional(),
+    })
+  ),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const address = await savedAddressService.addAddress(req.body.userId, req.body);
+      res.json(address);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Update saved address
+router.put(
+  '/addresses/:addressId',
+  validateParams(z.object({ addressId: z.string() })),
+  validateBody(
+    z.object({
+      userId: z.string().min(1),
+      label: z.string().optional(),
+      name: z.string().optional(),
+      address: z.string().optional(),
+      city: z.string().optional(),
+      state: z.string().optional(),
+      zipCode: z.string().optional(),
+      country: z.string().optional(),
+      isDefault: z.boolean().optional(),
+    })
+  ),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { addressId } = req.params;
+      const { userId, ...updates } = req.body;
+      const address = await savedAddressService.updateAddress(userId, addressId, updates);
+      res.json(address);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Delete saved address
+router.delete(
+  '/addresses/:addressId',
+  validateParams(z.object({ addressId: z.string() })),
+  validateBody(
+    z.object({
+      userId: z.string().min(1),
+    })
+  ),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { addressId } = req.params;
+      const { userId } = req.body;
+      await savedAddressService.deleteAddress(userId, addressId);
+      res.json({ success: true });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 export default router;
 

@@ -14,6 +14,7 @@ const FeaturesExplorer = lazy(() => import('@/pages/FeaturesExplorer'));
 const FeaturePage = lazy(() => import('@/pages/FeaturePage'));
 const Products = lazy(() => import('@/pages/shopping/Products'));
 const VoiceShop = lazy(() => import('@/pages/VoiceShop'));
+const ElevenLabsVoiceSelector = lazy(() => import('@/components/ElevenLabsVoiceSelector'));
 
 // Authentication pages
 const Login = lazy(() => import('@/pages/auth/Login'));
@@ -71,10 +72,16 @@ const LovableHealth = lazy(() => import('@/pages/lovable/LovableHealth'));
 // Demo & Integration pages
 const DemoIntegrations = lazy(() => import('@/pages/demo/DemoIntegrations'));
 const FashioniDemo = lazy(() => import('@/pages/demo/FashioniDemo'));
+const TrendAnalysisPage = lazy(() => import('@/pages/demo/TrendAnalysisPage'));
+const SizePredictor = lazy(() => import('@/pages/SizePredictor'));
+const SizeComparison = lazy(() => import('@/pages/SizeComparison'));
 
 // Admin pages
 const AdminRisk = lazy(() => import('@/pages/AdminRisk'));
 const AdminProviders = lazy(() => import('@/pages/admin/Providers'));
+
+// Monitoring pages
+const MonitoringDashboard = lazy(() => import('@/pages/MonitoringDashboard'));
 
 // Stylist pages
 const StylistDashboard = lazy(() => import('@/pages/stylist/StylistDashboard'));
@@ -137,6 +144,12 @@ export const routeConfigs: RouteConfig[] = [
     path: '/voice-shop',
     component: VoiceShop,
     label: 'Voice Shop',
+    group: 'public',
+  },
+  {
+    path: '/voice-selector',
+    component: ElevenLabsVoiceSelector,
+    label: 'Voice Selector',
     group: 'public',
   },
   {
@@ -219,6 +232,18 @@ export const routeConfigs: RouteConfig[] = [
   },
 
   // Shopping & Checkout routes
+  {
+    path: '/size-prediction',
+    component: SizePredictor,
+    label: 'Size Prediction',
+    group: 'shopping',
+  },
+  {
+    path: '/size-comparison',
+    component: SizeComparison,
+    label: 'Size Comparison',
+    group: 'shopping',
+  },
   {
     path: '/checkout',
     component: Checkout,
@@ -389,6 +414,12 @@ export const routeConfigs: RouteConfig[] = [
     label: 'Fashioni Demo',
     group: 'demo',
   },
+  {
+    path: '/trend-analysis',
+    component: TrendAnalysisPage,
+    label: 'Trend Analysis',
+    group: 'demo',
+  },
 
   // Admin routes
   {
@@ -401,6 +432,12 @@ export const routeConfigs: RouteConfig[] = [
     path: '/admin/providers',
     component: AdminProviders,
     label: 'Provider Management',
+    group: 'admin',
+  },
+  {
+    path: '/monitoring',
+    component: MonitoringDashboard,
+    label: 'Monitoring Dashboard',
     group: 'admin',
   },
 

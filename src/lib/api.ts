@@ -1,13 +1,15 @@
 /**
  * Centralized API Client
  * 
+ * Base Axios instance with request/response interceptors for logging and request tracking.
+ * For retry logic and enhanced error handling, use the functions from './apiClient'.
+ * 
  * Uses environment variable VITE_API_BASE_URL for base URL configuration.
  * Falls back to /api for same-origin requests or localhost for development.
  */
 
-import axios, { AxiosInstance, AxiosError, AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { getApiBaseUrl } from './api-config';
-import { retry, isRetryableError } from './retry';
 
 const baseURL = getApiBaseUrl();
 
@@ -47,12 +49,12 @@ if (import.meta.env.DEV) {
   );
 }
 
-// Response interceptor for error logging and handling
+// Response interceptor for error logging
 api.interceptors.response.use(
   (response) => {
     return response;
   },
-  async (error: AxiosError) => {
+  (error: AxiosError) => {
     // Enhanced error logging with better context
     const errorContext = {
       method: error.config?.method?.toUpperCase(),
@@ -79,23 +81,7 @@ api.interceptors.response.use(
       console.error('[API] Error setting up request:', error.message);
     }
     
-    // For retryable errors, attempt retry if not already retried
-    if (isRetryableError(error) && error.config && !(error.config as any).__retryCount) {
-      const retryCount = (error.config as any).__retryCount || 0;
-      const maxRetries = 2; // Limit retries in interceptor to avoid infinite loops
-      
-      if (retryCount < maxRetries) {
-        (error.config as any).__retryCount = retryCount + 1;
-        
-        // Exponential backoff
-        const delay = Math.min(1000 * Math.pow(2, retryCount), 5000);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        
-        // Retry the request
-        return api.request(error.config as AxiosRequestConfig);
-      }
-    }
-    
+    // Don't retry here - let apiClient handle retries
     return Promise.reject(error);
   }
 );

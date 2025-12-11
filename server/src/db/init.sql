@@ -181,3 +181,70 @@ CREATE TRIGGER update_subscriptions_updated_at BEFORE UPDATE ON subscriptions
 CREATE TRIGGER update_invoices_updated_at BEFORE UPDATE ON invoices
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+-- Carts Table (Persistent cart storage)
+CREATE TABLE IF NOT EXISTS carts (
+  cart_id VARCHAR(255) PRIMARY KEY,
+  user_id VARCHAR(255) NOT NULL,
+  items JSONB NOT NULL DEFAULT '[]',
+  session_id VARCHAR(255), -- For guest carts
+  expires_at TIMESTAMP, -- For guest cart expiration
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Wishlist Table (Save for later)
+CREATE TABLE IF NOT EXISTS wishlists (
+  wishlist_id VARCHAR(255) PRIMARY KEY,
+  user_id VARCHAR(255) NOT NULL,
+  product_id VARCHAR(255) NOT NULL,
+  product_data JSONB NOT NULL, -- Store product snapshot
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(user_id, product_id)
+);
+
+-- Saved Addresses Table
+CREATE TABLE IF NOT EXISTS saved_addresses (
+  address_id VARCHAR(255) PRIMARY KEY,
+  user_id VARCHAR(255) NOT NULL,
+  label VARCHAR(100), -- "Home", "Work", etc.
+  name VARCHAR(255) NOT NULL,
+  address VARCHAR(255) NOT NULL,
+  city VARCHAR(100) NOT NULL,
+  state VARCHAR(50) NOT NULL,
+  zip_code VARCHAR(20) NOT NULL,
+  country VARCHAR(50) DEFAULT 'US',
+  is_default BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Checkout Analytics Table
+CREATE TABLE IF NOT EXISTS checkout_analytics (
+  id SERIAL PRIMARY KEY,
+  user_id VARCHAR(255),
+  session_id VARCHAR(255),
+  event_type VARCHAR(50) NOT NULL, -- 'cart_viewed', 'checkout_started', 'payment_attempted', 'order_completed', 'cart_abandoned'
+  cart_value DECIMAL(10, 2),
+  items_count INTEGER,
+  metadata JSONB,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes for new tables
+CREATE INDEX IF NOT EXISTS idx_carts_user_id ON carts(user_id);
+CREATE INDEX IF NOT EXISTS idx_carts_session_id ON carts(session_id);
+CREATE INDEX IF NOT EXISTS idx_carts_expires_at ON carts(expires_at);
+CREATE INDEX IF NOT EXISTS idx_wishlists_user_id ON wishlists(user_id);
+CREATE INDEX IF NOT EXISTS idx_saved_addresses_user_id ON saved_addresses(user_id);
+CREATE INDEX IF NOT EXISTS idx_checkout_analytics_user_id ON checkout_analytics(user_id);
+CREATE INDEX IF NOT EXISTS idx_checkout_analytics_event_type ON checkout_analytics(event_type);
+CREATE INDEX IF NOT EXISTS idx_checkout_analytics_created_at ON checkout_analytics(created_at);
+
+-- Triggers for updated_at
+CREATE TRIGGER update_carts_updated_at BEFORE UPDATE ON carts
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_saved_addresses_updated_at BEFORE UPDATE ON saved_addresses
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
