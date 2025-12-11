@@ -6,6 +6,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import providerRegistry from '../lib/providerRegistry.js';
 import { OpenAIAdapter } from '../lib/llm/openaiAdapter.js';
+import { CerebrasAdapter } from '../lib/llm/cerebrasAdapter.js';
 import { OpenAIEmbeddingsAdapter } from '../lib/embeddings/openaiEmbeddings.js';
 import { ElevenLabsAdapter } from '../lib/tts/elevenlabsAdapter.js';
 import { PostgresVectorDBAdapter } from '../lib/vectordb/postgresAdapter.js';
@@ -52,7 +53,7 @@ router.post(
   '/providers',
   validateBody(
     z.object({
-      type: z.enum(['openai-llm', 'openai-emb', 'elevenlabs', 'postgres-vectordb', 'memory-vectordb']),
+      type: z.enum(['openai-llm', 'cerebras-llm', 'openai-emb', 'elevenlabs', 'postgres-vectordb', 'memory-vectordb']),
       config: z.record(z.any()),
       priority: z.number().int().optional(),
     })
@@ -68,6 +69,17 @@ router.post(
             return res.status(400).json({ success: false, error: 'apiKey required for OpenAI LLM' });
           }
           adapter = new OpenAIAdapter(config.apiKey, { priority });
+          break;
+
+        case 'cerebras-llm':
+          if (!config.apiKey) {
+            return res.status(400).json({ success: false, error: 'apiKey required for Cerebras LLM' });
+          }
+          adapter = new CerebrasAdapter(config.apiKey, {
+            model: config.model,
+            priority,
+            baseUrl: config.baseUrl,
+          });
           break;
 
         case 'openai-emb':

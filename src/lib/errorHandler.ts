@@ -6,14 +6,12 @@
 import { AxiosError } from 'axios';
 import { toast } from 'sonner';
 
+import { ApiError, ApiResponse } from './api-types';
+
 export interface ApiErrorResponse {
-  error?: {
-    code?: string;
-    message?: string;
-    statusCode?: number;
-    details?: any;
-  };
+  error?: ApiError;
   message?: string;
+  success?: boolean;
 }
 
 /**
@@ -22,13 +20,22 @@ export interface ApiErrorResponse {
 export function getErrorMessage(error: unknown): string {
   // Axios errors
   if (error instanceof AxiosError) {
-    const response = error.response?.data as ApiErrorResponse;
+    const response = error.response?.data as ApiErrorResponse | ApiResponse;
     
+    // Handle ApiResponse format
+    if (response && typeof response === 'object' && 'error' in response) {
+      const apiResponse = response as ApiResponse;
+      if (apiResponse.error?.message) {
+        return apiResponse.error.message;
+      }
+    }
+    
+    // Handle legacy ApiErrorResponse format
     if (response?.error?.message) {
       return response.error.message;
     }
     
-    if (response?.message) {
+    if (response && typeof response === 'object' && 'message' in response && response.message) {
       return response.message;
     }
     
@@ -83,8 +90,18 @@ function getHttpErrorMessage(status: number, defaultMessage?: string): string {
  */
 export function getErrorCode(error: unknown): string | undefined {
   if (error instanceof AxiosError) {
-    const response = error.response?.data as ApiErrorResponse;
-    return response?.error?.code;
+    const response = error.response?.data as ApiErrorResponse | ApiResponse;
+    
+    // Handle ApiResponse format
+    if (response && typeof response === 'object' && 'error' in response) {
+      const apiResponse = response as ApiResponse;
+      return apiResponse.error?.code;
+    }
+    
+    // Handle legacy format
+    if (response?.error?.code) {
+      return response.error.code;
+    }
   }
   
   return undefined;

@@ -1,448 +1,221 @@
-# Vultr and Raindrop Integration Improvements
+# Backend-Frontend Integration Improvements
 
-This document outlines the improvements made to both Vultr and Raindrop integrations for Style Shepherd.
+This document outlines the improvements made to enhance the integration between the backend and frontend.
 
-## Backend Improvements
+## Overview
 
-### Vultr PostgreSQL Service (`server/src/lib/vultr-postgres.ts`)
+The integration improvements focus on:
+1. **Type Safety** - Shared TypeScript types between frontend and backend
+2. **Consistent API Responses** - Standardized response format
+3. **Error Handling** - Unified error handling across the stack
+4. **Health Monitoring** - Real-time API health checks
+5. **Request Tracking** - Request ID correlation
+6. **Validation** - Request/response validation with Zod
 
-**New Features:**
-- ✅ **Batch Query Operations**: Execute multiple queries in a single transaction
-- ✅ **Bulk Insert**: Efficiently insert multiple records at once
-- ✅ **Connection Pool Statistics**: Monitor pool usage and performance
-- ✅ **Enhanced Error Handling**: Better retry logic and error messages
+## Changes Made
 
-**New Methods:**
-```typescript
-// Batch queries in a transaction
-await vultrPostgres.batchQuery([
-  { text: 'SELECT * FROM products', params: [] },
-  { text: 'SELECT * FROM orders', params: [] }
-]);
+### 1. Shared Type Definitions
 
-// Bulk insert
-await vultrPostgres.bulkInsert('products', products, ['name', 'price', 'category']);
+**File**: `src/lib/api-types.ts`
 
-// Get pool statistics
-const stats = vultrPostgres.getPoolStats();
-// Returns: { totalCount, idleCount, waitingCount }
-```
+Created shared TypeScript types for API contracts:
+- `ApiResponse<T>` - Standard response wrapper
+- `ApiError` - Error response structure
+- `PaginatedResponse<T>` - Pagination support
+- `HealthCheckResponse` - Health check format
+- `RequestMetadata` - Request tracking metadata
 
-**New API Endpoints:**
-- `POST /api/vultr/postgres/batch` - Execute batch queries
-- `GET /api/vultr/postgres/stats` - Get connection pool statistics
+### 2. API Response Wrapper Middleware
 
-### Vultr Valkey Service (`server/src/lib/vultr-valkey.ts`)
+**File**: `server/src/middleware/responseWrapper.ts`
 
-**New Features:**
-- ✅ **Pipeline Operations**: Set/get/delete multiple keys efficiently
-- ✅ **Connection Statistics**: Monitor connection status
-- ✅ **Enhanced Metrics**: Better performance tracking
+Backend middleware that automatically wraps all responses in `ApiResponse` format:
+- Ensures consistent response structure
+- Adds request ID and timestamp
+- Handles both JSON and non-JSON responses
+- Provides helper functions `sendSuccess()` and `sendError()`
 
-**New Methods:**
-```typescript
-// Set multiple keys at once
-await vultrValkey.mset([
-  { key: 'key1', value: 'value1', ttl: 3600 },
-  { key: 'key2', value: 'value2', ttl: 3600 }
-]);
+**Integration**: Added to `server/src/index.ts` after monitoring middleware
 
-// Get multiple keys
-const values = await vultrValkey.mget(['key1', 'key2']);
+### 3. Enhanced API Client
 
-// Delete multiple keys
-await vultrValkey.mdelete(['key1', 'key2']);
+**Files**: 
+- `src/lib/api.ts` - Base axios instance with interceptors
+- `src/lib/apiClient.ts` - High-level API client with retry logic
 
-// Get connection status
-const stats = vultrValkey.getConnectionStats();
-```
+**Improvements**:
+- Automatic response normalization to `ApiResponse` format
+- Request ID tracking and correlation
+- Metadata support (userId, sessionId)
+- Health check integration
+- Better error handling with `ApiResponse` format
+- Helper function `extractApiData()` to unwrap responses
 
-**New API Endpoints:**
-- `POST /api/vultr/valkey/batch` - Execute batch operations
+### 4. API Health Monitoring
 
-### Raindrop Client (`server/src/lib/raindropClient.ts`)
+**File**: `src/lib/api-health.ts`
 
-**New Features:**
-- ✅ **Batch Memory Storage**: Store multiple memories efficiently
-- ✅ **Memory Statistics**: Get usage statistics for users
-- ✅ **Enhanced Error Handling**: Better fallback to mock mode
-
-**New Methods:**
-```typescript
-// Batch store memories
-const results = await batchStoreMemory([
-  { userId: 'user1', type: 'working', text: 'Memory 1' },
-  { userId: 'user1', type: 'working', text: 'Memory 2' }
-]);
-
-// Get memory statistics
-const stats = await getMemoryStats('user1');
-// Returns: { total, byType, oldest, newest }
-```
-
-**New API Endpoints:**
-- `POST /api/raindrop/batch-store-memory` - Batch store multiple memories
-- `GET /api/raindrop/memory-stats` - Get memory statistics
-
-## Frontend Improvements
-
-### React Hooks
-
-#### `useVultrPostgres` (`src/hooks/useVultrPostgres.ts`)
-
-Provides easy access to Vultr PostgreSQL operations with loading states and error handling.
-
-**Usage:**
-```typescript
-import { useVultrPostgres } from '@/hooks';
-
-function MyComponent() {
-  const { getProducts, getUserProfile, loading, error } = useVultrPostgres();
-
-  useEffect(() => {
-    getProducts({ category: 'dress', limit: 10 })
-      .then(products => console.log(products))
-      .catch(err => console.error(err));
-  }, []);
-
-  if (loading) return <div>Loading...</div>;
-  if (error) return <div>Error: {error.message}</div>;
-  
-  return <div>...</div>;
-}
-```
-
-**Available Methods:**
-- `getProducts(filters?)` - Fetch products with filters
-- `getUserProfile(userId)` - Get user profile
-- `saveUserProfile(userId, profile)` - Save/update user profile
-- `getOrderHistory(userId, limit?)` - Get order history
-- `createOrder(order)` - Create new order
-- `getReturnHistory(userId?, productId?)` - Get return history
-- `recordReturn(returnData)` - Record a return
-- `healthCheck()` - Check service health
-
-#### `useVultrValkey` (`src/hooks/useVultrValkey.ts`)
-
-Provides easy access to Vultr Valkey caching operations.
-
-**Usage:**
-```typescript
-import { useVultrValkey } from '@/hooks';
-
-function MyComponent() {
-  const { setSession, getSession, cacheRecommendations } = useVultrValkey();
-
-  const handleSession = async () => {
-    await setSession('session123', {
-      userId: 'user1',
-      sessionId: 'session123',
-      createdAt: Date.now(),
-      lastAccessed: Date.now()
-    });
-  };
-
-  return <button onClick={handleSession}>Create Session</button>;
-}
-```
-
-**Available Methods:**
-- `setSession(sessionId, sessionData, ttl?)` - Store session
-- `getSession(sessionId)` - Get session
-- `cacheConversationContext(userId, context, ttl?)` - Cache conversation
-- `cacheRecommendations(userId, recommendations, ttl?)` - Cache recommendations
-- `cacheUserPreferences(userId, preferences, ttl?)` - Cache preferences
-- `set(key, value, ttl?)` - Generic cache set
-- `get(key)` - Generic cache get
-- `delete(key)` - Delete cache entry
-- `healthCheck()` - Check service health
-- `getMetrics()` - Get performance metrics
-
-#### `useRaindrop` (`src/hooks/useRaindrop.ts`)
-
-Provides easy access to Raindrop Smart Components.
-
-**Usage:**
-```typescript
-import { useRaindrop } from '@/hooks';
-
-function MyComponent() {
-  const { storeMemory, searchMemory, getMemoryStats } = useRaindrop();
-
-  const handleStore = async () => {
-    await storeMemory('user1', 'working', 'User preference: likes blue');
-  };
-
-  const handleSearch = async () => {
-    const results = await searchMemory('user1', 'blue', 10);
-    console.log(results);
-  };
-
-  return (
-    <div>
-      <button onClick={handleStore}>Store Memory</button>
-      <button onClick={handleSearch}>Search Memories</button>
-    </div>
-  );
-}
-```
-
-**Available Methods:**
-- `storeMemory(userId, type, text, metadata?)` - Store a memory
-- `searchMemory(userId, query, topK?)` - Search memories
-- `deleteMemory(userId, id)` - Delete a memory
-- `batchStoreMemory(memories)` - Batch store memories
-- `getMemoryStats(userId)` - Get memory statistics
-- `exportMemory(userId)` - Export memories as JSON
-- `clearMemory(userId)` - Clear all memories for a user
-
-### Connection Status Components
-
-#### `VultrConnectionStatus` (`src/components/integrations/VultrConnectionStatus.tsx`)
-
-Displays real-time connection status for Vultr PostgreSQL and Valkey services.
-
-**Usage:**
-```typescript
-import { VultrConnectionStatus } from '@/components/integrations/VultrConnectionStatus';
-
-function Dashboard() {
-  return (
-    <div>
-      <VultrConnectionStatus autoRefresh={true} refreshInterval={30000} />
-    </div>
-  );
-}
-```
-
-**Features:**
-- Real-time health checks
+Real-time API health monitoring:
+- Periodic health checks
+- Connection status tracking
 - Latency monitoring
-- Auto-refresh capability
-- Visual status indicators
+- Service status tracking
+- React hook `useApiHealth()` for components
 
-#### `RaindropConnectionStatus` (`src/components/integrations/RaindropConnectionStatus.tsx`)
+### 5. Error Handling Integration
 
-Displays real-time connection status for Raindrop Smart Components.
+**File**: `src/lib/errorHandler.ts`
 
-**Usage:**
+Enhanced error handling:
+- Supports both legacy and new `ApiResponse` error format
+- Better error message extraction
+- Consistent error code handling
+- Improved user-friendly messages
+
+### 6. Request/Response Validation
+
+**File**: `src/lib/api-validation.ts`
+
+Zod schemas for validation:
+- `ApiResponseSchema` - Response validation
+- `PaginatedResponseSchema` - Pagination validation
+- Common validation schemas
+- `validateApiResponse()` and `safeValidateApiResponse()` helpers
+
+### 7. React Hook for API Health
+
+**File**: `src/hooks/useApiHealth.ts`
+
+React hook for components to access API health status:
 ```typescript
-import { RaindropConnectionStatus } from '@/components/integrations/RaindropConnectionStatus';
-
-function Dashboard() {
-  return (
-    <div>
-      <RaindropConnectionStatus autoRefresh={true} refreshInterval={30000} />
-    </div>
-  );
-}
+const { isHealthy, isAvailable, latency, checkHealth } = useApiHealth();
 ```
-
-**Features:**
-- Live/Mock mode detection
-- Connection status monitoring
-- Auto-refresh capability
-- Error display
-
-### Batch Utilities
-
-#### `vultr-batch.ts` (`src/lib/vultr-batch.ts`)
-
-Provides request batching and caching utilities for Vultr API calls.
-
-**Features:**
-- Batch Valkey operations
-- Local cache manager with TTL
-- Cached fetch with automatic retry
-- Automatic cleanup of expired entries
-
-**Usage:**
-```typescript
-import { batchValkeyOperations, cachedFetch } from '@/lib/vultr-batch';
-
-// Batch operations
-const results = await batchValkeyOperations([
-  { type: 'set', key: 'key1', value: 'value1', ttl: 3600 },
-  { type: 'get', key: 'key2' },
-  { type: 'delete', key: 'key3' }
-]);
-
-// Cached fetch
-const data = await cachedFetch('/api/products', {}, 'products-cache', 60000);
-```
-
-#### `raindrop-batch.ts` (`src/lib/raindrop-batch.ts`)
-
-Provides request batching and caching utilities for Raindrop API calls.
-
-**Features:**
-- Batch memory storage
-- Cached memory statistics
-- Debounced search with caching
-
-**Usage:**
-```typescript
-import { batchStoreMemories, getMemoryStats, searchMemories } from '@/lib/raindrop-batch';
-
-// Batch store
-const results = await batchStoreMemories([
-  { userId: 'user1', type: 'working', text: 'Memory 1' },
-  { userId: 'user1', type: 'working', text: 'Memory 2' }
-]);
-
-// Get stats (cached)
-const stats = await getMemoryStats('user1');
-
-// Search with debouncing
-const results = await searchMemories('user1', 'query', 20, 300);
-```
-
-## Performance Improvements
-
-### Backend
-- ✅ Batch operations reduce database round-trips
-- ✅ Connection pooling optimizations
-- ✅ Better retry logic reduces failed requests
-- ✅ Metrics collection for monitoring
-
-### Frontend
-- ✅ Local caching reduces API calls
-- ✅ Request batching reduces network overhead
-- ✅ Debounced search reduces unnecessary requests
-- ✅ Optimistic updates improve perceived performance
-
-## Error Handling Improvements
-
-### Backend
-- ✅ Comprehensive error types
-- ✅ Retry logic for transient failures
-- ✅ Graceful degradation to mock mode
-- ✅ Detailed error logging
-
-### Frontend
-- ✅ Error states in hooks
-- ✅ User-friendly error messages
-- ✅ Automatic retry on failures
-- ✅ Connection status indicators
 
 ## Usage Examples
 
-### Complete Example: Product Search with Caching
+### Making API Calls
 
 ```typescript
-import { useVultrPostgres, useVultrValkey } from '@/hooks';
-import { cachedFetch } from '@/lib/vultr-batch';
+import { apiGet, apiPost, extractApiData } from '@/lib/apiClient';
+import { ApiResponse } from '@/lib/api-types';
 
-function ProductSearch() {
-  const { getProducts, loading } = useVultrPostgres();
-  const { cacheRecommendations, getCachedRecommendations } = useVultrValkey();
-  const [products, setProducts] = useState([]);
+// GET request
+const response = await apiGet<Product[]>('/vultr/postgres/products');
+const products = extractApiData(response);
 
-  const searchProducts = async (query: string) => {
-    // Check cache first
-    const cached = await getCachedRecommendations('user1');
-    if (cached) {
-      setProducts(cached);
-      return;
-    }
+// POST request with options
+const response = await apiPost<{ id: string }>(
+  '/recommendations',
+  { userId: '123' },
+  undefined,
+  {
+    checkHealth: true,
+    timeout: 10000,
+    metadata: { userId: '123', sessionId: 'abc' },
+  }
+);
+```
 
-    // Fetch from database
-    const results = await getProducts({ category: query, limit: 10 });
-    setProducts(results);
+### Using API Health in Components
 
-    // Cache results
-    await cacheRecommendations('user1', results, 1800);
-  };
+```typescript
+import { useApiHealth } from '@/hooks/useApiHealth';
 
-  return (
-    <div>
-      <input onChange={(e) => searchProducts(e.target.value)} />
-      {loading && <div>Loading...</div>}
-      <ProductList products={products} />
-    </div>
-  );
+function MyComponent() {
+  const { isHealthy, isAvailable, latency } = useApiHealth();
+  
+  if (!isAvailable) {
+    return <div>API is unavailable</div>;
+  }
+  
+  return <div>API latency: {latency}ms</div>;
 }
 ```
 
-### Complete Example: Memory Management
+### Backend Response Format
+
+All backend responses are automatically wrapped:
 
 ```typescript
-import { useRaindrop } from '@/hooks';
-import { batchStoreMemories } from '@/lib/raindrop-batch';
+// Success response
+{
+  success: true,
+  data: { /* your data */ },
+  requestId: "123-abc",
+  timestamp: "2024-01-01T00:00:00Z"
+}
 
-function MemoryManager() {
-  const { storeMemory, searchMemory, getMemoryStats } = useRaindrop();
-  const [stats, setStats] = useState(null);
-
-  const saveMultipleMemories = async () => {
-    await batchStoreMemories([
-      { userId: 'user1', type: 'preference', text: 'Likes blue' },
-      { userId: 'user1', type: 'preference', text: 'Prefers dresses' },
-    ]);
-    
-    // Refresh stats
-    const newStats = await getMemoryStats('user1');
-    setStats(newStats);
-  };
-
-  return (
-    <div>
-      <button onClick={saveMultipleMemories}>Save Memories</button>
-      {stats && (
-        <div>
-          <p>Total: {stats.total}</p>
-          <p>By Type: {JSON.stringify(stats.byType)}</p>
-        </div>
-      )}
-    </div>
-  );
+// Error response
+{
+  success: false,
+  error: {
+    code: "PRODUCT_NOT_FOUND",
+    message: "Product not found",
+    statusCode: 404,
+    details: { /* optional details */ },
+    timestamp: "2024-01-01T00:00:00Z"
+  },
+  requestId: "123-abc",
+  timestamp: "2024-01-01T00:00:00Z"
 }
 ```
 
 ## Migration Guide
 
-### Updating Existing Code
+### Updating Services
 
-**Before:**
+**Before**:
 ```typescript
-const response = await fetch('/api/vultr/postgres/products');
-const products = await response.json();
+const response = await api.get('/products');
+const products = response.data;
 ```
 
-**After:**
+**After**:
 ```typescript
-import { useVultrPostgres } from '@/hooks';
+import { apiGet, extractApiData } from '@/lib/apiClient';
 
-const { getProducts } = useVultrPostgres();
-const products = await getProducts();
+const response = await apiGet<Product[]>('/products');
+const products = extractApiData(response);
 ```
 
-### Using Connection Status
+### Error Handling
 
-**Before:**
+**Before**:
 ```typescript
-// No connection status display
+try {
+  const response = await api.get('/products');
+} catch (error) {
+  console.error(error.response?.data?.message);
+}
 ```
 
-**After:**
+**After**:
 ```typescript
-import { VultrConnectionStatus, RaindropConnectionStatus } from '@/components/integrations';
+import { apiGet, extractApiData } from '@/lib/apiClient';
+import { getErrorMessage } from '@/lib/errorHandler';
 
-<VultrConnectionStatus />
-<RaindropConnectionStatus />
+try {
+  const response = await apiGet<Product[]>('/products');
+  const products = extractApiData(response);
+} catch (error) {
+  const message = getErrorMessage(error); // Handles ApiResponse format
+  console.error(message);
+}
 ```
 
-## Testing
+## Benefits
 
-All improvements include:
-- ✅ TypeScript type safety
-- ✅ Error handling
-- ✅ Loading states
-- ✅ Graceful degradation
+1. **Type Safety** - Shared types ensure frontend and backend stay in sync
+2. **Consistency** - All API responses follow the same format
+3. **Better Debugging** - Request IDs enable request correlation
+4. **Resilience** - Health checks and retry logic improve reliability
+5. **Developer Experience** - Clearer error messages and better tooling
+6. **Maintainability** - Centralized API logic makes updates easier
 
 ## Next Steps
 
-1. Monitor performance metrics in production
-2. Adjust cache TTLs based on usage patterns
-3. Add more batch operations as needed
-4. Expand connection status monitoring
+1. Migrate remaining services to use the new API client
+2. Add more validation schemas for common request/response types
+3. Implement request caching based on health status
+4. Add request queuing for offline scenarios
+5. Create API documentation generator from types

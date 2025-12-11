@@ -326,7 +326,7 @@ export const JudgeDemo = () => {
                       <span>Style Shepherd AI</span>
                       <Badge variant="secondary" className="text-xs">Real-time</Badge>
                     </div>
-                    <div className={`p-4 rounded-lg bg-gradient-to-br ${currentStepData.color}/10 border-2 border-primary/20`}>
+                    <div className={`p-4 rounded-lg bg-gradient-to-br ${currentStepData.color}/10 border-2 border-primary/30`}>
                       <p className="text-foreground leading-relaxed">{currentStepData.assistantResponse}</p>
                     </div>
                   </div>
@@ -370,7 +370,7 @@ export const JudgeDemo = () => {
                       className="p-5 rounded-lg border-2 border-border bg-card hover:border-primary/50 transition-all group"
                     >
                       <div className="flex items-center gap-3 mb-3">
-                        <div className={`p-2 rounded-lg bg-muted ${metric.color || 'text-primary'}`}>
+                        <div className={`p-2 rounded-lg bg-muted`}>
                           <div className={metric.color || 'text-primary'}>
                             {metric.icon}
                           </div>

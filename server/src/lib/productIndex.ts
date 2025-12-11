@@ -17,6 +17,7 @@ interface Product {
   price?: number;
   fabric?: string;
   tags?: string;
+  brand?: string;
 }
 
 interface SearchFilters {
@@ -27,6 +28,7 @@ interface SearchFilters {
   minPrice?: number;
   maxPrice?: number;
   fabric?: string;
+  brand?: string;
 }
 
 function textMatch(text: string = '', q: string = ''): boolean {
@@ -43,8 +45,11 @@ function numericBetween(value: number | null | undefined, min: number | null | u
 
 function matchesProduct(p: Product, filters: SearchFilters = {}): boolean {
   if (filters.q) {
-    const q = filters.q.toLowerCase();
-    const hay = (
+    const q = filters.q.toLowerCase().trim();
+    // Split query into terms for better matching
+    const queryTerms = q.split(/\s+/).filter(term => term.length > 0);
+    
+    const searchableText = (
       (p.name || p.title || '') +
       ' ' +
       (p.description || '') +
@@ -53,9 +58,16 @@ function matchesProduct(p: Product, filters: SearchFilters = {}): boolean {
       ' ' +
       (p.color || '') +
       ' ' +
-      (p.tags || '')
+      (p.brand || '') +
+      ' ' +
+      (p.tags || '') +
+      ' ' +
+      (p.fabric || '')
     ).toLowerCase();
-    if (!hay.includes(q)) return false;
+    
+    // All query terms must be found in searchable text
+    const allTermsMatch = queryTerms.every(term => searchableText.includes(term));
+    if (!allTermsMatch) return false;
   }
 
   if (filters.category && p.category && p.category.toLowerCase() !== filters.category.toLowerCase()) {
@@ -67,6 +79,10 @@ function matchesProduct(p: Product, filters: SearchFilters = {}): boolean {
   }
 
   if (filters.fabric && p.fabric && p.fabric.toLowerCase() !== filters.fabric.toLowerCase()) {
+    return false;
+  }
+
+  if (filters.brand && p.brand && !p.brand.toLowerCase().includes(filters.brand.toLowerCase())) {
     return false;
   }
 

@@ -32,6 +32,7 @@ import { initRaindrop } from './lib/raindropClient.js';
 import { initializeGuardrails } from './lib/guardrails/index.js';
 import { initProviders } from './lib/initProviders.js';
 import { monitoringMiddleware, contextMiddleware } from './middleware/monitoring.js';
+import { responseWrapper } from './middleware/responseWrapper.js';
 import { logger } from './lib/monitoring.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -74,6 +75,9 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Monitoring middleware - must be after body parsing but before routes
 app.use(monitoringMiddleware);
 app.use(contextMiddleware);
+
+// Response wrapper - wraps all responses in ApiResponse format
+app.use(responseWrapper);
 
 // Rate limiting
 const limiter = rateLimit({

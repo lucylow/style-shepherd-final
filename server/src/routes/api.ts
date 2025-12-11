@@ -875,6 +875,44 @@ router.post(
   }
 );
 
+// Get checkout session details (useful for mock mode)
+router.get(
+  '/payments/checkout-session/:sessionId',
+  validateParams(z.object({ sessionId: z.string().min(1) })),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { sessionId } = req.params;
+      // Access private method via type assertion (for mock mode support)
+      const session = (paymentService as any).getMockCheckoutSession?.(sessionId);
+      if (!session) {
+        return res.status(404).json({ error: 'Checkout session not found' });
+      }
+      res.json(session);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Simulate payment completion for mock checkout (for testing)
+router.post(
+  '/payments/checkout-session/:sessionId/complete',
+  validateParams(z.object({ sessionId: z.string().min(1) })),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { sessionId } = req.params;
+      // Access private method via type assertion (for mock mode support)
+      const result = await (paymentService as any).simulateMockPaymentCompletion?.(sessionId);
+      if (!result) {
+        return res.status(404).json({ error: 'Checkout session not found or not in mock mode' });
+      }
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 // Subscriptions
 router.post(
   '/payments/subscriptions',
@@ -1445,65 +1483,194 @@ router.post(
   }
 );
 
-// Product Text Search
+// Shared search handler function
+async function handleProductSearch(
+  filters: {
+    q?: string;
+    category?: string;
+    color?: string;
+    size?: string;
+    minPrice?: number;
+    maxPrice?: number;
+    fabric?: string;
+    brand?: string;
+    limit?: number;
+    offset?: number;
+    sort?: 'relevance' | 'price_asc' | 'price_desc' | 'name';
+  },
+  res: Response
+) {
+  const { searchProducts } = await import('../lib/productIndex.js');
+  const fs = await import('fs');
+  const path = await import('path');
+  const { fileURLToPath } = await import('url');
+  
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  const PRODUCTS_FILE = path.join(__dirname, '../../../../data/products.json');
+
+  function loadProducts() {
+    try {
+      if (fs.existsSync(PRODUCTS_FILE)) {
+        const raw = fs.readFileSync(PRODUCTS_FILE, 'utf8');
+        const data = JSON.parse(raw);
+        return Array.isArray(data) ? data : (data.products || []);
+      }
+      const mocksFile = path.join(__dirname, '../../../../mocks/products.json');
+      if (fs.existsSync(mocksFile)) {
+        const raw = fs.readFileSync(mocksFile, 'utf8');
+        const data = JSON.parse(raw);
+        return Array.isArray(data) ? data : (data.products || []);
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  const products = loadProducts();
+  const searchFilters = {
+    q: filters.q,
+    category: filters.category,
+    color: filters.color,
+    size: filters.size,
+    minPrice: filters.minPrice,
+    maxPrice: filters.maxPrice,
+    fabric: filters.fabric,
+  };
+
+  let results = searchProducts(products, searchFilters);
+
+  // Apply brand filter if provided
+  if (filters.brand) {
+    const brandLower = filters.brand.toLowerCase();
+    results = results.filter((p: any) => 
+      p.brand && p.brand.toLowerCase().includes(brandLower)
+    );
+  }
+
+  // Apply sorting
+  if (filters.sort) {
+    switch (filters.sort) {
+      case 'price_asc':
+        results.sort((a: any, b: any) => (Number(a.price || 99999) - Number(b.price || 99999)));
+        break;
+      case 'price_desc':
+        results.sort((a: any, b: any) => (Number(b.price || 99999) - Number(a.price || 99999)));
+        break;
+      case 'name':
+        results.sort((a: any, b: any) => {
+          const nameA = (a.name || a.title || '').toLowerCase();
+          const nameB = (b.name || b.title || '').toLowerCase();
+          return nameA.localeCompare(nameB);
+        });
+        break;
+      case 'relevance':
+      default:
+        // Relevance: prioritize exact matches in name/title, then description
+        if (filters.q) {
+          const query = filters.q.toLowerCase();
+          results.sort((a: any, b: any) => {
+            const nameA = (a.name || a.title || '').toLowerCase();
+            const nameB = (b.name || b.title || '').toLowerCase();
+            const descA = (a.description || '').toLowerCase();
+            const descB = (b.description || '').toLowerCase();
+            
+            const aNameMatch = nameA.includes(query) ? 1 : 0;
+            const bNameMatch = nameB.includes(query) ? 1 : 0;
+            const aDescMatch = descA.includes(query) ? 0.5 : 0;
+            const bDescMatch = descB.includes(query) ? 0.5 : 0;
+            
+            return (bNameMatch + bDescMatch) - (aNameMatch + aDescMatch);
+          });
+        }
+        break;
+    }
+  }
+
+  const totalResults = results.length;
+  const limit = filters.limit || 60;
+  const offset = filters.offset || 0;
+  const paginatedResults = results.slice(offset, offset + limit);
+
+  // Transform results to match frontend Product type
+  const transformedResults = paginatedResults.map((p: any) => ({
+    id: p.id,
+    name: p.name || p.title,
+    title: p.name || p.title,
+    description: p.description,
+    category: p.category,
+    color: p.color,
+    price: p.price,
+    sizes: p.sizes || (p.sizeChart ? Object.keys(p.sizeChart) : []),
+    images: p.images || [],
+    fabric: p.fabric || (p.styleAttributes?.fabric || ''),
+    brand: p.brand,
+  }));
+
+  return res.status(200).json({
+    success: true,
+    data: {
+      results: transformedResults,
+      pagination: {
+        total: totalResults,
+        limit,
+        offset,
+        hasMore: offset + limit < totalResults,
+      },
+      filters: searchFilters,
+    },
+  });
+}
+
+// Product Search - GET endpoint (RESTful with query parameters)
+router.get(
+  '/products/search',
+  validateQuery(
+    z.object({
+      q: z.string().optional(),
+      category: z.string().optional(),
+      color: z.string().optional(),
+      size: z.string().optional(),
+      minPrice: z.string().transform((val) => val ? parseFloat(val) : undefined).optional(),
+      maxPrice: z.string().transform((val) => val ? parseFloat(val) : undefined).optional(),
+      fabric: z.string().optional(),
+      brand: z.string().optional(),
+      limit: z.string().transform((val) => val ? parseInt(val, 10) : undefined).optional(),
+      offset: z.string().transform((val) => val ? parseInt(val, 10) : undefined).optional(),
+      sort: z.enum(['relevance', 'price_asc', 'price_desc', 'name']).optional(),
+    })
+  ),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      await handleProductSearch(req.query as any, res);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Product Search - POST endpoint (for complex searches with body)
 router.post(
   '/products/search',
   validateBody(
     z.object({
       q: z.string().optional(),
+      category: z.string().optional(),
+      color: z.string().optional(),
+      size: z.string().optional(),
+      minPrice: z.number().optional(),
+      maxPrice: z.number().optional(),
+      fabric: z.string().optional(),
+      brand: z.string().optional(),
+      limit: z.number().int().positive().max(200).optional(),
+      offset: z.number().int().nonnegative().optional(),
+      sort: z.enum(['relevance', 'price_asc', 'price_desc', 'name']).optional(),
     })
   ),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { q } = req.body;
-      
-      const { searchProducts } = await import('../lib/productIndex.js');
-      const fs = await import('fs');
-      const path = await import('path');
-      const { fileURLToPath } = await import('url');
-      
-      const __filename = fileURLToPath(import.meta.url);
-      const __dirname = path.dirname(__filename);
-      const PRODUCTS_FILE = path.join(__dirname, '../../../../data/products.json');
-
-      function loadProducts() {
-        try {
-          if (fs.existsSync(PRODUCTS_FILE)) {
-            const raw = fs.readFileSync(PRODUCTS_FILE, 'utf8');
-            const data = JSON.parse(raw);
-            return Array.isArray(data) ? data : (data.products || []);
-          }
-          const mocksFile = path.join(__dirname, '../../../../mocks/products.json');
-          if (fs.existsSync(mocksFile)) {
-            const raw = fs.readFileSync(mocksFile, 'utf8');
-            const data = JSON.parse(raw);
-            return Array.isArray(data) ? data : (data.products || []);
-          }
-          return [];
-        } catch (e) {
-          return [];
-        }
-      }
-
-      const products = loadProducts();
-      const results = q ? searchProducts(products, { q }) : products;
-
-      // Transform results to match frontend Product type
-      const transformedResults = results.map((p: any) => ({
-        id: p.id,
-        name: p.name || p.title,
-        title: p.name || p.title,
-        description: p.description,
-        category: p.category,
-        color: p.color,
-        price: p.price,
-        sizes: p.sizes || (p.sizeChart ? Object.keys(p.sizeChart) : []),
-        images: p.images || [],
-        fabric: p.fabric || (p.styleAttributes?.fabric || ''),
-        brand: p.brand,
-      }));
-
-      return res.status(200).json({ success: true, results: transformedResults });
+      await handleProductSearch(req.body, res);
     } catch (error) {
       next(error);
     }

@@ -1,10 +1,11 @@
 /**
  * LLM Service for AI-powered intent extraction and response generation
- * Uses OpenAI GPT models for natural language understanding and generation
+ * Uses provider registry (Cerebras preferred, OpenAI fallback) for natural language understanding and generation
  */
 
 import OpenAI from 'openai';
 import env from '../config/env.js';
+import providerRegistry from '../lib/providerRegistry.js';
 
 export interface IntentAnalysis {
   intent: string;
@@ -23,6 +24,7 @@ export interface ConversationSummary {
 
 export class LLMService {
   private client: OpenAI | null = null;
+  private useProviderRegistry: boolean = false;
   private readonly DEFAULT_MODEL = 'gpt-4o-mini'; // Fast and cost-effective
   private readonly FALLBACK_MODEL = 'gpt-3.5-turbo';
   private readonly MAX_TOKENS = 500;
@@ -46,20 +48,85 @@ export class LLMService {
   private readonly OUTPUT_COST_PER_MILLION = 0.60; // $0.60 per 1M output tokens
 
   constructor() {
-    const apiKey = env.OPENAI_API_KEY;
-    if (apiKey) {
-      try {
-        this.client = new OpenAI({
-          apiKey: apiKey,
-        });
-        console.log('✅ OpenAI LLM client initialized successfully');
-      } catch (error) {
-        console.warn('⚠️ Failed to initialize OpenAI client:', error);
-        this.client = null;
-      }
+    // Check if provider registry has an LLM provider (prefer Cerebras)
+    const llmProvider = providerRegistry.selectLLM();
+    if (llmProvider) {
+      this.useProviderRegistry = true;
+      console.log(`✅ LLM Service using provider registry: ${llmProvider.meta.name || llmProvider.meta.id}`);
     } else {
-      console.warn('⚠️ OPENAI_API_KEY not found, LLM features will use fallback methods');
+      // Fallback to OpenAI client if no provider registry LLM available
+      const apiKey = env.OPENAI_API_KEY;
+      if (apiKey) {
+        try {
+          this.client = new OpenAI({
+            apiKey: apiKey,
+          });
+          console.log('✅ OpenAI LLM client initialized successfully (fallback mode)');
+        } catch (error) {
+          console.warn('⚠️ Failed to initialize OpenAI client:', error);
+          this.client = null;
+        }
+      } else {
+        console.warn('⚠️ No LLM provider available, LLM features will use fallback methods');
+      }
     }
+  }
+
+  /**
+   * Helper method to call LLM via provider registry or OpenAI client
+   */
+  private async callLLM(
+    systemPrompt: string,
+    userPrompt: string,
+    options: {
+      temperature?: number;
+      maxTokens?: number;
+      responseFormat?: 'json_object' | 'text';
+    } = {}
+  ): Promise<string> {
+    if (this.useProviderRegistry) {
+      const llmProvider = providerRegistry.selectLLM();
+      if (llmProvider) {
+        try {
+          const response = await llmProvider.generate(userPrompt, {
+            system: systemPrompt,
+            temperature: options.temperature ?? 0.7,
+            maxTokens: options.maxTokens ?? this.MAX_TOKENS,
+          });
+          return response.text;
+        } catch (error) {
+          console.warn('Provider registry LLM call failed, falling back:', error);
+          // Fall through to OpenAI client if available
+        }
+      }
+    }
+
+    if (!this.client) {
+      throw new Error('No LLM provider available');
+    }
+
+    const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ];
+
+    const requestOptions: any = {
+      model: this.DEFAULT_MODEL,
+      messages,
+      temperature: options.temperature ?? 0.7,
+      max_tokens: options.maxTokens ?? this.MAX_TOKENS,
+    };
+
+    if (options.responseFormat === 'json_object') {
+      requestOptions.response_format = { type: 'json_object' };
+    }
+
+    const response = await this.client.chat.completions.create(requestOptions);
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error('No response from LLM');
+    }
+    return content;
   }
 
   /**
@@ -71,7 +138,7 @@ export class LLMService {
     conversationHistory?: any[],
     userProfile?: any
   ): Promise<IntentAnalysis> {
-    if (!this.client) {
+    if (!this.client && !this.useProviderRegistry) {
       return this.fallbackIntentExtraction(text);
     }
 
@@ -119,21 +186,15 @@ Respond with valid JSON only:
         ? `Previous conversation context:\n${conversationHistory.slice(-3).map((m: any) => `${m.type}: ${m.message}`).join('\n')}\n\nUser profile context: ${userProfile ? JSON.stringify(userProfile).substring(0, 150) : 'None'}`
         : '';
 
-      const response = await this.client.chat.completions.create({
-        model: this.DEFAULT_MODEL,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `${userContext}\n\nUser query: "${text}"` }
-        ],
-        temperature: 0.2, // Lower temperature for more consistent extraction
-        max_tokens: this.MAX_TOKENS,
-        response_format: { type: 'json_object' },
-      });
-
-      const content = response.choices[0]?.message?.content;
-      if (!content) {
-        throw new Error('No response from LLM');
-      }
+      const content = await this.callLLM(
+        systemPrompt,
+        `${userContext}\n\nUser query: "${text}"`,
+        {
+          temperature: 0.2,
+          maxTokens: this.MAX_TOKENS,
+          responseFormat: 'json_object',
+        }
+      );
 
       const parsed = JSON.parse(content);
       
@@ -185,7 +246,7 @@ Respond with valid JSON only:
     userProfile?: any,
     preferences?: any
   ): Promise<string> {
-    if (!this.client) {
+    if (!this.client && !this.useProviderRegistry) {
       return this.fallbackResponse(query, intentAnalysis, userProfile, preferences);
     }
 
@@ -220,51 +281,36 @@ Remember to:
 
       // Build conversation context (last 5 messages with better formatting)
       const recentHistory = conversationHistory.slice(-5);
-      const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-        { role: 'system', content: systemPrompt },
-      ];
-
-      // Add conversation history with better context
+      let conversationContext = '';
       for (const msg of recentHistory) {
-        messages.push({
-          role: msg.type === 'user' ? 'user' : 'assistant',
-          content: msg.message,
-        });
+        conversationContext += `${msg.type === 'user' ? 'User' : 'Assistant'}: ${msg.message}\n`;
       }
 
       // Add current query with intent context
       const enrichedQuery = intentAnalysis.entities && Object.keys(intentAnalysis.entities).length > 0
-        ? `${query}\n\n[Context: Looking for ${Object.entries(intentAnalysis.entities).map(([k, v]) => `${k}: ${v}`).join(', ')}]`
-        : query;
+        ? `${conversationContext}\n\nUser query: ${query}\n\n[Context: Looking for ${Object.entries(intentAnalysis.entities).map(([k, v]) => `${k}: ${v}`).join(', ')}]`
+        : `${conversationContext}\n\nUser query: ${query}`;
 
-      messages.push({
-        role: 'user',
-        content: enrichedQuery,
-      });
-
-      const response = await this.client.chat.completions.create({
-        model: this.DEFAULT_MODEL,
-        messages: messages,
-        temperature: 0.7,
-        max_tokens: 200, // Increased for more detailed responses
-        presence_penalty: 0.1, // Encourage variety
-        frequency_penalty: 0.1, // Reduce repetition
-      });
-
-      const content = response.choices[0]?.message?.content;
+      const content = await this.callLLM(
+        systemPrompt,
+        enrichedQuery,
+        {
+          temperature: 0.7,
+          maxTokens: 200,
+        }
+      );
       
-      // Track token usage
-      const usage = response.usage;
-      if (usage) {
-        this.tokenUsage.totalInputTokens += usage.prompt_tokens || 0;
-        this.tokenUsage.totalOutputTokens += usage.completion_tokens || 0;
-        this.tokenUsage.totalRequests += 1;
-        this.tokenUsage.costEstimate += 
-          ((usage.prompt_tokens || 0) / 1_000_000) * this.INPUT_COST_PER_MILLION +
-          ((usage.completion_tokens || 0) / 1_000_000) * this.OUTPUT_COST_PER_MILLION;
-      }
+      // Track token usage (approximate for provider registry)
+      this.tokenUsage.totalRequests += 1;
+      const estimatedInputTokens = (systemPrompt.length + enrichedQuery.length) / 4;
+      const estimatedOutputTokens = content.length / 4;
+      this.tokenUsage.totalInputTokens += estimatedInputTokens;
+      this.tokenUsage.totalOutputTokens += estimatedOutputTokens;
+      this.tokenUsage.costEstimate += 
+        (estimatedInputTokens / 1_000_000) * this.INPUT_COST_PER_MILLION +
+        (estimatedOutputTokens / 1_000_000) * this.OUTPUT_COST_PER_MILLION;
       
-      return content?.trim() || this.fallbackResponse(query, intentAnalysis, userProfile, preferences);
+      return content.trim() || this.fallbackResponse(query, intentAnalysis, userProfile, preferences);
     } catch (error) {
       console.warn('LLM response generation failed, using fallback:', error);
       return this.fallbackResponse(query, intentAnalysis, userProfile, preferences);
@@ -282,7 +328,7 @@ Remember to:
     userProfile?: any,
     preferences?: any
   ): AsyncGenerator<string, void, unknown> {
-    if (!this.client) {
+    if (!this.client && !this.useProviderRegistry) {
       // Fallback: yield full response at once
       const response = this.fallbackResponse(query, intentAnalysis, userProfile, preferences);
       yield response;
@@ -308,37 +354,70 @@ Context awareness:
 User profile: ${userProfile ? JSON.stringify(userProfile).substring(0, 200) : 'New user'}
 User preferences: ${preferences ? JSON.stringify(preferences).substring(0, 200) : 'None yet'}`;
 
-      const recentHistory = conversationHistory.slice(-5);
-      const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-        { role: 'system', content: systemPrompt },
-      ];
+      // Try provider registry streaming first
+      if (this.useProviderRegistry) {
+        const llmProvider = providerRegistry.selectLLM();
+        if (llmProvider && llmProvider.stream) {
+          const recentHistory = conversationHistory.slice(-5);
+          let conversationContext = '';
+          for (const msg of recentHistory) {
+            conversationContext += `${msg.type === 'user' ? 'User' : 'Assistant'}: ${msg.message}\n`;
+          }
+          const userPrompt = `${conversationContext}\n\nUser query: ${query}`;
 
-      for (const msg of recentHistory) {
-        messages.push({
-          role: msg.type === 'user' ? 'user' : 'assistant',
-          content: msg.message,
-        });
+          let fullResponse = '';
+          await llmProvider.stream(
+            userPrompt,
+            {
+              system: systemPrompt,
+              temperature: 0.7,
+              maxTokens: 200,
+            },
+            (chunk: string) => {
+              fullResponse += chunk;
+              return chunk;
+            }
+          );
+          // Yield chunks as they come (simplified - in production, yield incrementally)
+          yield fullResponse;
+          return;
+        }
       }
 
-      messages.push({
-        role: 'user',
-        content: query,
-      });
+      // Fallback to OpenAI streaming
+      if (this.client) {
+        const recentHistory = conversationHistory.slice(-5);
+        const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+          { role: 'system', content: systemPrompt },
+        ];
 
-      const stream = await this.client.chat.completions.create({
-        model: this.DEFAULT_MODEL,
-        messages: messages,
-        temperature: 0.7,
-        max_tokens: 200,
-        stream: true,
-        presence_penalty: 0.1,
-        frequency_penalty: 0.1,
-      });
+        for (const msg of recentHistory) {
+          messages.push({
+            role: msg.type === 'user' ? 'user' : 'assistant',
+            content: msg.message,
+          });
+        }
 
-      for await (const chunk of stream) {
-        const content = chunk.choices[0]?.delta?.content;
-        if (content) {
-          yield content;
+        messages.push({
+          role: 'user',
+          content: query,
+        });
+
+        const stream = await this.client.chat.completions.create({
+          model: this.DEFAULT_MODEL,
+          messages: messages,
+          temperature: 0.7,
+          max_tokens: 200,
+          stream: true,
+          presence_penalty: 0.1,
+          frequency_penalty: 0.1,
+        });
+
+        for await (const chunk of stream) {
+          const content = chunk.choices[0]?.delta?.content;
+          if (content) {
+            yield content;
+          }
         }
       }
     } catch (error) {
@@ -355,7 +434,7 @@ User preferences: ${preferences ? JSON.stringify(preferences).substring(0, 200) 
     conversationHistory: any[],
     maxMessages: number = this.MAX_CONTEXT_MESSAGES
   ): Promise<ConversationSummary> {
-    if (!this.client || conversationHistory.length <= maxMessages) {
+    if ((!this.client && !this.useProviderRegistry) || conversationHistory.length <= maxMessages) {
       return {
         summary: 'Recent conversation',
         keyPoints: conversationHistory.slice(-5).map((m: any) => m.message.substring(0, 50)),
@@ -369,24 +448,18 @@ User preferences: ${preferences ? JSON.stringify(preferences).substring(0, 200) 
         .map((m: any) => `${m.type}: ${m.message}`)
         .join('\n');
 
-      const response = await this.client.chat.completions.create({
-        model: this.DEFAULT_MODEL,
-        messages: [
-          {
-            role: 'system',
-            content: 'Summarize this conversation, extracting key points, user preferences mentioned, and important context. Return JSON: { "summary": "string", "keyPoints": ["string"], "userPreferences": {} }',
-          },
-          {
-            role: 'user',
-            content: messages,
-          },
-        ],
-        temperature: 0.3,
-        max_tokens: 300,
-        response_format: { type: 'json_object' },
-      });
+      const systemPrompt = 'Summarize this conversation, extracting key points, user preferences mentioned, and important context. Return JSON: { "summary": "string", "keyPoints": ["string"], "userPreferences": {} }';
 
-      const content = response.choices[0]?.message?.content;
+      const content = await this.callLLM(
+        systemPrompt,
+        messages,
+        {
+          temperature: 0.3,
+          maxTokens: 300,
+          responseFormat: 'json_object',
+        }
+      );
+
       if (content) {
         const parsed = JSON.parse(content);
         return {
@@ -411,7 +484,7 @@ User preferences: ${preferences ? JSON.stringify(preferences).substring(0, 200) 
    * Analyze sentiment of user query
    */
   async analyzeSentiment(text: string): Promise<'positive' | 'neutral' | 'negative'> {
-    if (!this.client) {
+    if (!this.client && !this.useProviderRegistry) {
       // Simple keyword-based sentiment
       const lowerText = text.toLowerCase();
       const positiveWords = ['love', 'great', 'perfect', 'amazing', 'wonderful', 'excellent', 'thanks', 'thank you'];
@@ -423,23 +496,17 @@ User preferences: ${preferences ? JSON.stringify(preferences).substring(0, 200) 
     }
 
     try {
-      const response = await this.client.chat.completions.create({
-        model: this.DEFAULT_MODEL,
-        messages: [
-          {
-            role: 'system',
-            content: 'Analyze the sentiment of the user message. Respond with only one word: "positive", "neutral", or "negative".',
-          },
-          {
-            role: 'user',
-            content: text,
-          },
-        ],
-        temperature: 0.1,
-        max_tokens: 10,
-      });
+      const systemPrompt = 'Analyze the sentiment of the user message. Respond with only one word: "positive", "neutral", or "negative".';
+      const content = await this.callLLM(
+        systemPrompt,
+        text,
+        {
+          temperature: 0.1,
+          maxTokens: 10,
+        }
+      );
 
-      const sentiment = response.choices[0]?.message?.content?.trim().toLowerCase();
+      const sentiment = content.trim().toLowerCase();
       if (sentiment === 'positive' || sentiment === 'negative') {
         return sentiment;
       }
@@ -590,7 +657,7 @@ User preferences: ${preferences ? JSON.stringify(preferences).substring(0, 200) 
    * Check if LLM service is available
    */
   isAvailable(): boolean {
-    return this.client !== null;
+    return this.client !== null || this.useProviderRegistry;
   }
 
   /**
@@ -622,7 +689,7 @@ User preferences: ${preferences ? JSON.stringify(preferences).substring(0, 200) 
   }
 
   /**
-   * Generate streaming response (for real-time responses)
+   * Generate streaming response (for real-time responses) - callback version
    */
   async generateStreamingResponse(
     query: string,
@@ -632,7 +699,7 @@ User preferences: ${preferences ? JSON.stringify(preferences).substring(0, 200) 
     preferences?: any,
     onChunk?: (chunk: string) => void
   ): Promise<string> {
-    if (!this.client) {
+    if (!this.client && !this.useProviderRegistry) {
       return this.fallbackResponse(query, intentAnalysis, userProfile, preferences);
     }
 
@@ -649,59 +716,92 @@ Your personality:
 User profile: ${userProfile ? JSON.stringify(userProfile).substring(0, 200) : 'New user'}
 User preferences: ${preferences ? JSON.stringify(preferences).substring(0, 200) : 'None yet'}`;
 
-      const recentHistory = conversationHistory.slice(-5);
-      const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-        { role: 'system', content: systemPrompt },
-      ];
-
-      for (const msg of recentHistory) {
-        messages.push({
-          role: msg.type === 'user' ? 'user' : 'assistant',
-          content: msg.message,
-        });
-      }
-
-      messages.push({
-        role: 'user',
-        content: query,
-      });
-
-      const stream = await this.client.chat.completions.create({
-        model: this.DEFAULT_MODEL,
-        messages: messages,
-        temperature: 0.7,
-        max_tokens: 150,
-        stream: true,
-      });
-
-      let fullResponse = '';
-      for await (const chunk of stream) {
-        const content = chunk.choices[0]?.delta?.content;
-        if (content) {
-          fullResponse += content;
-          if (onChunk) {
-            onChunk(content);
+      // Try provider registry streaming first
+      if (this.useProviderRegistry && onChunk) {
+        const llmProvider = providerRegistry.selectLLM();
+        if (llmProvider && llmProvider.stream) {
+          const recentHistory = conversationHistory.slice(-5);
+          let conversationContext = '';
+          for (const msg of recentHistory) {
+            conversationContext += `${msg.type === 'user' ? 'User' : 'Assistant'}: ${msg.message}\n`;
           }
+          const userPrompt = `${conversationContext}\n\nUser query: ${query}`;
+
+          let fullResponse = '';
+          await llmProvider.stream(
+            userPrompt,
+            {
+              system: systemPrompt,
+              temperature: 0.7,
+              maxTokens: 150,
+            },
+            (chunk: string) => {
+              fullResponse += chunk;
+              onChunk(chunk);
+            }
+          );
+          return fullResponse.trim() || this.fallbackResponse(query, intentAnalysis, userProfile, preferences);
         }
       }
 
-      // Track approximate token usage for streaming
-      this.tokenUsage.totalRequests += 1;
-      const estimatedInputTokens = messages.reduce((sum, m) => 
-        sum + (typeof m.content === 'string' ? m.content.length / 4 : 0), 0
-      );
-      const estimatedOutputTokens = fullResponse.length / 4;
-      this.tokenUsage.totalInputTokens += estimatedInputTokens;
-      this.tokenUsage.totalOutputTokens += estimatedOutputTokens;
-      this.tokenUsage.costEstimate += 
-        (estimatedInputTokens / 1_000_000) * this.INPUT_COST_PER_MILLION +
-        (estimatedOutputTokens / 1_000_000) * this.OUTPUT_COST_PER_MILLION;
+      // Fallback to OpenAI streaming
+      if (this.client) {
+        const recentHistory = conversationHistory.slice(-5);
+        const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+          { role: 'system', content: systemPrompt },
+        ];
 
-      return fullResponse.trim() || this.fallbackResponse(query, intentAnalysis, userProfile, preferences);
+        for (const msg of recentHistory) {
+          messages.push({
+            role: msg.type === 'user' ? 'user' : 'assistant',
+            content: msg.message,
+          });
+        }
+
+        messages.push({
+          role: 'user',
+          content: query,
+        });
+
+        const stream = await this.client.chat.completions.create({
+          model: this.DEFAULT_MODEL,
+          messages: messages,
+          temperature: 0.7,
+          max_tokens: 150,
+          stream: true,
+        });
+
+        let fullResponse = '';
+        for await (const chunk of stream) {
+          const content = chunk.choices[0]?.delta?.content;
+          if (content) {
+            fullResponse += content;
+            if (onChunk) {
+              onChunk(content);
+            }
+          }
+        }
+
+        // Track approximate token usage for streaming
+        this.tokenUsage.totalRequests += 1;
+        const estimatedInputTokens = messages.reduce((sum, m) => 
+          sum + (typeof m.content === 'string' ? m.content.length / 4 : 0), 0
+        );
+        const estimatedOutputTokens = fullResponse.length / 4;
+        this.tokenUsage.totalInputTokens += estimatedInputTokens;
+        this.tokenUsage.totalOutputTokens += estimatedOutputTokens;
+        this.tokenUsage.costEstimate += 
+          (estimatedInputTokens / 1_000_000) * this.INPUT_COST_PER_MILLION +
+          (estimatedOutputTokens / 1_000_000) * this.OUTPUT_COST_PER_MILLION;
+
+        return fullResponse.trim() || this.fallbackResponse(query, intentAnalysis, userProfile, preferences);
+      }
     } catch (error) {
       console.warn('LLM streaming response generation failed, using fallback:', error);
       return this.fallbackResponse(query, intentAnalysis, userProfile, preferences);
     }
+
+    return this.fallbackResponse(query, intentAnalysis, userProfile, preferences);
   }
 }
 

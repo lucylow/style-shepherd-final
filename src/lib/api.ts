@@ -8,8 +8,9 @@
  * Falls back to /api for same-origin requests or localhost for development.
  */
 
-import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
 import { getApiBaseUrl } from './api-config';
+import { ApiResponse, ApiError, RequestMetadata } from './api-types';
 
 const baseURL = getApiBaseUrl();
 
@@ -21,13 +22,28 @@ export const api: AxiosInstance = axios.create({
   },
 });
 
-// Add request ID for tracking
+// Add request ID and metadata for tracking
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     // Add request ID for tracking
     if (!config.headers['x-request-id']) {
       config.headers['x-request-id'] = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     }
+    
+    // Add timestamp
+    config.headers['x-request-timestamp'] = new Date().toISOString();
+    
+    // Add metadata if provided
+    const metadata = (config as any).metadata as RequestMetadata | undefined;
+    if (metadata) {
+      if (metadata.userId) {
+        config.headers['x-user-id'] = metadata.userId;
+      }
+      if (metadata.sessionId) {
+        config.headers['x-session-id'] = metadata.sessionId;
+      }
+    }
+    
     return config;
   },
   (error) => {
@@ -49,12 +65,32 @@ if (import.meta.env.DEV) {
   );
 }
 
-// Response interceptor for error logging
+// Response interceptor for error logging and response normalization
 api.interceptors.response.use(
-  (response) => {
+  (response: AxiosResponse) => {
+    // Normalize response to ApiResponse format if needed
+    // Backend may return data directly or wrapped in ApiResponse
+    if (response.data && typeof response.data === 'object') {
+      // If backend already returns ApiResponse format, use it
+      if ('success' in response.data || 'error' in response.data) {
+        // Already in ApiResponse format
+        return response;
+      }
+      
+      // Otherwise, wrap it in ApiResponse format
+      // This ensures consistent handling on frontend
+      const requestId = response.config.headers['x-request-id'] as string;
+      response.data = {
+        success: true,
+        data: response.data,
+        requestId,
+        timestamp: new Date().toISOString(),
+      } as ApiResponse;
+    }
+    
     return response;
   },
-  (error: AxiosError) => {
+  (error: AxiosError<ApiResponse | ApiError>) => {
     // Enhanced error logging with better context
     const errorContext = {
       method: error.config?.method?.toUpperCase(),
@@ -66,6 +102,39 @@ api.interceptors.response.use(
       isTimeout: error.code === 'ECONNABORTED',
       requestId: error.config?.headers['x-request-id'],
     };
+    
+    // Normalize error response to ApiResponse format
+    if (error.response?.data) {
+      const errorData = error.response.data;
+      
+      // If backend returns ApiResponse format with error, use it
+      if (typeof errorData === 'object' && 'error' in errorData) {
+        const apiResponse = errorData as ApiResponse;
+        error.response.data = {
+          success: false,
+          error: apiResponse.error || {
+            code: 'UNKNOWN_ERROR',
+            message: error.message,
+            statusCode: error.response.status || 500,
+          },
+          requestId: apiResponse.requestId || errorContext.requestId,
+          timestamp: new Date().toISOString(),
+        } as ApiResponse;
+      } else {
+        // Wrap error in ApiResponse format
+        error.response.data = {
+          success: false,
+          error: {
+            code: error.response.status?.toString() || 'UNKNOWN_ERROR',
+            message: error.message || 'An error occurred',
+            statusCode: error.response.status || 500,
+            details: errorData,
+          },
+          requestId: errorContext.requestId,
+          timestamp: new Date().toISOString(),
+        } as ApiResponse;
+      }
+    }
     
     // Log error with appropriate level
     if (error.response) {

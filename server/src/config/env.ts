@@ -46,6 +46,11 @@ const envSchema = z.object({
   // OpenAI (optional - for LLM and Whisper STT)
   OPENAI_API_KEY: z.string().optional(),
   
+  // Cerebras (optional - for LLM inference)
+  CEREBRAS_API_KEY: z.string().optional(),
+  CEREBRAS_BASE_URL: z.string().url().optional(),
+  CEREBRAS_MODEL: z.string().optional(),
+  
   // WorkOS (optional for demo mode)
   WORKOS_API_KEY: DEMO_MODE ? z.string().optional() : z.string().min(1),
   WORKOS_CLIENT_ID: DEMO_MODE ? z.string().optional() : z.string().min(1),

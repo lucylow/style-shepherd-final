@@ -5,6 +5,7 @@
 
 import providerRegistry from './providerRegistry.js';
 import { OpenAIAdapter } from './llm/openaiAdapter.js';
+import { CerebrasAdapter } from './llm/cerebrasAdapter.js';
 import { OpenAIEmbeddingsAdapter } from './embeddings/openaiEmbeddings.js';
 import { ElevenLabsAdapter } from './tts/elevenlabsAdapter.js';
 import { PostgresVectorDBAdapter } from './vectordb/postgresAdapter.js';
@@ -16,6 +17,21 @@ import env from '../config/env.js';
  */
 export async function initProviders(): Promise<void> {
   console.log('🔧 Initializing provider registry...');
+
+  // Register Cerebras LLM if API key is available (higher priority)
+  if (env.CEREBRAS_API_KEY) {
+    try {
+      const cerebrasAdapter = new CerebrasAdapter(env.CEREBRAS_API_KEY, {
+        model: env.CEREBRAS_MODEL,
+        priority: 5, // Higher priority than OpenAI
+        baseUrl: env.CEREBRAS_BASE_URL,
+      });
+      providerRegistry.register(cerebrasAdapter);
+      console.log('✅ Registered Cerebras LLM provider');
+    } catch (error: any) {
+      console.warn('⚠️ Failed to register Cerebras LLM:', error.message);
+    }
+  }
 
   // Register OpenAI LLM if API key is available
   if (env.OPENAI_API_KEY) {

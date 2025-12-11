@@ -52,18 +52,71 @@ interface CustomerCache {
 }
 
 export class PaymentService {
-  private stripe: Stripe;
+  private stripe: Stripe | null = null;
   private customerCache: Map<string, CustomerCache> = new Map();
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
   private readonly MAX_RETRIES = 3;
   private readonly RETRY_DELAY = 1000; // 1 second
+  private readonly useMockMode: boolean;
+  private mockOrders: Map<string, any> = new Map();
+  private mockCheckoutSessions: Map<string, any> = new Map();
+  private mockCustomers: Map<string, string> = new Map(); // userId -> customerId
 
   constructor() {
-    this.stripe = new Stripe(env.STRIPE_SECRET_KEY || 'sk_test_demo', {
-      apiVersion: '2023-10-16',
-      maxNetworkRetries: 2,
-      timeout: 30000,
-    });
+    // Check if we should use mock mode
+    const stripeKey = env.STRIPE_SECRET_KEY;
+    this.useMockMode = !stripeKey || stripeKey === 'sk_test_demo' || stripeKey.startsWith('sk_test_mock');
+    
+    if (this.useMockMode) {
+      console.log('🎭 PaymentService: Running in MOCK MODE - Stripe API calls will be simulated');
+    } else {
+      try {
+        this.stripe = new Stripe(stripeKey, {
+          apiVersion: '2023-10-16',
+          maxNetworkRetries: 2,
+          timeout: 30000,
+        });
+        console.log('✅ PaymentService: Stripe initialized with API key');
+      } catch (error) {
+        console.warn('⚠️ Failed to initialize Stripe, falling back to mock mode:', error);
+        this.useMockMode = true;
+      }
+    }
+  }
+
+  /**
+   * Check if running in mock mode
+   */
+  private isMockMode(): boolean {
+    return this.useMockMode || !this.stripe;
+  }
+
+  /**
+   * Generate mock customer ID
+   */
+  private generateMockCustomerId(): string {
+    return `cus_mock_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+  }
+
+  /**
+   * Generate mock session ID
+   */
+  private generateMockSessionId(): string {
+    return `cs_mock_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+  }
+
+  /**
+   * Generate mock payment intent ID
+   */
+  private generateMockPaymentIntentId(): string {
+    return `pi_mock_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+  }
+
+  /**
+   * Simulate network delay for realistic mock behavior
+   */
+  private async simulateDelay(ms: number = 300): Promise<void> {
+    await new Promise(resolve => setTimeout(resolve, ms));
   }
 
   /**
@@ -74,6 +127,12 @@ export class PaymentService {
     operationName: string,
     retries: number = this.MAX_RETRIES
   ): Promise<T> {
+    if (this.isMockMode()) {
+      // In mock mode, simulate a delay and return mock data
+      await this.simulateDelay();
+      throw new Error('Mock mode - use mock methods instead');
+    }
+
     let lastError: any;
     
     for (let attempt = 0; attempt < retries; attempt++) {
@@ -123,6 +182,7 @@ export class PaymentService {
 
   /**
    * Create a payment intent
+   * Works in both real Stripe mode and mock mode
    */
   async createPaymentIntent(order: Order, idempotencyKey?: string): Promise<{
     clientSecret: string;
@@ -147,6 +207,29 @@ export class PaymentService {
       // Get or create customer
       const customerId = await this.getOrCreateCustomer(order.userId);
 
+      // Mock mode implementation
+      if (this.isMockMode()) {
+        await this.simulateDelay(400);
+        
+        const paymentIntentId = this.generateMockPaymentIntentId();
+        const clientSecret = `${paymentIntentId}_secret_${Math.random().toString(36).substring(2, 15)}`;
+        
+        this.logPaymentOperation('createPaymentIntent', {
+          paymentIntentId,
+          userId: order.userId,
+          amount: order.totalAmount,
+          returnRiskScore: returnPrediction.score,
+          mockMode: true,
+        });
+
+        return {
+          clientSecret,
+          paymentIntentId,
+          returnPrediction,
+        };
+      }
+
+      // Real Stripe implementation
       // Create Stripe payment intent with retry logic
       const paymentIntent = await this.retryStripeCall(
         () => {
@@ -169,7 +252,7 @@ export class PaymentService {
             options.idempotencyKey = idempotencyKey;
           }
 
-          return this.stripe.paymentIntents.create(params, options);
+          return this.stripe!.paymentIntents.create(params, options);
         },
         'createPaymentIntent'
       );
@@ -183,6 +266,7 @@ export class PaymentService {
         userId: order.userId,
         amount: order.totalAmount,
         returnRiskScore: returnPrediction.score,
+        mockMode: false,
       });
 
       return {
@@ -304,6 +388,7 @@ export class PaymentService {
 
   /**
    * Confirm payment and create order
+   * Works in both real Stripe mode and mock mode
    */
   async confirmPayment(
     paymentIntentId: string,
@@ -317,8 +402,98 @@ export class PaymentService {
     }
 
     try {
+      // Mock mode implementation
+      if (this.isMockMode()) {
+        await this.simulateDelay(300);
+        
+        // In mock mode, assume payment is successful
+        // Create order in database
+        const orderId = `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+        try {
+          await vultrPostgres.transaction(async (client) => {
+            // Check inventory before creating order (skip in mock mode if DB unavailable)
+            try {
+              for (const item of order.items) {
+                const productResult = await client.query<{ stock: number }>(
+                  'SELECT stock FROM catalog WHERE id = $1',
+                  [item.productId]
+                );
+                
+                if (productResult.rows.length > 0) {
+                  const stock = productResult.rows[0].stock;
+                  if (stock < item.quantity) {
+                    throw new BusinessLogicError(
+                      `Insufficient stock for product ${item.productId}. Available: ${stock}, Requested: ${item.quantity}`,
+                      ErrorCode.INSUFFICIENT_STOCK
+                    );
+                  }
+                }
+              }
+            } catch (inventoryError) {
+              // In mock mode, continue even if inventory check fails
+              console.warn('Inventory check skipped in mock mode:', inventoryError);
+            }
+
+            // Insert order
+            await client.query(
+              `INSERT INTO orders (order_id, user_id, items, total_amount, status, payment_intent_id, created_at)
+               VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+              [
+                orderId,
+                order.userId,
+                JSON.stringify(order.items),
+                order.totalAmount,
+                'confirmed',
+                paymentIntentId,
+                new Date().toISOString(),
+              ]
+            );
+
+            // Update inventory (skip in mock mode if DB unavailable)
+            try {
+              for (const item of order.items) {
+                await client.query(
+                  'UPDATE catalog SET stock = stock - $1 WHERE id = $2',
+                  [item.quantity, item.productId]
+                );
+              }
+            } catch (inventoryError) {
+              console.warn('Inventory update skipped in mock mode:', inventoryError);
+            }
+          });
+        } catch (dbError) {
+          // In mock mode, continue even if DB fails
+          console.warn('Database operation failed in mock mode, continuing:', dbError);
+        }
+
+        // Store in Raindrop SmartSQL (non-critical)
+        try {
+          await orderSQL.insert('orders', {
+            id: orderId,
+            user_id: order.userId,
+            items: JSON.stringify(order.items),
+            total: order.totalAmount,
+            status: 'confirmed',
+            created_at: new Date().toISOString(),
+          });
+        } catch (raindropError) {
+          console.warn('Failed to store order in Raindrop, continuing:', raindropError);
+        }
+
+        this.logPaymentOperation('confirmPayment', {
+          paymentIntentId,
+          orderId,
+          userId: order.userId,
+          mockMode: true,
+        });
+
+        return { orderId, status: 'confirmed' };
+      }
+
+      // Real Stripe implementation
       // Verify payment intent
-      const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
+      const paymentIntent = await this.stripe!.paymentIntents.retrieve(paymentIntentId);
 
       if (paymentIntent.status !== 'succeeded') {
         throw new PaymentError(
@@ -357,14 +532,15 @@ export class PaymentService {
 
         // Insert order
         await client.query(
-          `INSERT INTO orders (order_id, user_id, items, total_amount, status, created_at)
-           VALUES ($1, $2, $3, $4, $5, $6)`,
+          `INSERT INTO orders (order_id, user_id, items, total_amount, status, payment_intent_id, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
           [
             orderId,
             order.userId,
             JSON.stringify(order.items),
             order.totalAmount,
             'confirmed',
+            paymentIntentId,
             new Date().toISOString(),
           ]
         );
@@ -392,6 +568,13 @@ export class PaymentService {
         console.warn('Failed to store order in Raindrop, continuing:', raindropError);
       }
 
+      this.logPaymentOperation('confirmPayment', {
+        paymentIntentId,
+        orderId,
+        userId: order.userId,
+        mockMode: false,
+      });
+
       return { orderId, status: 'confirmed' };
     } catch (error: any) {
       if (
@@ -417,6 +600,7 @@ export class PaymentService {
 
   /**
    * Create or retrieve Stripe customer with caching
+   * Works in both real Stripe mode and mock mode
    */
   async getOrCreateCustomer(userId: string, email?: string): Promise<string> {
     try {
@@ -426,6 +610,53 @@ export class PaymentService {
         return cached.customerId;
       }
 
+      // Mock mode implementation
+      if (this.isMockMode()) {
+        await this.simulateDelay(100);
+        
+        // Check mock customers map
+        if (this.mockCustomers.has(userId)) {
+          const customerId = this.mockCustomers.get(userId)!;
+          this.customerCache.set(userId, {
+            customerId,
+            timestamp: Date.now(),
+          });
+          return customerId;
+        }
+        
+        // Create new mock customer
+        const customerId = this.generateMockCustomerId();
+        this.mockCustomers.set(userId, customerId);
+        
+        // Try to store in database (non-blocking)
+        try {
+          await vultrPostgres.query(
+            `INSERT INTO users (user_id, stripe_customer_id, email, created_at)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (user_id) DO UPDATE SET stripe_customer_id = $2, email = $3`,
+            [userId, customerId, email || null, new Date().toISOString()]
+          );
+        } catch (dbError) {
+          console.warn('Failed to store mock customer in database (non-critical):', dbError);
+        }
+        
+        // Update cache
+        this.customerCache.set(userId, {
+          customerId,
+          timestamp: Date.now(),
+        });
+
+        this.logPaymentOperation('createCustomer', {
+          userId,
+          customerId,
+          email: email || 'none',
+          mockMode: true,
+        });
+
+        return customerId;
+      }
+
+      // Real Stripe implementation
       // Check if customer exists in database
       const existing = await vultrPostgres.query(
         'SELECT stripe_customer_id, email FROM users WHERE user_id = $1',
@@ -444,7 +675,7 @@ export class PaymentService {
         // Update email if provided and different
         if (email && existing[0].email !== email) {
           try {
-            await this.stripe.customers.update(customerId, { email });
+            await this.stripe!.customers.update(customerId, { email });
             await vultrPostgres.query(
               'UPDATE users SET email = $1 WHERE user_id = $2',
               [email, userId]
@@ -459,7 +690,7 @@ export class PaymentService {
 
       // Create new Stripe customer with retry
       const customer = await this.retryStripeCall(
-        () => this.stripe.customers.create({
+        () => this.stripe!.customers.create({
           email,
           metadata: {
             userId,
@@ -487,6 +718,7 @@ export class PaymentService {
         userId,
         customerId: customer.id,
         email: email || 'none',
+        mockMode: false,
       });
 
       return customer.id;
@@ -503,6 +735,7 @@ export class PaymentService {
   /**
    * Create checkout session for one-time payments or subscriptions
    * Supports both simple amount-based payments and detailed line items for cart products
+   * Works in both real Stripe mode and mock mode
    */
   async createCheckoutSession(params: {
     userId: string;
@@ -532,6 +765,102 @@ export class PaymentService {
     };
   }): Promise<{ url: string; sessionId: string }> {
     try {
+      // Validate required parameters
+      if (!params.userId) {
+        throw new BusinessLogicError('User ID is required', ErrorCode.VALIDATION_ERROR);
+      }
+      if (!params.successUrl || !params.cancelUrl) {
+        throw new BusinessLogicError('Success and cancel URLs are required', ErrorCode.VALIDATION_ERROR);
+      }
+      if (params.mode === 'subscription' && !params.priceId && !params.amount) {
+        throw new BusinessLogicError('Price ID or amount is required for subscription', ErrorCode.VALIDATION_ERROR);
+      }
+      if (params.mode === 'payment' && !params.lineItems && !params.amount) {
+        throw new BusinessLogicError('Either lineItems or amount must be provided for payment', ErrorCode.VALIDATION_ERROR);
+      }
+
+      // Calculate total amount
+      let totalAmount = 0;
+      if (params.lineItems && params.lineItems.length > 0) {
+        totalAmount = params.lineItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      } else if (params.amount) {
+        totalAmount = params.amount;
+      }
+
+      // Mock mode implementation
+      if (this.isMockMode()) {
+        await this.simulateDelay(500);
+        
+        const sessionId = this.generateMockSessionId();
+        const customerId = await this.getOrCreateCustomer(params.userId, params.customerEmail);
+        const paymentIntentId = this.generateMockPaymentIntentId();
+        
+        // Store mock checkout session
+        const mockSession = {
+          id: sessionId,
+          userId: params.userId,
+          customerId,
+          mode: params.mode,
+          paymentIntentId,
+          lineItems: params.lineItems || [],
+          amount: totalAmount,
+          currency: params.currency || 'usd',
+          shippingInfo: params.shippingInfo,
+          metadata: params.metadata || {},
+          status: 'open',
+          paymentStatus: 'unpaid',
+          createdAt: new Date().toISOString(),
+        };
+        
+        this.mockCheckoutSessions.set(sessionId, mockSession);
+        
+        // Create mock order if payment mode
+        if (params.mode === 'payment') {
+          const orderId = `order_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+          const mockOrder = {
+            orderId,
+            userId: params.userId,
+            items: params.lineItems?.map(item => ({
+              productId: item.productId,
+              quantity: item.quantity,
+              price: item.price,
+              name: item.name,
+            })) || [],
+            totalAmount,
+            shippingInfo: params.shippingInfo,
+            status: 'pending',
+            paymentIntentId,
+            checkoutSessionId: sessionId,
+            createdAt: new Date().toISOString(),
+          };
+          
+          this.mockOrders.set(orderId, mockOrder);
+          mockSession.metadata = {
+            ...mockSession.metadata,
+            orderId,
+          };
+        }
+        
+        // Build checkout URL - in mock mode, redirect to success URL immediately
+        // Replace {CHECKOUT_SESSION_ID} placeholder
+        const checkoutUrl = params.successUrl.replace('{CHECKOUT_SESSION_ID}', sessionId);
+        
+        this.logPaymentOperation('createCheckoutSession', {
+          sessionId,
+          userId: params.userId,
+          mode: params.mode,
+          lineItemsCount: params.lineItems?.length || 1,
+          amount: totalAmount,
+          mockMode: true,
+        });
+
+        return {
+          url: checkoutUrl,
+          sessionId,
+        };
+      }
+
+      // Real Stripe implementation
       const customerId = await this.getOrCreateCustomer(params.userId, params.customerEmail);
 
       const sessionParams: Stripe.Checkout.SessionCreateParams = {
@@ -610,7 +939,7 @@ export class PaymentService {
       }
 
       const session = await this.retryStripeCall(
-        () => this.stripe.checkout.sessions.create(sessionParams),
+        () => this.stripe!.checkout.sessions.create(sessionParams),
         'createCheckoutSession'
       );
 
@@ -623,6 +952,7 @@ export class PaymentService {
         userId: params.userId,
         mode: params.mode,
         lineItemsCount: params.lineItems?.length || 1,
+        mockMode: false,
       });
 
       return {
@@ -988,10 +1318,129 @@ export class PaymentService {
   }
 
   /**
+   * Get mock checkout session details (for testing/debugging)
+   */
+  getMockCheckoutSession(sessionId: string): any | null {
+    if (!this.isMockMode()) {
+      return null;
+    }
+    return this.mockCheckoutSessions.get(sessionId) || null;
+  }
+
+  /**
+   * Get mock order by session ID (for testing/debugging)
+   */
+  getMockOrderBySessionId(sessionId: string): any | null {
+    if (!this.isMockMode()) {
+      return null;
+    }
+    const session = this.mockCheckoutSessions.get(sessionId);
+    if (!session || !session.metadata?.orderId) {
+      return null;
+    }
+    return this.mockOrders.get(session.metadata.orderId) || null;
+  }
+
+  /**
+   * Simulate successful payment completion for mock checkout session
+   * This can be called manually for testing or automatically after redirect
+   */
+  async simulateMockPaymentCompletion(sessionId: string): Promise<{ success: boolean; orderId?: string }> {
+    if (!this.isMockMode()) {
+      throw new BusinessLogicError('This method only works in mock mode', ErrorCode.VALIDATION_ERROR);
+    }
+
+    const session = this.mockCheckoutSessions.get(sessionId);
+    if (!session) {
+      throw new NotFoundError(`Checkout session ${sessionId} not found`);
+    }
+
+    if (session.paymentStatus === 'paid') {
+      return { success: true, orderId: session.metadata?.orderId };
+    }
+
+    // Update session status
+    session.paymentStatus = 'paid';
+    session.status = 'complete';
+    session.completedAt = new Date().toISOString();
+    this.mockCheckoutSessions.set(sessionId, session);
+
+    // Update order status if exists
+    const orderId = session.metadata?.orderId;
+    if (orderId) {
+      const order = this.mockOrders.get(orderId);
+      if (order) {
+        order.status = 'paid';
+        order.paymentIntentId = session.paymentIntentId;
+        order.paidAt = new Date().toISOString();
+        this.mockOrders.set(orderId, order);
+
+        // Try to store in database (non-blocking)
+        try {
+          await vultrPostgres.query(
+            `INSERT INTO orders (order_id, user_id, items, total_amount, status, payment_intent_id, checkout_session_id, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+             ON CONFLICT (order_id) DO UPDATE SET status = $5, payment_intent_id = $6, updated_at = $8`,
+            [
+              orderId,
+              session.userId,
+              JSON.stringify(order.items),
+              order.totalAmount,
+              'paid',
+              session.paymentIntentId,
+              sessionId,
+              new Date().toISOString(),
+            ]
+          );
+        } catch (dbError) {
+          console.warn('Failed to store mock order in database (non-critical):', dbError);
+        }
+      }
+    }
+
+    this.logPaymentOperation('simulateMockPaymentCompletion', {
+      sessionId,
+      orderId,
+      mockMode: true,
+    });
+
+    return { success: true, orderId };
+  }
+
+  /**
    * Handle Stripe webhook with improved error handling and retry logic
    * This is called when Stripe sends events about payment status changes
+   * In mock mode, this can be called manually to simulate webhook events
    */
   async handleWebhook(payload: Buffer | string, signature: string): Promise<void> {
+    // Mock mode - allow webhook simulation without signature verification
+    if (this.isMockMode()) {
+      const payloadString = typeof payload === 'string' ? payload : payload.toString('utf8');
+      let eventData: any;
+      
+      try {
+        eventData = typeof payload === 'string' ? JSON.parse(payload) : JSON.parse(payloadString);
+      } catch (err) {
+        // If payload is already an object, use it directly
+        eventData = typeof payload === 'string' ? JSON.parse(payload) : payload;
+      }
+
+      // Handle mock checkout.session.completed event
+      if (eventData.type === 'checkout.session.completed' || eventData.sessionId) {
+        const sessionId = eventData.sessionId || eventData.data?.object?.id;
+        if (sessionId) {
+          await this.simulateMockPaymentCompletion(sessionId);
+        }
+      }
+
+      this.logPaymentOperation('webhook', {
+        eventType: eventData.type || 'mock',
+        mockMode: true,
+      });
+      return;
+    }
+
+    // Real Stripe webhook handling
     if (!env.STRIPE_WEBHOOK_SECRET) {
       console.warn('Stripe webhook secret not configured - webhook verification skipped');
       // In development, allow webhooks without secret for testing
@@ -1005,7 +1454,7 @@ export class PaymentService {
     let event: Stripe.Event;
     
     try {
-      event = this.stripe.webhooks.constructEvent(
+      event = this.stripe!.webhooks.constructEvent(
         payloadString,
         signature,
         env.STRIPE_WEBHOOK_SECRET || ''

@@ -26,7 +26,10 @@
     "test:coverage": "vitest run --coverage",
     "retrain:agents": "npx tsx scripts/retrain-agents.ts",
     "data:sync": "node scripts/data-sync.js",
-    "health:check": "node scripts/health-check.js"
+    "health:check": "node scripts/health-check.js",
+    "netlify:deploy": "netlify deploy --prod",
+    "netlify:deploy:preview": "netlify deploy",
+    "netlify:build": "npm run build"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

@@ -22,11 +22,14 @@ import api from './api';
 import { retry, isRetryableError, RetryOptions } from './retry';
 import { handleError, getErrorMessage } from './errorHandler';
 import { AxiosRequestConfig, AxiosResponse } from 'axios';
+import { ApiResponse, ApiRequestOptions, RequestMetadata } from './api-types';
+import { apiHealthMonitor } from './api-health';
 
-export interface ApiClientOptions {
+export interface ApiClientOptions extends ApiRequestOptions {
   retry?: RetryOptions;
   showErrorToast?: boolean;
   onError?: (error: unknown) => void;
+  checkHealth?: boolean; // Check API health before making request
 }
 
 /**
@@ -35,7 +38,7 @@ export interface ApiClientOptions {
 export async function apiRequest<T = any>(
   config: AxiosRequestConfig,
   options: ApiClientOptions = {}
-): Promise<AxiosResponse<T>> {
+): Promise<AxiosResponse<ApiResponse<T>>> {
   const {
     retry: retryOptions = {
       maxRetries: 2,
@@ -43,13 +46,55 @@ export async function apiRequest<T = any>(
     },
     showErrorToast = true,
     onError,
+    checkHealth = false,
+    timeout,
+    metadata,
   } = options;
+
+  // Check API health if requested
+  if (checkHealth) {
+    const isAvailable = await apiHealthMonitor.ensureAvailable();
+    if (!isAvailable) {
+      const error = new Error('API is currently unavailable');
+      if (showErrorToast) {
+        handleError(error, {
+          defaultMessage: 'Service is temporarily unavailable. Please try again later.',
+        });
+      }
+      throw error;
+    }
+  }
+
+  // Apply timeout if specified
+  if (timeout) {
+    config.timeout = timeout;
+  }
+
+  // Add metadata to config
+  if (metadata) {
+    (config as any).metadata = metadata;
+  }
 
   try {
     const response = await retry(
-      () => api.request<T>(config),
+      () => api.request<ApiResponse<T>>(config),
       retryOptions
     );
+    
+    // Extract data from ApiResponse wrapper if present
+    if (response.data && typeof response.data === 'object' && 'success' in response.data) {
+      const apiResponse = response.data as ApiResponse<T>;
+      if (!apiResponse.success && apiResponse.error) {
+        const error = new Error(apiResponse.error.message);
+        (error as any).response = {
+          ...response,
+          data: apiResponse,
+          status: apiResponse.error.statusCode,
+        };
+        throw error;
+      }
+    }
+    
     return response;
   } catch (error) {
     if (onError) {
@@ -70,7 +115,7 @@ export async function apiGet<T = any>(
   url: string,
   config?: AxiosRequestConfig,
   options?: ApiClientOptions
-): Promise<AxiosResponse<T>> {
+): Promise<AxiosResponse<ApiResponse<T>>> {
   return apiRequest<T>({ ...config, method: 'GET', url }, options);
 }
 
@@ -82,7 +127,7 @@ export async function apiPost<T = any>(
   data?: any,
   config?: AxiosRequestConfig,
   options?: ApiClientOptions
-): Promise<AxiosResponse<T>> {
+): Promise<AxiosResponse<ApiResponse<T>>> {
   return apiRequest<T>({ ...config, method: 'POST', url, data }, options);
 }
 
@@ -94,7 +139,7 @@ export async function apiPut<T = any>(
   data?: any,
   config?: AxiosRequestConfig,
   options?: ApiClientOptions
-): Promise<AxiosResponse<T>> {
+): Promise<AxiosResponse<ApiResponse<T>>> {
   return apiRequest<T>({ ...config, method: 'PUT', url, data }, options);
 }
 
@@ -106,7 +151,7 @@ export async function apiPatch<T = any>(
   data?: any,
   config?: AxiosRequestConfig,
   options?: ApiClientOptions
-): Promise<AxiosResponse<T>> {
+): Promise<AxiosResponse<ApiResponse<T>>> {
   return apiRequest<T>({ ...config, method: 'PATCH', url, data }, options);
 }
 
@@ -117,8 +162,25 @@ export async function apiDelete<T = any>(
   url: string,
   config?: AxiosRequestConfig,
   options?: ApiClientOptions
-): Promise<AxiosResponse<T>> {
+): Promise<AxiosResponse<ApiResponse<T>>> {
   return apiRequest<T>({ ...config, method: 'DELETE', url }, options);
+}
+
+/**
+ * Helper to extract data from ApiResponse
+ */
+export function extractApiData<T>(response: AxiosResponse<ApiResponse<T>>): T {
+  if (response.data && typeof response.data === 'object' && 'data' in response.data) {
+    const apiResponse = response.data as ApiResponse<T>;
+    if (apiResponse.success && apiResponse.data !== undefined) {
+      return apiResponse.data;
+    }
+    if (!apiResponse.success && apiResponse.error) {
+      throw new Error(apiResponse.error.message);
+    }
+  }
+  // Fallback: return response.data directly if not wrapped
+  return response.data as T;
 }
 
 /**

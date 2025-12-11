@@ -154,7 +154,7 @@ export default function HeaderNav() {
                 <Button 
                   variant="ghost" 
                   className={cn(
-                    "px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200",
+                    "px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 group",
                     // Check if any route in the "More" menu is active
                     navGroups.slice(1).some(group => 
                       group.items.some(item => isActive(item.href))

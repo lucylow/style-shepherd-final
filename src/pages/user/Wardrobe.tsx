@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import { 
   Shirt, 
   Plus, 
@@ -12,7 +13,10 @@ import {
   TrendingUp,
   Heart,
   ShoppingBag,
-  X
+  X,
+  Camera,
+  Upload,
+  Image as ImageIcon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,6 +37,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 
 interface WardrobeItem extends Product {
   addedDate: string;
@@ -142,12 +155,100 @@ export default function Wardrobe() {
                   <Sparkles className="w-5 h-5 text-primary" />
                 </h1>
                 <p className="text-muted-foreground">Manage your clothing collection</p>
+                <div className="flex gap-2 mt-2">
+                  <Button variant="outline" size="sm" asChild>
+                    <Link to="/scan-item">
+                      <Camera className="h-3 w-3 mr-1" />
+                      Scan Item
+                    </Link>
+                  </Button>
+                </div>
               </div>
             </div>
-            <Button onClick={() => setShowAddItem(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Item
-            </Button>
+            <Dialog open={showAddItem} onOpenChange={setShowAddItem}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Item
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add Item to Wardrobe</DialogTitle>
+                  <DialogDescription>
+                    Add items to your wardrobe by scanning, uploading, or manually entering details
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <Link to="/scan-item" onClick={() => setShowAddItem(false)}>
+                      <Button variant="outline" className="w-full h-24 flex-col gap-2">
+                        <Camera className="h-6 w-6" />
+                        <span>Scan Item</span>
+                      </Button>
+                    </Link>
+                    <Button 
+                      variant="outline" 
+                      className="w-full h-24 flex-col gap-2"
+                      onClick={() => {
+                        toast.info('Upload feature coming soon! Use Scan Item for now.');
+                      }}
+                    >
+                      <Upload className="h-6 w-6" />
+                      <span>Upload Photo</span>
+                    </Button>
+                  </div>
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-background px-2 text-muted-foreground">Or</span>
+                    </div>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="name">Item Name</Label>
+                    <Input id="name" placeholder="e.g., Classic White T-Shirt" />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="brand">Brand</Label>
+                    <Input id="brand" placeholder="e.g., Basic Co" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="grid gap-2">
+                      <Label htmlFor="category">Category</Label>
+                      <Select>
+                        <SelectTrigger id="category">
+                          <SelectValue placeholder="Select" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="tops">Tops</SelectItem>
+                          <SelectItem value="bottoms">Bottoms</SelectItem>
+                          <SelectItem value="outerwear">Outerwear</SelectItem>
+                          <SelectItem value="shoes">Shoes</SelectItem>
+                          <SelectItem value="accessories">Accessories</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="size">Size</Label>
+                      <Input id="size" placeholder="e.g., M" />
+                    </div>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setShowAddItem(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={() => {
+                    toast.success('Item added to wardrobe!');
+                    setShowAddItem(false);
+                  }}>
+                    Add to Wardrobe
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
 
           {/* Stats Cards */}
@@ -308,13 +409,28 @@ export default function Wardrobe() {
           ) : (
             <EmptyState
               icon={Shirt}
-              title="No items found"
+              title={searchQuery || categoryFilter !== 'all' ? "No items found" : "Your wardrobe is empty"}
               description={
                 searchQuery || categoryFilter !== 'all'
                   ? "Try adjusting your search or filters"
-                  : "Start building your wardrobe by adding items"
+                  : "Start building your wardrobe by scanning items or adding them manually"
               }
-            />
+            >
+              {!searchQuery && categoryFilter === 'all' && (
+                <div className="flex flex-col sm:flex-row gap-3 mt-6">
+                  <Button asChild>
+                    <Link to="/scan-item">
+                      <Camera className="h-4 w-4 mr-2" />
+                      Scan an Item
+                    </Link>
+                  </Button>
+                  <Button variant="outline" onClick={() => setShowAddItem(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Manually
+                  </Button>
+                </div>
+              )}
+            </EmptyState>
           )}
         </motion.div>
       </main>
