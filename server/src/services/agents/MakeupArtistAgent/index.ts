@@ -8,6 +8,8 @@ import { SkinAnalyzer, type SkinAnalysis } from './skin-analyzer.js';
 import { RoutineBuilder, type MakeupRoutine } from './routine-builder.js';
 import { ProductRecommender, type ProductRecommendations } from './product-recommender.js';
 import { ExternalServiceError } from '../../../lib/errors.js';
+import { withGuardrails, validateInput, sanitizeOutput } from '../../../lib/guardrails/integration.js';
+import { permissionManager } from '../../../lib/guardrails/permissions.js';
 
 export interface MakeupLook {
   lookId: string;
@@ -44,6 +46,33 @@ export class MakeupArtistAgent {
     const { selfieUrl, occasion, preferences, userId } = params;
 
     try {
+      // Validate selfie input
+      const selfieValidation = validateInput('selfie', selfieUrl);
+      if (!selfieValidation.valid) {
+        throw new ExternalServiceError(
+          'MakeupArtistAgent',
+          selfieValidation.reason || 'Invalid selfie input',
+          new Error(selfieValidation.reason),
+          { selfieUrl }
+        );
+      }
+
+      // Get user profile for guardrails
+      let userProfile;
+      if (userId) {
+        userProfile = await permissionManager.getUserProfileWithPermissions(userId);
+        
+        // Check age restriction
+        if (userProfile.age !== undefined && userProfile.age < 16) {
+          throw new ExternalServiceError(
+            'MakeupArtistAgent',
+            'Makeup recommendations require parental consent for users under 16',
+            new Error('MINOR_LOCK'),
+            { userId, age: userProfile.age }
+          );
+        }
+      }
+
       // Step 1: Analyze selfie for skin tone, undertone, face shape, features
       const analysis = await this.skinAnalyzer.analyzeSelfie(selfieUrl);
 
@@ -60,13 +89,36 @@ export class MakeupArtistAgent {
         analysis
       );
 
-      // Step 4: Generate tutorial steps with product integration
+      // Step 4: Validate through guardrails
+      const makeupRecommendation = {
+        products: products.products?.map((p: any) => ({
+          productId: p.id || p.productId,
+          name: p.name,
+          ingredients: p.ingredients,
+          shade: p.shade,
+          fitzpatrickScale: analysis.fitzpatrickScale,
+          ageRating: p.ageRating,
+        })) || [],
+        routine,
+      };
+
+      const validated = await withGuardrails(
+        'makeupArtist',
+        'create_look',
+        makeupRecommendation,
+        userId
+      );
+
+      // Step 5: Generate tutorial steps with product integration
       const look: MakeupLook = {
         lookId: this.generateLookId(),
         occasion,
         routine,
         analysis,
-        products,
+        products: {
+          ...products,
+          products: validated.products || products.products,
+        },
         createdAt: new Date(),
         userId,
       };

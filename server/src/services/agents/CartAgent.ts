@@ -7,6 +7,7 @@ import { userMemory, orderSQL } from '../../lib/raindrop-config.js';
 import { vultrValkey } from '../../lib/vultr-valkey.js';
 import type { Product } from './SearchAgent.js';
 import type { ReturnRiskPrediction } from './ReturnsAgent.js';
+import { validateOutfitBundle, withGuardrails } from '../../lib/guardrails/integration.js';
 
 export interface CartItem {
   product: Product;
@@ -123,9 +124,40 @@ export class CartAgent {
         userProfile
       );
 
+      // Create outfit bundle for guardrails validation
+      const outfitBundle = {
+        items: bundle.items.map(item => ({
+          product: {
+            id: item.product.id,
+            name: item.product.name,
+            brand: item.product.brand,
+            price: item.product.price,
+            category: item.product.category,
+            ageRating: (item.product as any).ageRating,
+            inStock: (item.product as any).inStock !== false,
+            stock: (item.product as any).stock,
+          },
+          quantity: item.quantity,
+          size: item.size,
+        })),
+        total: totalPrice,
+      };
+
+      // Validate through guardrails
+      const validatedBundle = await validateOutfitBundle(outfitBundle, userId);
+
+      // Map back to CartBundle format
+      const validatedItems = validatedBundle.items.map((validatedItem, idx) => {
+        const originalItem = bundle.items[idx];
+        return {
+          ...originalItem,
+          quantity: validatedItem.quantity,
+        };
+      });
+
       return {
-        items: bundle.items,
-        totalPrice: Math.round(totalPrice * 100) / 100,
+        items: validatedItems,
+        totalPrice: Math.round(validatedBundle.total * 100) / 100,
         totalSavings: Math.round(totalSavings * 100) / 100,
         averageReturnRisk: Math.round(averageReturnRisk * 100) / 100,
         bundleScore: Math.round(bundleScore * 100) / 100,

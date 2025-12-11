@@ -69,6 +69,10 @@ const envSchema = z.object({
   
   // CORS - support multiple origins for Lovable deployment
   CORS_ORIGIN: z.string().default('http://localhost:5173,http://localhost:8080,http://localhost:3000'),
+  
+  // Supabase (optional - for workflow orchestration)
+  SUPABASE_URL: z.string().url().optional(),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

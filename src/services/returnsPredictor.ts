@@ -2,6 +2,7 @@ import { Product, CartItem } from '@/types/fashion';
 import { userMemoryService, UserProfile } from './raindrop/userMemoryService';
 import { styleInferenceService } from './raindrop/styleInferenceService';
 import { orderSQLService } from './raindrop/orderSQLService';
+import { getApiBaseUrl } from '@/lib/api-config';
 
 interface ReturnRiskPrediction {
   risk_score: number;
@@ -30,8 +31,43 @@ interface CartRiskAnalysis {
   }>;
 }
 
+// Types matching the API response
+export interface ReturnRiskAssessment {
+  returnRisk: number; // 0.0-1.0
+  keepProbability: number; // 0.0-1.0
+  riskLevel: 'low' | 'medium' | 'high';
+  confidence: number;
+  reason: string;
+  factors: Array<{
+    name: string;
+    impact: number;
+    description: string;
+  }>;
+  alternatives?: Array<{
+    id: string;
+    name: string;
+    brand: string;
+    price: number;
+    returnRisk: number;
+    keepProbability: number;
+    reason: string;
+  }>;
+}
+
+export interface CartValidationResponse {
+  success: boolean;
+  assessments: ReturnRiskAssessment[];
+  summary: {
+    averageRisk: number;
+    highRiskItems: number;
+    totalPotentialSavings: number;
+    recommendations: string[];
+  };
+}
+
 class ReturnsPredictor {
   private readonly industryAvgReturnRate = 0.25; // 25% fashion industry average
+  private readonly API_BASE = getApiBaseUrl();
 
   async predictReturnRisk(
     product: Product,
@@ -264,6 +300,140 @@ class ReturnsPredictor {
       return 'show_reviews';
     }
     return 'provide_detailed_info';
+  }
+
+  /**
+   * Validate cart using the Returns Predictor API
+   * This is the main entry point for cart validation before checkout
+   */
+  async validateCart(
+    cartItems: CartItem[],
+    userId: string
+  ): Promise<CartValidationResponse> {
+    try {
+      const response = await fetch(`${this.API_BASE}/agents/returns-predictor/validate-cart`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          cartItems: cartItems.map(item => ({
+            product: {
+              id: item.product.id,
+              name: item.product.name,
+              brand: item.product.brand,
+              price: item.product.price,
+              category: item.product.category,
+              description: item.product.description,
+              rating: item.product.rating,
+              reviews: item.product.reviews,
+              color: item.product.color,
+              sizes: item.product.sizes,
+            },
+            quantity: item.quantity,
+            size: item.selectedSize || item.size,
+          })),
+          userId,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Failed to validate cart with API, falling back to local prediction:', error);
+      
+      // Fallback to local prediction
+      const userProfile = await userMemoryService.getUserProfile(userId).catch(() => null);
+      const localAnalysis = await this.predictBatchReturns(cartItems, userProfile);
+      
+      // Transform to API response format
+      return {
+        success: true,
+        assessments: localAnalysis.item_predictions.map((pred, idx) => ({
+          returnRisk: pred.risk_score,
+          keepProbability: 1 - pred.risk_score,
+          riskLevel: pred.risk_level,
+          confidence: pred.confidence,
+          reason: pred.primary_factors[0] || 'Standard return risk assessment',
+          factors: pred.primary_factors.map(factor => ({
+            name: factor,
+            impact: 0.1,
+            description: factor,
+          })),
+        })),
+        summary: {
+          averageRisk: localAnalysis.cart_risk_score,
+          highRiskItems: localAnalysis.risk_distribution.high,
+          totalPotentialSavings: 0, // Would calculate based on item values
+          recommendations: localAnalysis.mitigation_recommendations
+            .flatMap(rec => rec.recommended_actions.map(a => a.reason)),
+        },
+      };
+    }
+  }
+
+  /**
+   * Assess a single product for return risk using the API
+   */
+  async assessItem(
+    product: Product,
+    userId: string,
+    quantity: number = 1,
+    size?: string
+  ): Promise<ReturnRiskAssessment> {
+    try {
+      const response = await fetch(`${this.API_BASE}/agents/returns-predictor/assess-item`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          product: {
+            id: product.id,
+            name: product.name,
+            brand: product.brand,
+            price: product.price,
+            category: product.category,
+            description: product.description,
+            rating: product.rating,
+            reviews: product.reviews,
+          },
+          quantity,
+          size,
+          userId,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.assessment;
+    } catch (error) {
+      console.error('Failed to assess item with API, falling back to local prediction:', error);
+      
+      // Fallback to local prediction
+      const userProfile = await userMemoryService.getUserProfile(userId).catch(() => null);
+      const localPred = await this.predictReturnRisk(product, userProfile, size);
+      
+      return {
+        returnRisk: localPred.risk_score,
+        keepProbability: 1 - localPred.risk_score,
+        riskLevel: localPred.risk_level,
+        confidence: localPred.confidence,
+        reason: localPred.primary_factors[0] || 'Standard return risk assessment',
+        factors: localPred.primary_factors.map(factor => ({
+          name: factor,
+          impact: 0.1,
+          description: factor,
+        })),
+      };
+    }
   }
 }
 

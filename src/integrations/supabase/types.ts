@@ -14,7 +14,111 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      shopping_workflows: {
+        Row: {
+          id: string
+          user_id: string
+          status: 'pending' | 'running' | 'agents_complete' | 'aggregated' | 'delivered' | 'error' | 'cancelled'
+          current_stage: string | null
+          user_intent: Json | null
+          agent_results: Json[] | null
+          final_result: Json | null
+          error_message: string | null
+          retry_count: number | null
+          max_retries: number | null
+          created_at: string
+          updated_at: string
+          completed_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          status?: 'pending' | 'running' | 'agents_complete' | 'aggregated' | 'delivered' | 'error' | 'cancelled'
+          current_stage?: string | null
+          user_intent?: Json | null
+          agent_results?: Json[] | null
+          final_result?: Json | null
+          error_message?: string | null
+          retry_count?: number | null
+          max_retries?: number | null
+          created_at?: string
+          updated_at?: string
+          completed_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          status?: 'pending' | 'running' | 'agents_complete' | 'aggregated' | 'delivered' | 'error' | 'cancelled'
+          current_stage?: string | null
+          user_intent?: Json | null
+          agent_results?: Json[] | null
+          final_result?: Json | null
+          error_message?: string | null
+          retry_count?: number | null
+          max_retries?: number | null
+          created_at?: string
+          updated_at?: string
+          completed_at?: string | null
+        }
+      }
+      agent_messages: {
+        Row: {
+          id: string
+          workflow_id: string
+          agent_type: 'personal-shopper' | 'makeup-artist' | 'size-predictor' | 'returns-predictor' | 'aggregator'
+          message_type: 'input' | 'output' | 'error' | 'status'
+          payload: Json
+          timestamp: string
+          retry_count: number | null
+        }
+        Insert: {
+          id?: string
+          workflow_id: string
+          agent_type: 'personal-shopper' | 'makeup-artist' | 'size-predictor' | 'returns-predictor' | 'aggregator'
+          message_type: 'input' | 'output' | 'error' | 'status'
+          payload: Json
+          timestamp?: string
+          retry_count?: number | null
+        }
+        Update: {
+          id?: string
+          workflow_id?: string
+          agent_type?: 'personal-shopper' | 'makeup-artist' | 'size-predictor' | 'returns-predictor' | 'aggregator'
+          message_type?: 'input' | 'output' | 'error' | 'status'
+          payload?: Json
+          timestamp?: string
+          retry_count?: number | null
+        }
+      }
+      workflow_analytics: {
+        Row: {
+          id: string
+          workflow_id: string
+          agent_type: string | null
+          duration_ms: number | null
+          success: boolean | null
+          error_type: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          workflow_id: string
+          agent_type?: string | null
+          duration_ms?: number | null
+          success?: boolean | null
+          error_type?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          workflow_id?: string
+          agent_type?: string | null
+          duration_ms?: number | null
+          success?: boolean | null
+          error_type?: string | null
+          created_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never

@@ -10,6 +10,8 @@ import { riskAssessor, SizeHistory, FabricProperties, RiskAssessment } from './r
 import { userMemory } from '../../lib/raindrop-config.js';
 import { vultrValkey } from '../../lib/vultr-valkey.js';
 import type { Product } from '../SearchAgent.js';
+import { withGuardrails, validateInput, sanitizeOutput } from '../../lib/guardrails/integration.js';
+import { GuardrailError } from '../../lib/guardrails/errors.js';
 
 export interface SizePredictionResult {
   recommendedSize: string;
@@ -173,6 +175,45 @@ export class SizePredictorAgent {
       trueToSize: brandMapping.trueToSize,
       brandTranslation,
     };
+
+    // Validate through guardrails
+    const sizePredictionPayload = {
+      recommendedSize: finalSize,
+      confidence: sizePrediction.confidence,
+      measurements: normalizedFeatures,
+    };
+
+    try {
+      const validated = await withGuardrails(
+        'sizePredictor',
+        'predict_size',
+        sizePredictionPayload,
+        userId
+      );
+
+      // If confidence is too low, add warning and suggest alternatives
+      if (sizePrediction.confidence < 0.75) {
+        result.warnings = [
+          ...(result.warnings || []),
+          '⚠️ Low confidence prediction - try on recommended or consider alternative sizes',
+        ];
+      }
+
+      // Sanitize warnings (body positivity filter)
+      if (result.warnings) {
+        result.warnings = result.warnings.map(w => sanitizeOutput('bodyLanguage', w));
+      }
+    } catch (error) {
+      if (error instanceof GuardrailError && error.guardrailName === 'LOW_CONFIDENCE') {
+        // Low confidence - don't block, but add strong warning
+        result.warnings = [
+          ...(result.warnings || []),
+          '⚠️ Low confidence prediction - try on recommended before purchase',
+        ];
+      } else {
+        throw error;
+      }
+    }
 
     // Cache result
     try {

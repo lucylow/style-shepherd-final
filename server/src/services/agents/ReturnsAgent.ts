@@ -6,6 +6,8 @@
 import { userMemory, orderSQL, styleInference } from '../../lib/raindrop-config.js';
 import { vultrValkey } from '../../lib/vultr-valkey.js';
 import type { Product } from './SearchAgent.js';
+import { withGuardrails, sanitizeOutput } from '../../lib/guardrails/integration.js';
+import { permissionManager } from '../../lib/guardrails/permissions.js';
 
 export interface ReturnRiskPrediction {
   riskScore: number; // 0-1, where 1 is highest risk
@@ -209,6 +211,42 @@ export class ReturnsAgent {
         mitigationStrategies,
         estimatedReturnCost,
       };
+
+      // Validate through guardrails
+      const returnPredictionPayload = {
+        riskScore: prediction.riskScore,
+        riskLevel: prediction.riskLevel,
+        productId: product.id,
+        userId,
+      };
+
+      try {
+        const validated = await withGuardrails(
+          'returnsPredictor',
+          'predict_return',
+          returnPredictionPayload,
+          userId
+        );
+
+        // Sanitize mitigation strategies (anonymize any PII)
+        const sanitizedStrategies = sanitizeOutput(
+          'returnReasons',
+          prediction.mitigationStrategies
+        );
+
+        // If auto-refund was triggered, increment counter
+        if (validated && prediction.riskScore < 0.1) {
+          // Low risk - might trigger auto-refund (if user has permission)
+          const userProfile = await permissionManager.getUserProfileWithPermissions(userId);
+          if (userProfile.permissions?.maxAutoRefunds && userProfile.permissions.maxAutoRefunds > 0) {
+            // This would be handled by the payment/refund system
+            // Just log for now
+          }
+        }
+      } catch (error) {
+        // Guardrail violation - log but don't block prediction
+        console.warn('Guardrail check failed for return prediction:', error);
+      }
 
       // Cache prediction
       try {

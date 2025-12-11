@@ -17,10 +17,16 @@ import apiRoutes from './routes/api.js';
 import integrationsRoutes from './routes/integrations.js';
 import raindropRoutes from './routes/raindrop.js';
 import fraudRoutes from './routes/fraud.js';
+import personalizationRoutes from './routes/personalization.js';
+import adminRoutes from './routes/admin.js';
 import specializedAgentsRoutes from './routes/specialized-agents.js';
+import workflowRoutes from './routes/workflows.js';
+import shoppingSessionsRoutes from './routes/shopping-sessions.js';
+import guardrailsRoutes from './routes/guardrails.js';
 import { vultrPostgres } from './lib/vultr-postgres.js';
 import { vultrValkey } from './lib/vultr-valkey.js';
 import { initRaindrop } from './lib/raindropClient.js';
+import { initializeGuardrails } from './lib/guardrails/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -102,6 +108,9 @@ initProviders().catch((err) => {
   console.warn('Provider initialization error:', err);
 });
 
+// Initialize guardrails framework
+initializeGuardrails();
+
 // API routes
 app.use('/api/vultr', vultrRoutes);
 app.use('/api/integrations', integrationsRoutes);
@@ -110,6 +119,9 @@ app.use('/api/admin/fraud', fraudRoutes);
 app.use('/api/personalize', personalizationRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/agents', specializedAgentsRoutes);
+app.use('/api/shopping', shoppingSessionsRoutes);
+app.use('/api/workflows', workflowRoutes);
+app.use('/api/guardrails', guardrailsRoutes);
 app.use('/api', apiRoutes);
 
 // Serve static files from client build in production

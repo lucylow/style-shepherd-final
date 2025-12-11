@@ -43,3 +43,101 @@ model RiskIncident {
 
   evidence           Evidence? @relation(fields: [evidenceId], references: [id])
 }
+
+// Autonomous Agent System Models
+
+model UserAutonomySettings {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  autonomyLevel     Int      @default(1) // 1=Reactive, 2=Proactive, 3=Transactional, 4=Self-Healing, 5=Forecasting
+  maxAutoPrice      Int?     // cents - max price for auto-purchase
+  allowedCategories Json?    // ["clothing", "makeup"]
+  approvalMode      String   @default("above_100") // "none" | "above_100" | "always"
+  personalShopper   Json?    // { enabled: true, triggers: ["calendar", "weather"] }
+  makeupArtist      Json?    // { enabled: true, autoReorder: true }
+  sizePredictor     Json?    // { enabled: true, autoLearn: true }
+  returnsPredictor  Json?    // { enabled: true, autoSwap: true, autoRefund: true }
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model AgentMemory {
+  id                String   @id @default(cuid())
+  userId            String
+  agentType         String   // "personalShopper" | "makeupArtist" | "sizePredictor" | "returnsPredictor"
+  memoryVector      Json?    // Embedding vector for long-term memory
+  context           Json?    // Recent context and patterns
+  performanceMetrics Json?   // { accuracy: 0.94, triggersFired: 247, successRate: 0.92 }
+  autonomyLevel     Int      @default(1)
+  lastTriggered     DateTime?
+  lastLearned       DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([userId, agentType])
+  @@index([userId])
+}
+
+model CalendarEvent {
+  id                String   @id @default(cuid())
+  userId            String
+  eventTitle        String
+  eventType         String?  // "date_night" | "wedding" | "business" | "party"
+  startTime         DateTime
+  endTime           DateTime?
+  location          String?
+  notes             Json?    // Additional context
+  processed         Boolean  @default(false)
+  agentTriggered    String?  // Which agent processed this
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([userId, startTime])
+}
+
+model AgentTriggerLog {
+  id                String   @id @default(cuid())
+  userId            String
+  agentType         String
+  triggerType       String   // "calendar" | "weather" | "stock" | "budget" | "return" | "schedule"
+  triggerData       Json     // Context that triggered the action
+  action            String   // "curated_outfits" | "auto_added_to_cart" | "auto_purchased" | "learned"
+  result            Json?    // Outcome of the action
+  success           Boolean
+  autonomyLevel     Int
+  createdAt         DateTime @default(now())
+
+  @@index([userId, agentType, createdAt])
+}
+
+model AutoPurchase {
+  id                String   @id @default(cuid())
+  userId            String
+  agentType         String
+  items             Json     // Array of purchased items
+  totalAmount       Int      // cents
+  stripePaymentId   String?
+  status            String   // "pending_approval" | "completed" | "cancelled" | "refunded"
+  approvalRequired  Boolean  @default(true)
+  approvedAt        DateTime?
+  completedAt       DateTime?
+  reason            String?  // Why agent made this purchase
+  createdAt         DateTime @default(now())
+
+  @@index([userId, status, createdAt])
+}
+
+model ReturnLearningEvent {
+  id                String   @id @default(cuid())
+  userId            String
+  orderId           String
+  productId         String
+  predictedSize     String
+  actualFit         String?  // "perfect" | "too_small" | "too_large"
+  returnReason      String?
+  modelUpdated      Boolean  @default(false)
+  accuracyImproved  Float?   // Accuracy improvement after learning
+  createdAt         DateTime @default(now())
+
+  @@index([userId, createdAt])
+}

@@ -14,6 +14,7 @@ import { conversationMemoryOptimizer, ConversationMessage } from './Conversation
 import { llmService } from './LLMService.js';
 import { sttService } from './STTService.js';
 import { productRecommendationAPI } from './ProductRecommendationAPI.js';
+import { multiAgentOrchestrator } from './MultiAgentOrchestrator.js';
 import { createHash } from 'crypto';
 import { Readable } from 'stream';
 import {
@@ -621,19 +622,79 @@ export class VoiceAssistant {
           preferencesToSave = null;
         }
 
-        // Generate intelligent response using LLM (with fallback)
+        // Check if this is a fashion-related query that should use MultiAgentOrchestrator
+        const fashionIntents = ['search_product', 'get_recommendations', 'find_product', 'ask_about_size', 'size_recommendation', 'return_risk', 'style_advice'];
+        const shouldUseOrchestrator = userId && fashionIntents.includes(intentAnalysis.intent);
+        
+        // Generate intelligent response using MultiAgentOrchestrator for fashion queries, or LLM for general queries
       let responseText: string;
       try {
-        responseText = await llmService.generateResponse(
-          textQuery,
-          intentAnalysis,
-          conversationHistory,
-          userProfile,
-          state?.preferences
-        );
-        
-        // Sanitize response text
-        responseText = this.sanitizeText(responseText);
+        if (shouldUseOrchestrator) {
+          // Route through MultiAgentOrchestrator for coordinated multi-agent response
+          try {
+            const orchestratorResult = await multiAgentOrchestrator.processQuery({
+              userId: userId!,
+              intent: intentAnalysis.intent,
+              entities: {
+                color: intentAnalysis.entities.color || intentAnalysis.entities.colors?.[0],
+                size: intentAnalysis.entities.size,
+                brand: intentAnalysis.entities.brand || intentAnalysis.entities.brands?.[0],
+                category: intentAnalysis.entities.category || intentAnalysis.entities.categories?.[0],
+                occasion: intentAnalysis.entities.occasion,
+                productIds: intentAnalysis.entities.productIds || intentAnalysis.entities.product_id ? [intentAnalysis.entities.product_id] : undefined,
+                budget: intentAnalysis.entities.budget,
+              },
+              conversationHistory,
+              userProfile,
+            });
+            
+            // Use the natural language response from orchestrator
+            responseText = orchestratorResult.naturalLanguageResponse;
+            
+            // Enhance entities with orchestrator results
+            if (orchestratorResult.sizeOracle) {
+              intentAnalysis.entities.recommendedSize = orchestratorResult.sizeOracle.recommendedSize;
+              intentAnalysis.entities.sizeConfidence = orchestratorResult.sizeOracle.confidence;
+            }
+            if (orchestratorResult.returnsProphet) {
+              intentAnalysis.entities.returnRisk = orchestratorResult.returnsProphet.riskScore;
+              intentAnalysis.entities.riskLevel = orchestratorResult.returnsProphet.riskLevel;
+            }
+            if (orchestratorResult.personalStylist?.recommendations.length) {
+              intentAnalysis.entities.recommendedProducts = orchestratorResult.personalStylist.recommendations.slice(0, 5).map(r => r.productId);
+            }
+            
+            console.log('✅ Response generated via MultiAgentOrchestrator');
+          } catch (orchestratorError) {
+            const appError = toAppError(orchestratorError);
+            console.warn('MultiAgentOrchestrator failed, falling back to LLM:', {
+              error: appError.message,
+              intent: intentAnalysis.intent,
+              userId,
+            });
+            // Fallback to LLM if orchestrator fails
+            responseText = await llmService.generateResponse(
+              textQuery,
+              intentAnalysis,
+              conversationHistory,
+              userProfile,
+              state?.preferences
+            );
+            responseText = this.sanitizeText(responseText);
+          }
+        } else {
+          // Use LLM for non-fashion queries
+          responseText = await llmService.generateResponse(
+            textQuery,
+            intentAnalysis,
+            conversationHistory,
+            userProfile,
+            state?.preferences
+          );
+          
+          // Sanitize response text
+          responseText = this.sanitizeText(responseText);
+        }
 
         // Add proactive suggestions if appropriate
         if (userId && userProfile && conversationHistory.length > 0) {

@@ -21,6 +21,7 @@ import { analyticsService } from '../services/AnalyticsService.js';
 import { personalShopperAgent } from '../services/agents/PersonalShopperAgent.js';
 import { sizePredictorAgent } from '../services/agents/size-predictor/index.js';
 import { makeupArtistAgent } from '../services/agents/MakeupArtistAgent/index.js';
+import { multiAgentOrchestrator } from '../services/MultiAgentOrchestrator.js';
 
 const router = Router();
 
@@ -448,6 +449,7 @@ router.post(
 );
 
 // Assistant endpoint for text-based queries (can be used for slides, product pages, etc.)
+// This endpoint now integrates with MultiAgentOrchestrator for fashion-related queries
 router.post(
   '/assistant',
   validateBody(
@@ -460,16 +462,43 @@ router.post(
         recentViews: z.array(z.string()).optional(),
       }).optional(),
       audioPreferred: z.boolean().optional().default(false), // Default to false for text-based queries
+      useOrchestrator: z.boolean().optional(), // Optional flag to force orchestrator usage
     })
   ),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { query, userId, audioPreferred } = req.body;
+      const { query, userId, audioPreferred, useOrchestrator, context } = req.body;
       
-      // Process text query through voice assistant
+      // Process text query through voice assistant (which now integrates with MultiAgentOrchestrator)
       const response = await voiceAssistant.processTextQuery(query, userId, {
         audioPreferred: audioPreferred === true,
       });
+      
+      // If orchestrator was used (detected via entities), enhance response with orchestrator data
+      let orchestratorData = null;
+      if (userId && (useOrchestrator || response.intent === 'search_product' || response.intent === 'get_recommendations')) {
+        try {
+          const orchestratorResult = await multiAgentOrchestrator.processQuery({
+            userId,
+            intent: response.intent || 'get_recommendations',
+            entities: {
+              ...response.entities,
+              occasion: context?.occasion,
+              budget: context?.budget,
+            },
+          });
+          orchestratorData = {
+            sizeOracle: orchestratorResult.sizeOracle,
+            returnsProphet: orchestratorResult.returnsProphet,
+            personalStylist: orchestratorResult.personalStylist,
+            aggregatedRecommendations: orchestratorResult.aggregatedRecommendations,
+            metadata: orchestratorResult.metadata,
+          };
+        } catch (orchestratorError) {
+          console.warn('Orchestrator call failed in assistant endpoint:', orchestratorError);
+          // Continue without orchestrator data - non-critical
+        }
+      }
       
       // Structured response with actions
       const responseData: any = {
@@ -481,6 +510,11 @@ router.post(
           { type: 'show_text', enabled: true },
         ],
       };
+      
+      // Add orchestrator data if available
+      if (orchestratorData) {
+        responseData.orchestrator = orchestratorData;
+      }
       
       // Add audio if available and preferred
       if (audioPreferred && response.audio) {
@@ -1655,6 +1689,352 @@ router.post(
       const analysis = await makeupArtistAgent.analyzeSelfie(selfieUrl);
       
       res.json(analysis);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Multi-Agent Orchestrator - Main endpoint for coordinating all 4 AI agents
+router.post(
+  '/agents/orchestrate',
+  validateBody(
+    z.object({
+      userId: z.string().min(1, 'User ID is required'),
+      intent: z.string().min(1, 'Intent is required'),
+      entities: z.object({
+        color: z.string().optional(),
+        size: z.string().optional(),
+        brand: z.string().optional(),
+        category: z.string().optional(),
+        occasion: z.string().optional(),
+        productIds: z.array(z.string()).optional(),
+        budget: z.number().positive().optional(),
+      }).optional(),
+      conversationHistory: z.array(z.any()).optional(),
+      userProfile: z.any().optional(),
+    })
+  ),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId, intent, entities, conversationHistory, userProfile } = req.body;
+      
+      const result = await multiAgentOrchestrator.processQuery({
+        userId,
+        intent,
+        entities: entities || {},
+        conversationHistory,
+        userProfile,
+      });
+      
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Individual agent endpoints for direct access
+router.post(
+  '/agents/size-oracle',
+  validateBody(
+    z.object({
+      userId: z.string().min(1, 'User ID is required'),
+      productBrand: z.string().optional(),
+      productCategory: z.string().optional(),
+      requestedSize: z.string().optional(),
+    })
+  ),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId, productBrand, productCategory, requestedSize } = req.body;
+      
+      const result = await multiAgentOrchestrator.invokeSizeOracle(
+        userId,
+        productBrand,
+        productCategory,
+        requestedSize
+      );
+      
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+router.post(
+  '/agents/returns-prophet',
+  validateBody(
+    z.object({
+      userId: z.string().min(1, 'User ID is required'),
+      productIds: z.array(z.string()).min(1, 'At least one product ID is required'),
+      sizeRecommendations: z.record(z.string()).optional(),
+    })
+  ),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId, productIds, sizeRecommendations } = req.body;
+      
+      const sizeMap = sizeRecommendations 
+        ? new Map(Object.entries(sizeRecommendations))
+        : undefined;
+      
+      const result = await multiAgentOrchestrator.invokeReturnsProphet(
+        userId,
+        productIds,
+        sizeMap
+      );
+      
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+router.post(
+  '/agents/personal-stylist',
+  validateBody(
+    z.object({
+      userId: z.string().min(1, 'User ID is required'),
+      entities: z.object({
+        color: z.string().optional(),
+        size: z.string().optional(),
+        brand: z.string().optional(),
+        category: z.string().optional(),
+        occasion: z.string().optional(),
+        productIds: z.array(z.string()).optional(),
+        budget: z.number().positive().optional(),
+      }).optional(),
+      occasion: z.string().optional(),
+    })
+  ),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId, entities, occasion } = req.body;
+      
+      const result = await multiAgentOrchestrator.invokePersonalStylist(
+        userId,
+        entities || {},
+        occasion
+      );
+      
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// ==========================================
+// Autonomous Agent System Endpoints
+// ==========================================
+
+import { autonomyOrchestrator } from '../services/agents/autonomous/AutonomyOrchestrator.js';
+import { autonomousMakeupArtist } from '../services/agents/autonomous/AutonomousMakeupArtist.js';
+
+// Get autonomy metrics (dashboard)
+router.get(
+  '/autonomy/metrics',
+  validateQuery(
+    z.object({
+      userId: z.string().optional(),
+      startDate: z.string().optional(),
+      endDate: z.string().optional(),
+    })
+  ),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId, startDate, endDate } = req.query;
+      
+      const timeRange = startDate && endDate ? {
+        start: new Date(startDate as string),
+        end: new Date(endDate as string),
+      } : undefined;
+
+      const metrics = await autonomyOrchestrator.getMetrics(
+        userId as string | undefined,
+        timeRange
+      );
+      
+      res.json(metrics);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Get user autonomy settings
+router.get(
+  '/autonomy/settings/:userId',
+  validateParams(z.object({ userId: z.string() })),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId } = req.params;
+      const settings = await autonomyOrchestrator.getSettings(userId);
+      
+      if (!settings) {
+        // Return default settings
+        res.json({
+          userId,
+          autonomyLevel: 1,
+          maxAutoPrice: null,
+          allowedCategories: null,
+          approvalMode: 'above_100',
+          personalShopper: { enabled: false, triggers: [] },
+          makeupArtist: { enabled: false, autoReorder: false },
+          sizePredictor: { enabled: false, autoLearn: false },
+          returnsPredictor: { enabled: false, autoSwap: false, autoRefund: false },
+        });
+        return;
+      }
+      
+      res.json(settings);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Update user autonomy settings
+router.post(
+  '/autonomy/settings/:userId',
+  validateParams(z.object({ userId: z.string() })),
+  validateBody(
+    z.object({
+      autonomyLevel: z.number().min(1).max(5).optional(),
+      maxAutoPrice: z.number().positive().optional(),
+      allowedCategories: z.array(z.string()).optional(),
+      approvalMode: z.enum(['none', 'above_100', 'always']).optional(),
+      personalShopper: z.object({
+        enabled: z.boolean().optional(),
+        triggers: z.array(z.string()).optional(),
+      }).optional(),
+      makeupArtist: z.object({
+        enabled: z.boolean().optional(),
+        autoReorder: z.boolean().optional(),
+      }).optional(),
+      sizePredictor: z.object({
+        enabled: z.boolean().optional(),
+        autoLearn: z.boolean().optional(),
+      }).optional(),
+      returnsPredictor: z.object({
+        enabled: z.boolean().optional(),
+        autoSwap: z.boolean().optional(),
+        autoRefund: z.boolean().optional(),
+      }).optional(),
+    })
+  ),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId } = req.params;
+      const settings = req.body;
+      
+      const updated = await autonomyOrchestrator.updateSettings(userId, settings);
+      res.json(updated);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Monitor user (trigger all agents)
+router.post(
+  '/autonomy/monitor/:userId',
+  validateParams(z.object({ userId: z.string() })),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId } = req.params;
+      await autonomyOrchestrator.monitorUser(userId);
+      res.json({ success: true, message: 'User monitoring triggered' });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Assess cart and auto-swap risky items
+router.post(
+  '/autonomy/assess-cart',
+  validateBody(
+    z.object({
+      userId: z.string().min(1),
+      cartItems: z.array(z.any()),
+    })
+  ),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId, cartItems } = req.body;
+      const result = await autonomyOrchestrator.assessCart(userId, cartItems);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Handle return event
+router.post(
+  '/autonomy/handle-return',
+  validateBody(
+    z.object({
+      userId: z.string().min(1),
+      orderId: z.string().min(1),
+      productId: z.string().min(1),
+      brand: z.string().optional(),
+      category: z.string().optional(),
+      predictedSize: z.string().optional(),
+      actualFit: z.enum(['perfect', 'too_small', 'too_large', 'wrong_style']).optional(),
+      returnReason: z.string().optional(),
+    })
+  ),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId, ...returnData } = req.body;
+      await autonomyOrchestrator.handleReturnEvent(userId, returnData);
+      res.json({ success: true, message: 'Return processed and agents updated' });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Analyze selfie for makeup artist
+router.post(
+  '/autonomy/makeup/analyze-selfie',
+  validateBody(
+    z.object({
+      userId: z.string().min(1),
+      selfieUrl: z.string().url(),
+    })
+  ),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId, selfieUrl } = req.body;
+      await autonomousMakeupArtist.analyzeSelfie(selfieUrl, userId);
+      res.json({ success: true, message: 'Selfie analyzed and skin tone updated' });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Get agent activity log
+router.get(
+  '/autonomy/activity/:userId',
+  validateParams(z.object({ userId: z.string() })),
+  validateQuery(
+    z.object({
+      limit: z.string().transform(Number).optional(),
+    })
+  ),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId } = req.params;
+      const limit = req.query.limit ? Number(req.query.limit) : 50;
+      const activity = await autonomyOrchestrator.getActivityLog(userId, limit);
+      res.json(activity);
     } catch (error) {
       next(error);
     }

@@ -13,7 +13,9 @@ import { stripeService } from '@/services/stripeService';
 import { mockCartService } from '@/services/mocks/mockCart';
 import { useCartCalculations } from '@/hooks/useCartCalculations';
 import { toast } from 'sonner';
-import { ArrowLeft, CreditCard, Lock, CheckCircle } from 'lucide-react';
+import { ArrowLeft, CreditCard, Lock, CheckCircle, AlertTriangle } from 'lucide-react';
+import { CartReview } from '@/components/CartReview';
+import { returnsPredictor, type CartValidationResponse } from '@/services/returnsPredictor';
 
 interface CheckoutFormProps {
   cartItems: CartItem[];
@@ -484,6 +486,8 @@ const Checkout = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [useStripeElements, setUseStripeElements] = useState(false);
+  const [cartValidation, setCartValidation] = useState<CartValidationResponse | null>(null);
+  const [isValidatingCart, setIsValidatingCart] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -502,6 +506,26 @@ const Checkout = () => {
           toast.error('Your cart is empty');
           navigate('/dashboard');
           return;
+        }
+
+        // Validate cart with Returns Predictor
+        setIsValidatingCart(true);
+        try {
+          const validation = await returnsPredictor.validateCart(cart, user.id);
+          setCartValidation(validation);
+          
+          // Show warning if high risk
+          if (validation.summary.averageRisk >= 0.4 || validation.summary.highRiskItems > 0) {
+            toast.warning(
+              `⚠️ Cart has ${Math.round(validation.summary.averageRisk * 100)}% return risk. Review items below.`,
+              { duration: 5000 }
+            );
+          }
+        } catch (error) {
+          console.error('Failed to validate cart:', error);
+          // Continue checkout even if validation fails
+        } finally {
+          setIsValidatingCart(false);
         }
 
         // Try to create payment intent for Stripe Elements
@@ -550,6 +574,31 @@ const Checkout = () => {
         </div>
 
         <h1 className="text-2xl font-bold mb-6">Checkout</h1>
+
+        {/* Cart Risk Validation */}
+        {isValidatingCart && (
+          <Card className="mb-6">
+            <CardContent className="py-4">
+              <div className="flex items-center space-x-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                <span className="text-sm text-muted-foreground">Analyzing cart for return risk...</span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {cartValidation && !isValidatingCart && (
+          <div className="mb-6">
+            <CartReview
+              cartItems={cartItems}
+              validation={cartValidation}
+              onReplaceItem={(itemId, alternativeId) => {
+                toast.info('Alternative replacement coming soon!', { duration: 3000 });
+                // TODO: Implement item replacement logic
+              }}
+            />
+          </div>
+        )}
 
         {useStripeElements && clientSecret ? (
           <Elements

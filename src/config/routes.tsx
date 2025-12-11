@@ -30,6 +30,7 @@ const AgentsDashboard = lazy(() => import('@/pages/agents/AgentsDashboard'));
 const AgentDetails = lazy(() => import('@/pages/agents/AgentDetails'));
 const AgentCreate = lazy(() => import('@/pages/agents/AgentCreate'));
 const AgentAnalytics = lazy(() => import('@/pages/agents/AgentAnalytics'));
+const AgentsOrchestrator = lazy(() => import('@/pages/agents/AgentsOrchestrator'));
 
 // Shopping & Checkout pages
 const Checkout = lazy(() => import('@/pages/shopping/Checkout'));
@@ -74,6 +75,9 @@ const FashioniDemo = lazy(() => import('@/pages/demo/FashioniDemo'));
 // Admin pages
 const AdminRisk = lazy(() => import('@/pages/AdminRisk'));
 const AdminProviders = lazy(() => import('@/pages/admin/Providers'));
+
+// Stylist pages
+const StylistDashboard = lazy(() => import('@/pages/stylist/StylistDashboard'));
 
 // Error pages
 const NotFound = lazy(() => import('@/pages/NotFound'));
@@ -187,6 +191,12 @@ export const routeConfigs: RouteConfig[] = [
     path: '/agents',
     component: AgentsDashboard,
     label: 'Agents Dashboard',
+    group: 'agents',
+  },
+  {
+    path: '/agents/orchestrator',
+    component: AgentsOrchestrator,
+    label: 'Agents Orchestrator',
     group: 'agents',
   },
   {
@@ -392,6 +402,14 @@ export const routeConfigs: RouteConfig[] = [
     component: AdminProviders,
     label: 'Provider Management',
     group: 'admin',
+  },
+
+  // Stylist routes
+  {
+    path: '/stylist/dashboard',
+    component: StylistDashboard,
+    label: 'Stylist Dashboard',
+    group: 'stylist',
   },
 
   // Error routes (must be last)
