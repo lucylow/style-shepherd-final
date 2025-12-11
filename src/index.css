@@ -36,15 +36,20 @@ All colors MUST be HSL.
     --input: 214.3 31.8% 91.4%;
     --ring: 217 91% 60%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
     
-    /* Fashion colors */
+    /* Fashion colors - Enhanced with richer tones */
     --fashion-gold: 43 74% 49%;
     --fashion-sage: 92 30% 49%;
     --fashion-blush: 342 87% 85%;
     --fashion-charcoal: 200 18% 26%;
     --fashion-cream: 28 67% 97%;
     --fashion-navy: 228 45% 15%;
+    
+    /* Additional gradient colors */
+    --gradient-start: 217 91% 60%;
+    --gradient-mid: 250 95% 65%;
+    --gradient-end: 280 90% 70%;
     
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
@@ -350,32 +355,69 @@ All colors MUST be HSL.
     @apply transition-transform duration-200 hover:scale-102;
   }
 
-  /* Enhanced shadow utilities */
+  /* Enhanced shadow utilities with better depth */
   .shadow-elevated {
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06),
-      0 0 0 1px rgba(0, 0, 0, 0.05);
+    box-shadow: 
+      0 1px 3px 0 rgba(0, 0, 0, 0.05),
+      0 4px 6px -1px rgba(0, 0, 0, 0.08),
+      0 2px 4px -1px rgba(0, 0, 0, 0.04),
+      0 0 0 1px rgba(0, 0, 0, 0.03);
   }
 
   .shadow-elevated-lg {
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05),
-      0 0 0 1px rgba(0, 0, 0, 0.05);
+    box-shadow: 
+      0 4px 6px -1px rgba(0, 0, 0, 0.08),
+      0 10px 15px -3px rgba(0, 0, 0, 0.1),
+      0 4px 6px -2px rgba(0, 0, 0, 0.05),
+      0 0 0 1px rgba(0, 0, 0, 0.04);
   }
   
   .shadow-elevated-xl {
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04),
+    box-shadow: 
+      0 10px 15px -3px rgba(0, 0, 0, 0.1),
+      0 20px 25px -5px rgba(0, 0, 0, 0.12),
+      0 10px 10px -5px rgba(0, 0, 0, 0.06),
       0 0 0 1px rgba(0, 0, 0, 0.05);
   }
   
   .shadow-soft {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06);
+    box-shadow: 
+      0 1px 2px 0 rgba(0, 0, 0, 0.03),
+      0 2px 8px 0 rgba(0, 0, 0, 0.05),
+      0 1px 2px 0 rgba(0, 0, 0, 0.04);
   }
 
   .shadow-glow {
-    box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+    box-shadow: 
+      0 0 20px rgba(59, 130, 246, 0.3),
+      0 0 40px rgba(59, 130, 246, 0.15);
   }
 
   .shadow-glow-primary {
-    box-shadow: 0 0 20px hsl(var(--primary) / 0.4);
+    box-shadow: 
+      0 0 20px hsl(var(--primary) / 0.4),
+      0 0 40px hsl(var(--primary) / 0.2),
+      0 4px 12px hsl(var(--primary) / 0.15);
+  }
+  
+  .shadow-glow-gold {
+    box-shadow: 
+      0 0 20px hsl(var(--fashion-gold) / 0.4),
+      0 0 40px hsl(var(--fashion-gold) / 0.2);
+  }
+
+  /* Enhanced interactive shadows */
+  .shadow-interactive {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+    transition: box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .shadow-interactive:hover {
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.08);
+  }
+
+  .shadow-interactive-lg:hover {
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15), 0 6px 12px rgba(0, 0, 0, 0.1);
   }
 
   /* Glass morphism effect */
@@ -396,10 +438,56 @@ All colors MUST be HSL.
   /* Card hover effect */
   .card-hover {
     @apply transition-all duration-300 hover:shadow-elevated-lg hover:-translate-y-1;
+    transform-origin: center;
   }
   
   .card-hover-sm {
     @apply transition-all duration-200 hover:shadow-elevated hover:-translate-y-0.5;
+  }
+
+  /* Enhanced card hover with scale */
+  .card-hover-enhanced {
+    @apply transition-all duration-300;
+    transform-origin: center;
+  }
+
+  .card-hover-enhanced:hover {
+    transform: translateY(-6px) scale(1.02);
+    box-shadow: 
+      0 12px 24px rgba(0, 0, 0, 0.12),
+      0 6px 12px rgba(0, 0, 0, 0.08),
+      0 0 0 1px rgba(0, 0, 0, 0.05);
+  }
+  
+  /* Premium card effect */
+  .card-premium {
+    @apply relative overflow-hidden;
+    background: linear-gradient(
+      135deg,
+      hsl(var(--card)) 0%,
+      hsl(var(--card) / 0.95) 100%
+    );
+  }
+  
+  .card-premium::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      hsl(var(--primary)),
+      transparent
+    );
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  
+  .card-premium:hover::before {
+    opacity: 1;
   }
   
   /* Glass morphism with better backdrop */
@@ -557,5 +645,173 @@ All colors MUST be HSL.
       background: white !important;
       color: black !important;
     }
+  }
+
+  /* Improved focus states for accessibility */
+  .focus-visible-enhanced {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+    @apply focus-visible:shadow-[0_0_0_4px_hsl(var(--primary)/0.1)];
+  }
+
+  /* Smooth gradient animations */
+  .gradient-animate {
+    background-size: 200% 200%;
+    animation: gradient-shift 8s ease infinite;
+  }
+
+  @keyframes gradient-shift {
+    0%, 100% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+  }
+  
+  /* Enhanced gradient text */
+  .gradient-text-primary {
+    @apply bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent;
+  }
+  
+  .gradient-text-gold {
+    @apply bg-gradient-to-r from-fashion-gold via-fashion-gold/90 to-fashion-gold/70 bg-clip-text text-transparent;
+  }
+  
+  /* Animated gradient background */
+  .gradient-bg-animated {
+    background: linear-gradient(
+      -45deg,
+      hsl(var(--primary)),
+      hsl(var(--gradient-mid)),
+      hsl(var(--gradient-end)),
+      hsl(var(--primary))
+    );
+    background-size: 400% 400%;
+    animation: gradient-shift 15s ease infinite;
+  }
+  
+  /* Glass morphism enhancements */
+  .glass-card-enhanced {
+    @apply backdrop-blur-xl bg-card/90 border border-border/60 shadow-elevated-lg;
+    background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.1) 0%,
+      rgba(255, 255, 255, 0.05) 100%
+    );
+  }
+  
+  /* Floating animation */
+  @keyframes float-slow {
+    0%, 100% {
+      transform: translateY(0px) translateX(0px);
+    }
+    33% {
+      transform: translateY(-20px) translateX(10px);
+    }
+    66% {
+      transform: translateY(-10px) translateX(-10px);
+    }
+  }
+  
+  .animate-float-slow {
+    animation: float-slow 6s ease-in-out infinite;
+  }
+  
+  /* Shimmer effect */
+  @keyframes shimmer-sweep {
+    0% {
+      transform: translateX(-100%) translateY(-100%) rotate(45deg);
+    }
+    100% {
+      transform: translateX(100%) translateY(100%) rotate(45deg);
+    }
+  }
+  
+  .shimmer-effect {
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .shimmer-effect::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(
+      45deg,
+      transparent 30%,
+      rgba(255, 255, 255, 0.3) 50%,
+      transparent 70%
+    );
+    animation: shimmer-sweep 3s infinite;
+    pointer-events: none;
+  }
+
+  /* Improved text selection */
+  ::selection {
+    @apply bg-primary/20 text-foreground;
+  }
+
+  /* Better image loading states */
+  .image-loading {
+    @apply bg-gradient-to-br from-muted via-muted/80 to-muted;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  /* Radial gradient utility */
+  .bg-radial-gradient {
+    background: radial-gradient(circle, var(--tw-gradient-stops));
+  }
+
+  .image-loading::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.3),
+      transparent
+    );
+    animation: shimmer-load 1.5s infinite;
+  }
+
+  @keyframes shimmer-load {
+    0% {
+      left: -100%;
+    }
+    100% {
+      left: 100%;
+    }
+  }
+
+  /* Improved button ripple effect */
+  .ripple-effect {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ripple-effect::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.5);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+  }
+
+  .ripple-effect:active::after {
+    width: 300px;
+    height: 300px;
   }
 }

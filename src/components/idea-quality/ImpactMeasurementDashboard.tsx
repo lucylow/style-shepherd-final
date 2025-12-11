@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ImpactMeasurementService } from '@/services/impact-measurement-service';
+import { ImpactMeasurementService } from '@/services/analytics';
 import type { ImpactMetrics } from '@/lib/idea-quality/types';
 import { Users, Building2, Leaf, Globe } from 'lucide-react';
 

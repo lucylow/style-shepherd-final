@@ -12,8 +12,8 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Product } from '@/types/fashion';
-import { generateSearchTitle, generateSearchDescription, generateKeywords, generateCanonicalUrl, isValidProductForSEO, getProductUrl } from '@/lib/seo-utils';
-import { generateBrandTrackingStructuredData, generateBrandOrganizationStructuredData, getBrandTrackingSummary } from '@/services/brand-tracking-service';
+import { generateSearchTitle, generateSearchDescription, generateKeywords, generateCanonicalUrl, isValidProductForSEO, getProductUrl, isTrendQuery, getSeasonFromQuery } from '@/lib/seo-utils';
+import { generateBrandTrackingStructuredData, generateBrandOrganizationStructuredData, getBrandTrackingSummary } from '@/services/integrations';
 
 interface SearchableSEOProps {
   title?: string;
@@ -340,6 +340,120 @@ export function SearchableSEO({
     script.textContent = JSON.stringify(organizationData);
     document.head.appendChild(script);
   }, []);
+
+  // Generate Collection structured data for trend searches (SEO for fashion trends)
+  useEffect(() => {
+    // Remove existing collection JSON-LD script
+    const existingScript = document.querySelector('script[type="application/ld+json"][data-seo="collection"]');
+    if (existingScript) {
+      existingScript.remove();
+    }
+
+    if (isTrendQuery(searchQuery) && products.length > 0) {
+      const season = getSeasonFromQuery(searchQuery);
+      const validProducts = products.filter(isValidProductForSEO);
+
+      const collectionData = {
+        '@context': 'https://schema.org/',
+        '@type': 'CollectionPage',
+        name: `Trending ${searchQuery} Fashion Collection - ${season.charAt(0).toUpperCase() + season.slice(1)} ${new Date().getFullYear()}`,
+        description: `Discover the latest ${season} fashion trends featuring ${searchQuery}. Curated collection of trending fashion items with AI-powered size predictions.`,
+        url: canonicalUrl,
+        mainEntity: {
+          '@type': 'ItemList',
+          numberOfItems: validProducts.length,
+          itemListElement: validProducts.slice(0, 10).map((product, index) => ({
+            '@type': 'ListItem',
+            position: index + 1,
+            item: {
+              '@type': 'Product',
+              '@id': getProductUrl(product.id),
+              name: product.name,
+              brand: {
+                '@type': 'Brand',
+                name: product.brand,
+              },
+              offers: {
+                '@type': 'Offer',
+                price: product.price,
+                priceCurrency: 'USD',
+              },
+            },
+          })),
+        },
+        about: {
+          '@type': 'Thing',
+          name: `${season} Fashion Trends`,
+          description: `Current ${season} fashion trends and styles`,
+        },
+        temporalCoverage: `${new Date().getFullYear()}-${season}`,
+      };
+
+      const script = document.createElement('script');
+      script.type = 'application/ld+json';
+      script.setAttribute('data-seo', 'collection');
+      script.textContent = JSON.stringify(collectionData);
+      document.head.appendChild(script);
+    }
+  }, [searchQuery, products, canonicalUrl]);
+
+  // Generate FAQPage structured data for trend searches (SEO for fashion trends)
+  useEffect(() => {
+    // Remove existing FAQ JSON-LD script
+    const existingScript = document.querySelector('script[type="application/ld+json"][data-seo="faq"]');
+    if (existingScript) {
+      existingScript.remove();
+    }
+
+    if (isTrendQuery(searchQuery)) {
+      const season = getSeasonFromQuery(searchQuery);
+      
+      const faqData = {
+        '@context': 'https://schema.org/',
+        '@type': 'FAQPage',
+        mainEntity: [
+          {
+            '@type': 'Question',
+            name: `What are the trending ${searchQuery} fashion styles for ${season} ${new Date().getFullYear()}?`,
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: `Discover the latest ${season} fashion trends featuring ${searchQuery}. Our AI-powered platform analyzes current fashion trends to help you find the most popular styles, colors, and designs. Browse our curated collection of trending ${searchQuery} items with personalized size predictions to reduce returns by 90%.`,
+            },
+          },
+          {
+            '@type': 'Question',
+            name: `How do I find trending fashion items matching "${searchQuery}"?`,
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: `Use Style Shepherd's trend analysis to discover trending ${searchQuery} fashion items. Our platform uses AI to identify current fashion trends, analyze seasonal styles, and provide personalized recommendations. Get perfect size predictions and reduce returns by 90% with our advanced fashion AI.`,
+            },
+          },
+          {
+            '@type': 'Question',
+            name: `What ${season} fashion trends are popular for ${searchQuery}?`,
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: `Explore ${season} fashion trends for ${searchQuery} on Style Shepherd. Our trend analysis identifies the most popular styles, colors, and designs for the current season. Get AI-powered size predictions and personalized styling advice to find your perfect fit.`,
+            },
+          },
+          {
+            '@type': 'Question',
+            name: `How does Style Shepherd help with fashion trend discovery?`,
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: `Style Shepherd uses AI-powered trend analysis to identify current fashion trends, analyze seasonal styles, and provide personalized recommendations. Our platform helps you discover trending fashion items, get accurate size predictions, and reduce returns by 90% through advanced machine learning and fashion trend analysis.`,
+            },
+          },
+        ],
+      };
+
+      const script = document.createElement('script');
+      script.type = 'application/ld+json';
+      script.setAttribute('data-seo', 'faq');
+      script.textContent = JSON.stringify(faqData);
+      document.head.appendChild(script);
+    }
+  }, [searchQuery]);
 
   // Cleanup on unmount
   useEffect(() => {

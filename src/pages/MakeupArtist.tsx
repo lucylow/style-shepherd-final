@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Sparkles } from 'lucide-react';
-import { makeupService } from '@/services/makeupService';
+import { makeupService } from '@/services/integrations';
 import type { MakeupLook } from '@/types/makeup';
 import { useToast } from '@/hooks/use-toast';
 

@@ -5,7 +5,7 @@
  * for SEO and analytics purposes
  */
 
-import { TrackedBrand, getTrackedBrands } from '@/services/brand-tracking-service';
+import { TrackedBrand, getTrackedBrands } from '@/services/integrations';
 
 /**
  * Check if a brand is being tracked

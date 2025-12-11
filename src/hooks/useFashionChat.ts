@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { streamFashionChat } from '@/services/aiAssistant';
+import { streamFashionChat } from '@/services/ai';
 import { handleError } from '@/lib/errorHandler';
 
 type Message = { role: 'user' | 'assistant'; content: string };

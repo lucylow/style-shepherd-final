@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { AgentType } from "@/types/agent";
-import { ResponsiveContainer, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
+import { ResponsiveContainer, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ComposedChart, ScatterChart, Scatter, RadialBarChart, RadialBar } from "recharts";
 
 const timeSeriesData = Array.from({ length: 30 }, (_, i) => {
   const date = new Date();
@@ -80,6 +80,62 @@ const channelPerformanceData = [
   { name: "Chat", responseTime: 95, successRate: 88, sentiment: 92 },
   { name: "Email", responseTime: 75, successRate: 82, sentiment: 80 },
   { name: "Social", responseTime: 80, successRate: 78, sentiment: 85 },
+];
+
+// Hourly pattern data
+const hourlyData = Array.from({ length: 24 }, (_, i) => ({
+  hour: i,
+  interactions: Math.floor(Math.random() * 50) + (i >= 9 && i <= 17 ? 30 : 10),
+  sentiment: Math.floor(Math.random() * 20) + 70,
+  responseTime: Math.floor(Math.random() * 200) + 100,
+}));
+
+// Response time distribution
+const responseTimeDistribution = Array.from({ length: 20 }, (_, i) => ({
+  range: `${i * 50}-${(i + 1) * 50}ms`,
+  count: Math.floor(Math.random() * 30) + 5,
+}));
+
+// Radar chart data for channel comparison
+const radarData = [
+  { subject: "Response Time", Voice: 87, Chat: 95, Email: 75, Social: 80, fullMark: 100 },
+  { subject: "Success Rate", Voice: 92, Chat: 88, Email: 82, Social: 78, fullMark: 100 },
+  { subject: "Sentiment", Voice: 88, Chat: 92, Email: 80, Social: 85, fullMark: 100 },
+  { subject: "Volume", Voice: 40, Chat: 30, Email: 20, Social: 10, fullMark: 100 },
+  { subject: "Efficiency", Voice: 85, Chat: 90, Email: 70, Social: 75, fullMark: 100 },
+];
+
+// Scatter plot data (response time vs sentiment) - separate by channel
+const scatterData = {
+  Voice: Array.from({ length: 15 }, () => ({
+    responseTime: Math.floor(Math.random() * 200) + 50,
+    sentiment: Math.floor(Math.random() * 20) + 75,
+  })),
+  Chat: Array.from({ length: 15 }, () => ({
+    responseTime: Math.floor(Math.random() * 150) + 30,
+    sentiment: Math.floor(Math.random() * 20) + 80,
+  })),
+  Email: Array.from({ length: 10 }, () => ({
+    responseTime: Math.floor(Math.random() * 300) + 100,
+    sentiment: Math.floor(Math.random() * 25) + 70,
+  })),
+  Social: Array.from({ length: 10 }, () => ({
+    responseTime: Math.floor(Math.random() * 250) + 80,
+    sentiment: Math.floor(Math.random() * 20) + 75,
+  })),
+};
+
+// Composed chart data (interactions + sentiment)
+const composedData = timeSeriesData.map(item => ({
+  ...item,
+  avgResponseTime: Math.floor(Math.random() * 200) + 100,
+}));
+
+// Radial/Gauge data
+const gaugeData = [
+  { name: "Overall Performance", value: 87, fill: "#3b82f6" },
+  { name: "User Satisfaction", value: 92, fill: "#10b981" },
+  { name: "Efficiency", value: 78, fill: "#8b5cf6" },
 ];
 
 const percentFormatter = (value: number) => `${value}%`;
@@ -728,6 +784,229 @@ const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ agent, isNewAgent = false }
                 </BarChart>
               </ResponsiveContainer>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="mb-6">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-lg font-bold flex items-center gap-2">
+              <BarChart2 className="h-5 w-5 text-agent-primary" />
+              Advanced Analytics
+            </CardTitle>
+            <CardDescription>Multi-dimensional performance analysis and patterns</CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div>
+              <h3 className="text-sm font-medium mb-3">Channel Performance Radar</h3>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RadarChart data={radarData}>
+                    <PolarGrid />
+                    <PolarAngleAxis dataKey="subject" />
+                    <PolarRadiusAxis angle={90} domain={[0, 100]} />
+                    <Radar name="Voice" dataKey="Voice" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.6} />
+                    <Radar name="Chat" dataKey="Chat" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.6} />
+                    <Radar name="Email" dataKey="Email" stroke="#ec4899" fill="#ec4899" fillOpacity={0.6} />
+                    <Radar name="Social" dataKey="Social" stroke="#10b981" fill="#10b981" fillOpacity={0.6} />
+                    <Legend />
+                    <Tooltip formatter={percentFormatter} />
+                  </RadarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-sm font-medium mb-3">Response Time vs Sentiment Correlation</h3>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ScatterChart
+                    margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis 
+                      type="number" 
+                      dataKey="responseTime" 
+                      name="Response Time" 
+                      unit="ms"
+                      domain={[0, 500]}
+                    />
+                    <YAxis 
+                      type="number" 
+                      dataKey="sentiment" 
+                      name="Sentiment" 
+                      unit="%"
+                      domain={[50, 100]}
+                    />
+                    <Tooltip cursor={{ strokeDasharray: '3 3' }} />
+                    <Legend />
+                    <Scatter name="Voice" data={scatterData.Voice} fill="#3b82f6" />
+                    <Scatter name="Chat" data={scatterData.Chat} fill="#8b5cf6" />
+                    <Scatter name="Email" data={scatterData.Email} fill="#ec4899" />
+                    <Scatter name="Social" data={scatterData.Social} fill="#10b981" />
+                  </ScatterChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div>
+              <h3 className="text-sm font-medium mb-3">Hourly Interaction Patterns</h3>
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={hourlyData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis 
+                      dataKey="hour" 
+                      tickFormatter={(value) => `${value}:00`}
+                    />
+                    <YAxis yAxisId="left" />
+                    <YAxis yAxisId="right" orientation="right" />
+                    <Tooltip 
+                      labelFormatter={(label) => `${label}:00`}
+                      formatter={(value: number, name: string) => {
+                        if (name === "sentiment") return [`${value}%`, "Sentiment"];
+                        return [value, "Interactions"];
+                      }}
+                    />
+                    <Legend />
+                    <Bar yAxisId="left" dataKey="interactions" name="Interactions" fill="#3b82f6" />
+                    <Line 
+                      yAxisId="right" 
+                      type="monotone" 
+                      dataKey="sentiment" 
+                      name="Sentiment %" 
+                      stroke="#10b981" 
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-sm font-medium mb-3">Response Time Distribution</h3>
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={responseTimeDistribution}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis 
+                      dataKey="range" 
+                      angle={-45}
+                      textAnchor="end"
+                      height={80}
+                    />
+                    <YAxis />
+                    <Tooltip 
+                      formatter={(value: number) => [value, "Count"]}
+                    />
+                    <Bar dataKey="count" fill="#8b5cf6" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-medium mb-3">Performance Metrics Overview</h3>
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={composedData.slice(-14)}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="date" 
+                    tickFormatter={(value) => value.split('-')[2]} 
+                  />
+                  <YAxis yAxisId="left" />
+                  <YAxis yAxisId="right" orientation="right" />
+                  <Tooltip 
+                    labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                    formatter={(value: number, name: string) => {
+                      if (name === "interactions") return [value, "Interactions"];
+                      if (name === "avgResponseTime") return [`${value}ms`, "Avg Response Time"];
+                      return [value, name];
+                    }}
+                  />
+                  <Legend />
+                  <Bar yAxisId="left" dataKey="interactions" name="Interactions" fill="#3b82f6" />
+                  <Line 
+                    yAxisId="right" 
+                    type="monotone" 
+                    dataKey="avgResponseTime" 
+                    name="Avg Response Time" 
+                    stroke="#ec4899" 
+                    strokeWidth={2}
+                    dot={{ r: 3 }}
+                  />
+                  <Line 
+                    yAxisId="right" 
+                    type="monotone" 
+                    dataKey="positivePercent" 
+                    name="Positive Sentiment %" 
+                    stroke="#10b981" 
+                    strokeWidth={2}
+                    dot={{ r: 3 }}
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="mb-6">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-lg font-bold flex items-center gap-2">
+              <TestTube className="h-5 w-5 text-agent-primary" />
+              Performance Gauges
+            </CardTitle>
+            <CardDescription>Key performance indicators at a glance</CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {gaugeData.map((gauge, index) => (
+              <div key={index} className="flex flex-col items-center">
+                <h4 className="text-sm font-medium mb-3">{gauge.name}</h4>
+                <div className="h-64 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadialBarChart 
+                      cx="50%" 
+                      cy="50%" 
+                      innerRadius="60%" 
+                      outerRadius="90%" 
+                      data={[gauge]}
+                      startAngle={90}
+                      endAngle={-270}
+                    >
+                      <RadialBar 
+                        dataKey="value" 
+                        cornerRadius={10} 
+                        fill={gauge.fill}
+                      />
+                      <PolarAngleAxis 
+                        type="number" 
+                        domain={[0, 100]} 
+                        angleAxisId={0} 
+                        tick={false}
+                      />
+                      <Tooltip 
+                        formatter={(value: number) => [`${value}%`, gauge.name]}
+                      />
+                    </RadialBarChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="text-2xl font-bold mt-2" style={{ color: gauge.fill }}>
+                  {gauge.value}%
+                </div>
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>

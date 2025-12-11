@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, TrendingUp, Package } from 'lucide-react';
 import { getApiBaseUrl } from '@/lib/api-config';
 import { toast } from 'sonner';
+import { SearchableSEO } from '@/components/seo/SearchableSEO';
 
 interface Cluster {
   cluster_id: number;
@@ -143,24 +144,44 @@ export default function TrendsPage() {
     ? [...combinedData.extra_trends].sort((a, b) => b.trend_score - a.trend_score)
     : [];
 
+  // Convert demo products to Product format for SEO
+  const seoProducts = demoProducts.map(p => ({
+    id: p.id,
+    name: p.title,
+    title: p.title,
+    description: `${p.trendCategory} - Trending fashion item`,
+    category: p.trendCategory,
+    price: p.price,
+    brand: 'Style Shepherd',
+    images: p.image ? [p.image] : [],
+  }));
+
   return (
-    <div className="container mx-auto p-6 space-y-6 max-w-7xl">
-      <div className="flex items-center justify-between">
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <TrendingUp className="h-8 w-8" />
-            Trend Analysis Dashboard
-          </h1>
-          <p className="text-muted-foreground">
-            View trending categories, clusters, and demo product recommendations
-          </p>
+    <>
+      <SearchableSEO
+        title="Fashion Trend Analysis - Current Trends & Style Predictions | Style Shepherd"
+        description="Discover the latest fashion trends, trending styles, and seasonal fashion predictions. Analyze fashion trends with AI-powered trend analysis. Get personalized fashion recommendations based on current trends."
+        products={seoProducts}
+        searchQuery={keywords}
+        totalResults={demoProducts.length}
+      />
+      <div className="container mx-auto p-6 space-y-6 max-w-7xl">
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <h1 className="text-3xl font-bold flex items-center gap-2">
+              <TrendingUp className="h-8 w-8" />
+              Trend Analysis Dashboard
+            </h1>
+            <p className="text-muted-foreground">
+              View trending categories, clusters, and demo product recommendations
+            </p>
+          </div>
+          {isMockMode && (
+            <Badge variant="outline" className="bg-yellow-50 text-yellow-800 border-yellow-200">
+              Mock Mode
+            </Badge>
+          )}
         </div>
-        {isMockMode && (
-          <Badge variant="outline" className="bg-yellow-50 text-yellow-800 border-yellow-200">
-            Mock Mode
-          </Badge>
-        )}
-      </div>
 
       {/* Controls */}
       <Card>
@@ -352,6 +373,7 @@ export default function TrendsPage() {
           </Card>
         </>
       )}
-    </div>
+      </div>
+    </>
   );
 }

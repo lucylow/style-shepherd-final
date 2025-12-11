@@ -18,9 +18,67 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { 
+  ResponsiveContainer, 
+  AreaChart, 
+  Area, 
+  BarChart, 
+  Bar, 
+  PieChart, 
+  Pie, 
+  Cell, 
+  LineChart, 
+  Line, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  Legend,
+  ComposedChart
+} from 'recharts';
+
+// Generate time series data for charts
+const generateTimeSeriesData = (days: number) => {
+  return Array.from({ length: days }, (_, i) => {
+    const date = new Date();
+    date.setDate(date.getDate() - (days - i - 1));
+    const visitors = Math.floor(Math.random() * 500) + 2000;
+    return {
+      date: date.toISOString().split('T')[0],
+      visitors,
+      pageViews: Math.floor(Math.random() * 1500) + 5000,
+      sessions: Math.floor(Math.random() * 300) + 1500,
+      bounceRate: Math.floor(Math.random() * 15) + 25,
+      desktop: Math.floor(visitors * 0.58),
+      mobile: Math.floor(visitors * 0.35),
+      tablet: Math.floor(visitors * 0.07),
+    };
+  });
+};
+
+// Generate hourly data
+const generateHourlyData = () => {
+  return Array.from({ length: 24 }, (_, i) => ({
+    hour: i,
+    visitors: Math.floor(Math.random() * 200) + (i >= 9 && i <= 17 ? 100 : 20),
+    pageViews: Math.floor(Math.random() * 500) + (i >= 9 && i <= 17 ? 300 : 50),
+  }));
+};
+
+const COLORS = {
+  direct: '#3b82f6',
+  search: '#10b981',
+  social: '#ec4899',
+  referral: '#8b5cf6',
+  desktop: '#3b82f6',
+  mobile: '#10b981',
+  tablet: '#8b5cf6',
+};
 
 export default function AnalyticsDashboard() {
   const [timeRange, setTimeRange] = useState('7d');
+  const [timeSeriesData, setTimeSeriesData] = useState(generateTimeSeriesData(7));
+  const [hourlyData] = useState(generateHourlyData());
   const [analytics, setAnalytics] = useState({
     visitors: {
       total: 45230,
@@ -64,6 +122,12 @@ export default function AnalyticsDashboard() {
   });
 
   useEffect(() => {
+    // Update time series data based on selected range
+    const days = timeRange === '24h' ? 1 : timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90;
+    setTimeSeriesData(generateTimeSeriesData(days));
+  }, [timeRange]);
+
+  useEffect(() => {
     // Simulate real-time updates
     const interval = setInterval(() => {
       setAnalytics(prev => ({
@@ -81,6 +145,19 @@ export default function AnalyticsDashboard() {
 
     return () => clearInterval(interval);
   }, []);
+
+  // Prepare data for charts
+  const trafficSourceData = Object.entries(analytics.traffic).map(([name, value]) => ({
+    name: name.charAt(0).toUpperCase() + name.slice(1),
+    value,
+    color: COLORS[name as keyof typeof COLORS] || '#6b7280',
+  }));
+
+  const deviceData = Object.entries(analytics.devices).map(([name, value]) => ({
+    name: name.charAt(0).toUpperCase() + name.slice(1),
+    value,
+    color: COLORS[name as keyof typeof COLORS] || '#6b7280',
+  }));
 
   return (
     <div className="space-y-6">
@@ -175,11 +252,39 @@ export default function AnalyticsDashboard() {
                 <CardDescription>Visitor trends over time</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-64 flex items-center justify-center border-2 border-dashed rounded-lg">
-                  <div className="text-center text-muted-foreground">
-                    <BarChart3 className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                    <p>Chart visualization would go here</p>
-                  </div>
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={timeSeriesData}>
+                      <defs>
+                        <linearGradient id="visitorsGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
+                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis 
+                        dataKey="date" 
+                        tickFormatter={(value) => {
+                          const date = new Date(value);
+                          return timeRange === '24h' 
+                            ? date.toLocaleTimeString('en-US', { hour: '2-digit' })
+                            : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                        }}
+                      />
+                      <YAxis />
+                      <Tooltip 
+                        labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                        formatter={(value: number) => [value.toLocaleString(), 'Visitors']}
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="visitors" 
+                        stroke="#3b82f6" 
+                        fillOpacity={1} 
+                        fill="url(#visitorsGradient)" 
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
                 </div>
               </CardContent>
             </Card>
@@ -190,21 +295,104 @@ export default function AnalyticsDashboard() {
                 <CardDescription>Where your visitors come from</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {Object.entries(analytics.traffic).map(([source, percentage]) => (
-                    <div key={source} className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="capitalize">{source}</span>
-                        <span className="font-medium">{percentage}%</span>
-                      </div>
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div
-                          className="bg-primary h-2 rounded-full"
-                          style={{ width: `${percentage}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={trafficSourceData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        outerRadius={100}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {trafficSourceData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value: number) => [`${value}%`, 'Percentage']} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Page Views Over Time</CardTitle>
+                <CardDescription>Daily page view trends</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={timeSeriesData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis 
+                        dataKey="date" 
+                        tickFormatter={(value) => {
+                          const date = new Date(value);
+                          return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                        }}
+                      />
+                      <YAxis />
+                      <Tooltip 
+                        labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                        formatter={(value: number) => [value.toLocaleString(), 'Page Views']}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="pageViews" 
+                        stroke="#10b981" 
+                        strokeWidth={2}
+                        dot={{ r: 3 }}
+                        activeDot={{ r: 5 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Hourly Visitor Patterns</CardTitle>
+                <CardDescription>Visitor activity by hour of day</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={hourlyData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis 
+                        dataKey="hour" 
+                        tickFormatter={(value) => `${value}:00`}
+                      />
+                      <YAxis yAxisId="left" />
+                      <YAxis yAxisId="right" orientation="right" />
+                      <Tooltip 
+                        labelFormatter={(label) => `${label}:00`}
+                        formatter={(value: number, name: string) => {
+                          if (name === 'visitors') return [value, 'Visitors'];
+                          return [value, 'Page Views'];
+                        }}
+                      />
+                      <Legend />
+                      <Bar yAxisId="left" dataKey="visitors" name="Visitors" fill="#3b82f6" />
+                      <Line 
+                        yAxisId="right" 
+                        type="monotone" 
+                        dataKey="pageViews" 
+                        name="Page Views" 
+                        stroke="#10b981" 
+                        strokeWidth={2}
+                        dot={{ r: 3 }}
+                      />
+                    </ComposedChart>
+                  </ResponsiveContainer>
                 </div>
               </CardContent>
             </Card>
@@ -241,35 +429,80 @@ export default function AnalyticsDashboard() {
         </TabsContent>
 
         <TabsContent value="pages">
-          <Card>
-            <CardHeader>
-              <CardTitle>Top Pages</CardTitle>
-              <CardDescription>Most visited pages</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {analytics.topPages.map((page, index) => (
-                  <div key={page.path} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center gap-4">
-                      <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
-                        <span className="text-sm font-bold text-primary">#{index + 1}</span>
-                      </div>
-                      <div>
-                        <div className="font-medium">{page.path}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {page.unique.toLocaleString()} unique visitors
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-semibold">{page.views.toLocaleString()}</div>
-                      <div className="text-sm text-muted-foreground">views</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Top Pages</CardTitle>
+                <CardDescription>Most visited pages</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart 
+                      data={analytics.topPages}
+                      layout="vertical"
+                      margin={{ top: 20, right: 30, left: 100, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis type="number" />
+                      <YAxis 
+                        dataKey="path" 
+                        type="category" 
+                        width={90}
+                        tick={{ fontSize: 12 }}
+                      />
+                      <Tooltip 
+                        formatter={(value: number) => [value.toLocaleString(), 'Views']}
+                      />
+                      <Bar dataKey="views" fill="#3b82f6" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Page Performance</CardTitle>
+                <CardDescription>Views vs Unique Visitors</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={analytics.topPages}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis 
+                        dataKey="path" 
+                        angle={-45}
+                        textAnchor="end"
+                        height={100}
+                        tick={{ fontSize: 10 }}
+                      />
+                      <YAxis yAxisId="left" />
+                      <YAxis yAxisId="right" orientation="right" />
+                      <Tooltip 
+                        formatter={(value: number, name: string) => {
+                          if (name === 'views') return [value.toLocaleString(), 'Total Views'];
+                          return [value.toLocaleString(), 'Unique Visitors'];
+                        }}
+                      />
+                      <Legend />
+                      <Bar yAxisId="left" dataKey="views" name="Total Views" fill="#3b82f6" />
+                      <Line 
+                        yAxisId="right" 
+                        type="monotone" 
+                        dataKey="unique" 
+                        name="Unique Visitors" 
+                        stroke="#10b981" 
+                        strokeWidth={2}
+                        dot={{ r: 4 }}
+                      />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="devices">
@@ -280,21 +513,26 @@ export default function AnalyticsDashboard() {
                 <CardDescription>Visitor device breakdown</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {Object.entries(analytics.devices).map(([device, percentage]) => (
-                    <div key={device} className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="capitalize">{device}</span>
-                        <span className="font-medium">{percentage}%</span>
-                      </div>
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div
-                          className="bg-primary h-2 rounded-full"
-                          style={{ width: `${percentage}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={deviceData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        outerRadius={100}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {deviceData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value: number) => [`${value}%`, 'Percentage']} />
+                    </PieChart>
+                  </ResponsiveContainer>
                 </div>
               </CardContent>
             </Card>
@@ -305,28 +543,92 @@ export default function AnalyticsDashboard() {
                 <CardDescription>Visitor locations</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {analytics.countries.map((country) => (
-                    <div key={country.country} className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>{country.country}</span>
-                        <span className="font-medium">{country.percentage}%</span>
-                      </div>
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div
-                          className="bg-primary h-2 rounded-full"
-                          style={{ width: `${country.percentage}%` }}
-                        />
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {country.visitors.toLocaleString()} visitors
-                      </div>
-                    </div>
-                  ))}
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart 
+                      data={analytics.countries}
+                      layout="vertical"
+                      margin={{ top: 20, right: 30, left: 80, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis type="number" />
+                      <YAxis dataKey="country" type="category" width={70} />
+                      <Tooltip 
+                        formatter={(value: number) => [value.toLocaleString(), 'Visitors']}
+                      />
+                      <Bar dataKey="visitors" fill="#3b82f6" />
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
               </CardContent>
             </Card>
           </div>
+
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle>Device Usage Trends</CardTitle>
+              <CardDescription>Device distribution over time</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={timeSeriesData}>
+                    <defs>
+                      <linearGradient id="desktopGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="mobileGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="tabletGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis 
+                      dataKey="date" 
+                      tickFormatter={(value) => {
+                        const date = new Date(value);
+                        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                      }}
+                    />
+                    <YAxis />
+                    <Tooltip 
+                      labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                    />
+                    <Legend />
+                    <Area 
+                      type="monotone" 
+                      dataKey="desktop" 
+                      name="Desktop" 
+                      stackId="1"
+                      stroke="#3b82f6" 
+                      fill="url(#desktopGradient)" 
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="mobile" 
+                      name="Mobile" 
+                      stackId="1"
+                      stroke="#10b981" 
+                      fill="url(#mobileGradient)" 
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="tablet" 
+                      name="Tablet" 
+                      stackId="1"
+                      stroke="#8b5cf6" 
+                      fill="url(#tabletGradient)" 
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

@@ -178,13 +178,55 @@ class VoiceService {
         }
       }
       
-      // Try to speak the response using TTS
+      // Generate TTS audio for the response
+      let audioUrl: string | undefined;
       if (response.text) {
         try {
-          await speakText(response.text);
+          // Try to get audio from server TTS first (better quality)
+          const { getApiBaseUrl } = await import('@/lib/api-config');
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
+          
+          try {
+            const ttsResponse = await fetch(`${getApiBaseUrl()}/tts`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text: response.text }),
+              signal: controller.signal,
+            });
+
+            clearTimeout(timeout);
+
+            if (ttsResponse.ok) {
+              const audioBlob = await ttsResponse.blob();
+              audioUrl = URL.createObjectURL(audioBlob);
+              console.log('✅ TTS audio generated for voice input response');
+            } else {
+              // Fallback to browser TTS if server TTS fails
+              console.warn('Server TTS failed, using browser TTS fallback');
+              await speakText(response.text);
+            }
+          } catch (fetchError: any) {
+            clearTimeout(timeout);
+            if (fetchError.name === 'AbortError') {
+              console.warn('TTS request timed out, using browser TTS fallback');
+            } else {
+              throw fetchError;
+            }
+            // Fallback to browser TTS
+            await speakText(response.text);
+          }
         } catch (ttsError) {
           handleErrorSilently(ttsError);
-          console.warn('TTS failed:', ttsError);
+          console.warn('TTS generation failed, using browser TTS fallback:', ttsError);
+          // Fallback to browser TTS
+          try {
+            await speakText(response.text);
+          } catch (browserTtsError) {
+            handleErrorSilently(browserTtsError);
+            console.warn('Browser TTS also failed, continuing without audio:', browserTtsError);
+            // Continue without audio - text response is still available
+          }
         }
       }
 
@@ -205,6 +247,7 @@ class VoiceService {
         text: response.text,
         confidence: 0.9,
         products,
+        audioUrl, // Include audioUrl if available for VoiceInterface playback
       };
     } catch (error: any) {
       console.error('Failed to process voice input:', error);
@@ -260,6 +303,16 @@ class VoiceService {
           }
         }
         
+        // Try to speak the fallback response using browser TTS
+        if (response.text) {
+          try {
+            await speakText(response.text);
+          } catch (ttsError) {
+            handleErrorSilently(ttsError);
+            console.warn('TTS failed in fallback:', ttsError);
+          }
+        }
+        
         return {
           text: response.text,
           confidence: 0.8,
@@ -291,13 +344,55 @@ class VoiceService {
         }
       }
       
-      // Try to speak the response
+      // Generate TTS audio for the response
+      let audioUrl: string | undefined;
       if (response.text) {
         try {
-          await speakText(response.text);
+          // Try to get audio from server TTS first (better quality)
+          const { getApiBaseUrl } = await import('@/lib/api-config');
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
+          
+          try {
+            const ttsResponse = await fetch(`${getApiBaseUrl()}/tts`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text: response.text }),
+              signal: controller.signal,
+            });
+
+            clearTimeout(timeout);
+
+            if (ttsResponse.ok) {
+              const audioBlob = await ttsResponse.blob();
+              audioUrl = URL.createObjectURL(audioBlob);
+              console.log('✅ TTS audio generated for response');
+            } else {
+              // Fallback to browser TTS if server TTS fails
+              console.warn('Server TTS failed, using browser TTS fallback');
+              await speakText(response.text);
+            }
+          } catch (fetchError: any) {
+            clearTimeout(timeout);
+            if (fetchError.name === 'AbortError') {
+              console.warn('TTS request timed out, using browser TTS fallback');
+            } else {
+              throw fetchError;
+            }
+            // Fallback to browser TTS
+            await speakText(response.text);
+          }
         } catch (ttsError) {
           handleErrorSilently(ttsError);
-          console.warn('TTS failed:', ttsError);
+          console.warn('TTS generation failed, using browser TTS fallback:', ttsError);
+          // Fallback to browser TTS
+          try {
+            await speakText(response.text);
+          } catch (browserTtsError) {
+            handleErrorSilently(browserTtsError);
+            console.warn('Browser TTS also failed, continuing without audio:', browserTtsError);
+            // Continue without audio - text response is still available
+          }
         }
       }
 
@@ -318,6 +413,7 @@ class VoiceService {
         text: response.text,
         confidence: 0.95,
         products,
+        audioUrl, // Include audioUrl if available for VoiceInterface playback
       };
     } catch (error: any) {
       const errorMessage = error?.message || 'Failed to process query';

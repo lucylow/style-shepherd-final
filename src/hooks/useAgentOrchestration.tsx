@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AgentResponse, UserQuery } from '@/types/agent-orchestration';
-import { callOrchestrator, callAgentDirect, subscribeToSession } from '@/services/orchestratorClient';
+import { callOrchestrator, callAgentDirect, subscribeToSession } from '@/services/agents';
 
 export function useAgentOrchestration(initialSessionId?: string) {
   const [sessionId, setSessionId] = useState<string | null>(initialSessionId ?? null);

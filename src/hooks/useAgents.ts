@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { fetchAgents } from '@/services/agentService';
+import { fetchAgents } from '@/services/agents';
 import { AgentType } from '@/types/agent';
 
 // Helper function to generate a random phone number

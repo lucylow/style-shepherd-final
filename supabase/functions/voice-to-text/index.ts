@@ -29,8 +29,22 @@ serve(async (req) => {
     const { audio, text } = requestBody;
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
+    let userQuery: string;
+    
     // If text is already provided (from browser speech recognition), use it directly
-    const userQuery = text || "Hello, I need fashion advice";
+    if (text) {
+      userQuery = text;
+      console.log("Processing text query:", userQuery);
+    } else if (audio) {
+      // Audio blob was provided, but we don't have STT service in edge function
+      // For now, use a placeholder since browser speech recognition should handle this
+      // In production, you could add OpenAI Whisper API here for audio transcription
+      console.warn("Audio blob provided but transcription not implemented in edge function. Using browser STT recommended.");
+      userQuery = "Hello, I need fashion advice";
+    } else {
+      userQuery = "Hello, I need fashion advice";
+      console.log("No text or audio provided, using default query");
+    }
 
     console.log("Processing voice query:", userQuery);
 

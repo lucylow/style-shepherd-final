@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
 import { toast } from 'sonner';
-import { sizeComparisonService, type BodyMeasurement, type SizeComparisonResult } from '@/services/sizeComparisonService';
+import { sizeComparisonService, type BodyMeasurement, type SizeComparisonResult } from '@/services/shopping';
 import Layout from '@/components/Layout';
 
 interface BrandOption {

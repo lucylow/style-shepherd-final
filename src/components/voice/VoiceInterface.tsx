@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { VoiceResponse } from '@/types/fashion';
-import { voiceService } from '@/services/voiceService';
+import { voiceService } from '@/services/integrations';
 import { cn } from '@/lib/utils';
 
 interface VoiceInterfaceProps {
@@ -382,8 +382,13 @@ export const VoiceInterface = ({ onVoiceCommand, onListeningChange, userId, clas
 
       setMessages(prev => [...prev, assistantMessage]);
       
+      // Play audio response if available (server TTS generated audioUrl)
+      // If audioUrl is not present, TTS was already handled by voiceService using browser TTS
       if (response.audioUrl) {
         playAudioResponse(response.audioUrl);
+      } else {
+        // If no audioUrl, browser TTS was already used, so we don't need to play anything
+        console.log('✅ TTS already handled via browser Web Speech API');
       }
       
       onVoiceCommand?.(response);
@@ -451,8 +456,13 @@ export const VoiceInterface = ({ onVoiceCommand, onListeningChange, userId, clas
 
       setMessages(prev => [...prev, userMessage, assistantMessage]);
       
+      // Play audio response if available (server TTS generated audioUrl)
+      // If audioUrl is not present, TTS was already handled by voiceService using browser TTS
       if (response.audioUrl) {
         playAudioResponse(response.audioUrl);
+      } else {
+        // If no audioUrl, browser TTS was already used, so we don't need to play anything
+        console.log('✅ TTS already handled via browser Web Speech API');
       }
       
       onVoiceCommand?.(response);

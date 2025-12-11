@@ -70,16 +70,24 @@ const Hero = () => {
   };
 
   return (
-    <section className="pt-16 sm:pt-20 lg:pt-24 pb-12 sm:pb-16 lg:pb-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#667eea] via-[#764ba2] to-[#667eea] text-white relative overflow-hidden">
-      {/* Animated background elements */}
+    <section className="pt-16 sm:pt-20 lg:pt-24 pb-12 sm:pb-16 lg:pb-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#667eea] via-[#764ba2] to-[#f093fb] text-white relative overflow-hidden gradient-animate">
+      {/* Enhanced animated background elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-white/10 rounded-full blur-3xl animate-pulse-slow" />
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-white/10 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '2s' }} />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-white/5 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '4s' }} />
+        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-white/5 rounded-full blur-2xl animate-float-slow" style={{ animationDelay: '1s' }} />
+        <div className="absolute bottom-1/4 right-1/4 w-72 h-72 bg-white/5 rounded-full blur-2xl animate-float-slow" style={{ animationDelay: '3s' }} />
+        {/* Additional floating particles with more variety */}
+        <div className="absolute top-1/4 right-1/4 w-2 h-2 bg-white/40 rounded-full animate-float shadow-glow" style={{ animationDelay: '1s' }} />
+        <div className="absolute bottom-1/3 left-1/3 w-3 h-3 bg-white/30 rounded-full animate-float shadow-glow" style={{ animationDelay: '3s' }} />
+        <div className="absolute top-2/3 right-1/3 w-2.5 h-2.5 bg-white/35 rounded-full animate-float shadow-glow" style={{ animationDelay: '5s' }} />
+        <div className="absolute top-1/2 left-1/5 w-2 h-2 bg-white/25 rounded-full animate-float" style={{ animationDelay: '2s' }} />
+        <div className="absolute bottom-1/4 right-1/5 w-3 h-3 bg-white/20 rounded-full animate-float" style={{ animationDelay: '4s' }} />
       </div>
       
-      {/* Subtle grid overlay */}
-      <div className="absolute inset-0 bg-grid-white/5 opacity-30" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)', backgroundSize: '50px 50px' }} />
+      {/* Enhanced grid overlay with better visibility */}
+      <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.15) 1px, transparent 1px)', backgroundSize: '50px 50px' }} />
       
       <div className="max-w-7xl mx-auto relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
@@ -104,10 +112,10 @@ const Hero = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
-                className="text-4xl sm:text-5xl md:text-6xl font-bold leading-tight"
+                className="text-4xl sm:text-5xl md:text-6xl font-bold leading-tight tracking-tight"
               >
                 Your Personal
-                <span className="text-fashion-gold block drop-shadow-lg">Fashion</span>
+                <span className="text-fashion-gold block drop-shadow-2xl bg-gradient-to-r from-fashion-gold via-yellow-400 to-fashion-gold bg-clip-text text-transparent animate-pulse-slow">Fashion</span>
                 AI Stylist
               </motion.h1>
 
@@ -130,15 +138,15 @@ const Hero = () => {
               <motion.div 
                 whileHover={{ scale: 1.05, y: -2 }} 
                 whileTap={{ scale: 0.98 }}
-                className="group"
+                className="group ripple-effect"
               >
                 <Button
                   size="lg"
-                  className="bg-fashion-gold text-gray-900 hover:bg-fashion-gold/90 font-bold shadow-2xl hover:shadow-glow transition-all group-hover:shadow-2xl"
+                  className="bg-fashion-gold text-gray-900 hover:bg-fashion-gold/90 font-bold shadow-2xl hover:shadow-glow transition-all group-hover:shadow-2xl relative overflow-hidden"
                   asChild
                 >
-                  <Link to="/dashboard" className="flex items-center">
-                    <Mic className="mr-2 h-5 w-5 group-hover:animate-pulse" />
+                  <Link to="/dashboard" className="flex items-center relative z-10">
+                    <Mic className="mr-2 h-5 w-5 group-hover:animate-pulse transition-transform" />
                     Try Voice Assistant
                   </Link>
                 </Button>
@@ -147,15 +155,15 @@ const Hero = () => {
               <motion.div 
                 whileHover={{ scale: 1.05, y: -2 }} 
                 whileTap={{ scale: 0.98 }}
-                className="group"
+                className="group ripple-effect"
               >
                 <Button
                   size="lg"
                   variant="outline"
-                  className="border-2 border-white/90 text-white bg-white/10 backdrop-blur-sm hover:bg-white/20 hover:border-white font-semibold shadow-lg hover:shadow-xl transition-all"
+                  className="border-2 border-white/90 text-white bg-white/10 backdrop-blur-sm hover:bg-white/20 hover:border-white font-semibold shadow-lg hover:shadow-xl transition-all relative overflow-hidden"
                   asChild
                 >
-                  <Link to="/dashboard" className="flex items-center">
+                  <Link to="/dashboard" className="flex items-center relative z-10">
                     <PlayCircle className="mr-2 h-5 w-5 group-hover:scale-110 transition-transform" />
                     Watch Demo
                   </Link>
@@ -170,25 +178,25 @@ const Hero = () => {
               className="grid grid-cols-3 gap-4 sm:gap-8 pt-8"
             >
               <motion.div 
-                whileHover={{ scale: 1.1, y: -5 }}
-                className="text-center p-4 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all"
+                whileHover={{ scale: 1.1, y: -5, rotate: 1 }}
+                className="text-center p-4 sm:p-6 rounded-2xl bg-white/15 backdrop-blur-md border border-white/30 hover:bg-white/25 hover:border-white/40 transition-all shadow-elevated hover:shadow-glow"
               >
-                <div className="text-2xl sm:text-3xl font-bold">{stats.returns}%</div>
-                <div className="text-blue-200 text-xs sm:text-sm mt-1">Returns Reduced</div>
+                <div className="text-2xl sm:text-3xl font-bold bg-gradient-to-br from-white to-blue-100 bg-clip-text text-transparent">{stats.returns}%</div>
+                <div className="text-blue-100 text-xs sm:text-sm mt-1 font-medium">Returns Reduced</div>
               </motion.div>
               <motion.div 
-                whileHover={{ scale: 1.1, y: -5 }}
-                className="text-center p-4 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all"
+                whileHover={{ scale: 1.1, y: -5, rotate: -1 }}
+                className="text-center p-4 sm:p-6 rounded-2xl bg-white/15 backdrop-blur-md border border-white/30 hover:bg-white/25 hover:border-white/40 transition-all shadow-elevated hover:shadow-glow"
               >
-                <div className="text-2xl sm:text-3xl font-bold">{stats.timeSaved}%</div>
-                <div className="text-blue-200 text-xs sm:text-sm mt-1">Time Saved</div>
+                <div className="text-2xl sm:text-3xl font-bold bg-gradient-to-br from-white to-blue-100 bg-clip-text text-transparent">{stats.timeSaved}%</div>
+                <div className="text-blue-100 text-xs sm:text-sm mt-1 font-medium">Time Saved</div>
               </motion.div>
               <motion.div 
-                whileHover={{ scale: 1.1, y: -5 }}
-                className="text-center p-4 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all"
+                whileHover={{ scale: 1.1, y: -5, rotate: 1 }}
+                className="text-center p-4 sm:p-6 rounded-2xl bg-white/15 backdrop-blur-md border border-white/30 hover:bg-white/25 hover:border-white/40 transition-all shadow-elevated hover:shadow-glow"
               >
-                <div className="text-2xl sm:text-3xl font-bold">{stats.rating}</div>
-                <div className="text-blue-200 text-xs sm:text-sm mt-1">User Rating</div>
+                <div className="text-2xl sm:text-3xl font-bold bg-gradient-to-br from-white to-blue-100 bg-clip-text text-transparent">{stats.rating}</div>
+                <div className="text-blue-100 text-xs sm:text-sm mt-1 font-medium">User Rating</div>
               </motion.div>
             </motion.div>
           </motion.div>
@@ -199,7 +207,7 @@ const Hero = () => {
               transition={{ duration: 0.6, delay: 0.2 }}
               className="relative group"
             >
-            <div className="bg-white rounded-2xl shadow-2xl p-4 sm:p-6 lg:p-8 relative z-10 border border-gray-100/50 backdrop-blur-sm hover:shadow-elevated-xl transition-shadow duration-300">
+            <div className="bg-white rounded-3xl shadow-2xl p-4 sm:p-6 lg:p-8 relative z-10 border border-gray-100/50 backdrop-blur-sm hover:shadow-elevated-xl transition-all duration-300 hover:scale-[1.01] shimmer-effect">
               <div className="text-center mb-6">
                 <motion.div
                   initial={{ scale: 0 }}

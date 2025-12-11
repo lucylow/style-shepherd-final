@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
-import { stripeService, SUBSCRIPTION_PLANS, SubscriptionPlan } from '@/services/stripeService';
+import { stripeService, SUBSCRIPTION_PLANS, SubscriptionPlan } from '@/services/integrations';
 import { toast } from 'sonner';
 import { Check, CreditCard, Sparkles, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';

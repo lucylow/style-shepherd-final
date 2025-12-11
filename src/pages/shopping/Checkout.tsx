@@ -7,13 +7,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/AuthContext';
 import { CartItem } from '@/types/fashion';
-import { paymentService } from '@/services/paymentService';
+import { paymentService } from '@/services/integrations';
 import { mockCartService } from '@/services/mocks/mockCart';
 import { useCartCalculations } from '@/hooks/useCartCalculations';
 import { toast } from 'sonner';
 import { ArrowLeft, CreditCard, Lock, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
 import { CartReview } from '@/components/CartReview';
-import { returnsPredictor, type CartValidationResponse } from '@/services/returnsPredictor';
+import { returnsPredictor, type CartValidationResponse } from '@/services/shopping';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import HeaderNav from '@/components/layout/HeaderNav';

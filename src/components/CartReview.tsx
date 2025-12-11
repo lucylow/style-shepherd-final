@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, CheckCircle, Info, ArrowRight, X } from 'lucide-react';
 import type { CartItem } from '@/types/fashion';
-import type { ReturnRiskAssessment, CartValidationResponse } from '@/services/returnsPredictor';
+import type { ReturnRiskAssessment, CartValidationResponse } from '@/services/shopping';
 
 interface CartReviewProps {
   cartItems: CartItem[];

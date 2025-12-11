@@ -46,8 +46,17 @@ function numericBetween(value: number | null | undefined, min: number | null | u
 function matchesProduct(p: Product, filters: SearchFilters = {}): boolean {
   if (filters.q) {
     const q = filters.q.toLowerCase().trim();
+    // Remove trend keywords for better matching (trending, hot, popular, etc.)
+    const trendKeywords = ['trending', 'trend', 'trends', 'hot', 'popular', 'viral', 
+      'must-have', 'in style', 'on trend', 'seasonal', 'new arrival', 'latest', 
+      'current', 'now', 'this season'];
+    let normalizedQuery = q;
+    trendKeywords.forEach(keyword => {
+      normalizedQuery = normalizedQuery.replace(new RegExp(`\\b${keyword}\\b`, 'gi'), '').trim();
+    });
+    
     // Split query into terms for better matching
-    const queryTerms = q.split(/\s+/).filter(term => term.length > 0);
+    const queryTerms = (normalizedQuery || q).split(/\s+/).filter(term => term.length > 0);
     
     const searchableText = (
       (p.name || p.title || '') +
@@ -65,9 +74,12 @@ function matchesProduct(p: Product, filters: SearchFilters = {}): boolean {
       (p.fabric || '')
     ).toLowerCase();
     
-    // All query terms must be found in searchable text
-    const allTermsMatch = queryTerms.every(term => searchableText.includes(term));
-    if (!allTermsMatch) return false;
+    // All query terms must be found in searchable text (or match if only trend keywords)
+    if (queryTerms.length > 0) {
+      const allTermsMatch = queryTerms.every(term => searchableText.includes(term));
+      if (!allTermsMatch) return false;
+    }
+    // If query only contains trend keywords, allow match (for SEO purposes)
   }
 
   if (filters.category && p.category && p.category.toLowerCase() !== filters.category.toLowerCase()) {

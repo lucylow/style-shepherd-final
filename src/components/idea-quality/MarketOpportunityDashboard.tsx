@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { MarketSizeCalculator } from '@/services/market-size-calculator';
+import { MarketSizeCalculator } from '@/services/analytics';
 import type { MarketSizing, EnvironmentalMetrics, BusinessImpact } from '@/lib/idea-quality/types';
 import { DollarSign, TrendingUp, Leaf, Building2 } from 'lucide-react';
 

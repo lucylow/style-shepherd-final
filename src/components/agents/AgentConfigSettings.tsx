@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AgentType, VoiceTrait } from '@/types/agent';
-import { updateAgent } from '@/services/agentService';
+import { updateAgent } from '@/services/agents';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
   Bot, Copy, Target, User, FileText, Code, Building, Briefcase, 

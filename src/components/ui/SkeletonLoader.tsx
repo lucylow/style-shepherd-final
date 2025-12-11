@@ -17,13 +17,15 @@ export function SkeletonLoader({
       case 'product':
         return (
           <div className="bg-card rounded-xl shadow-elevated border border-border overflow-hidden animate-pulse">
-            <Skeleton className="aspect-[3/4] w-full bg-gradient-to-br from-muted to-muted/50" />
+            <div className="aspect-[3/4] w-full bg-gradient-to-br from-muted via-muted/80 to-muted image-loading relative overflow-hidden">
+              <Skeleton className="absolute inset-0 bg-gradient-to-br from-muted to-muted/50" />
+            </div>
             <div className="p-4 space-y-3">
-              <Skeleton className="h-4 w-3/4 bg-gradient-to-r from-muted to-muted/70" />
-              <Skeleton className="h-3 w-1/2 bg-gradient-to-r from-muted to-muted/70" />
+              <Skeleton className="h-4 w-3/4 bg-gradient-to-r from-muted via-muted/70 to-muted" />
+              <Skeleton className="h-3 w-1/2 bg-gradient-to-r from-muted via-muted/70 to-muted" />
               <div className="flex items-center justify-between pt-2">
-                <Skeleton className="h-5 w-1/3 bg-gradient-to-r from-muted to-muted/70" />
-                <Skeleton className="h-8 w-8 rounded-full bg-gradient-to-r from-muted to-muted/70" />
+                <Skeleton className="h-5 w-1/3 bg-gradient-to-r from-muted via-muted/70 to-muted" />
+                <Skeleton className="h-8 w-8 rounded-full bg-gradient-to-r from-muted via-muted/70 to-muted" />
               </div>
             </div>
           </div>

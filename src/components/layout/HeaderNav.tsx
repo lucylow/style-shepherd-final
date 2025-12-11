@@ -13,7 +13,7 @@ import {
   User, LogOut, Home, Package, Mic, LayoutDashboard, Brain, Layers,
   Target, TrendingUp, BarChart3, Shield, Award,
   PlayCircle, LineChart, Calculator, Building2, Cloud, ChevronDown,
-  Sparkles, Ruler, Camera, Shirt
+  Sparkles, Ruler, Camera, Shirt, Settings
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -69,6 +69,13 @@ const navGroups: NavGroup[] = [
       { href: "/admin/providers", label: "Provider Management", icon: Building2 },
     ],
   },
+  {
+    label: "Lovable",
+    items: [
+      { href: "/lovable/analytics", label: "Analytics", icon: BarChart3 },
+      { href: "/lovable/settings", label: "Settings", icon: Settings },
+    ],
+  },
 ];
 
 export default function HeaderNav() {
@@ -97,7 +104,7 @@ export default function HeaderNav() {
   const mainItems = navGroups[0].items;
 
   return (
-    <nav role="navigation" aria-label="Main navigation" className="bg-background/95 backdrop-blur-xl shadow-soft border-b border-border/50 sticky top-0 z-50 supports-[backdrop-filter]:bg-background/80">
+    <nav role="navigation" aria-label="Main navigation" className="bg-background/95 backdrop-blur-xl shadow-elevated border-b border-border/50 sticky top-0 z-50 supports-[backdrop-filter]:bg-background/80 transition-all duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 md:h-18">
           <div className="flex items-center gap-4">
@@ -107,10 +114,12 @@ export default function HeaderNav() {
               aria-label="Style Shepherd Home"
             >
               <motion.div 
-                whileHover={{ scale: 1.05, rotate: 5 }}
-                className="w-8 h-8 bg-gradient-to-br from-primary via-primary/90 to-fashion-gold rounded-lg shadow-sm group-hover:shadow-glow-primary transition-all"
-              />
-              <span className="text-lg sm:text-xl font-bold text-foreground group-hover:text-primary transition-colors">Style Shepherd</span>
+                whileHover={{ scale: 1.1, rotate: 10 }}
+                className="w-8 h-8 bg-gradient-to-br from-primary via-primary/90 to-fashion-gold rounded-lg shadow-elevated group-hover:shadow-glow-primary transition-all relative overflow-hidden"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              </motion.div>
+              <span className="text-lg sm:text-xl font-bold text-foreground group-hover:text-primary transition-colors bg-gradient-to-r from-foreground to-foreground group-hover:from-primary group-hover:to-primary/80 bg-clip-text text-transparent">Style Shepherd</span>
             </Link>
           </div>
           
@@ -124,10 +133,10 @@ export default function HeaderNav() {
                   to={item.href}
                   aria-current={isActive(item.href) ? 'page' : undefined}
                   className={cn(
-                    "px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 relative flex items-center gap-2 group",
+                    "px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 relative flex items-center gap-2 group focus-visible-enhanced",
                     isActive(item.href)
-                      ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/20'
-                      : 'text-foreground hover:bg-muted/60 hover:text-primary hover:shadow-soft'
+                      ? 'bg-primary text-primary-foreground shadow-elevated shadow-primary/20'
+                      : 'text-foreground hover:bg-muted/60 hover:text-primary hover:shadow-soft hover:-translate-y-1'
                   )}
                 >
                   {Icon && (

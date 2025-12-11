@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CompetitiveAnalysisService } from '@/services/competitive-analysis-service';
+import { CompetitiveAnalysisService } from '@/services/analytics';
 import type { ComparisonMatrix } from '@/lib/idea-quality/types';
 import { CheckCircle2, XCircle, TrendingUp } from 'lucide-react';
 

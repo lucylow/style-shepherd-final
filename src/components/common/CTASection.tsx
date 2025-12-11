@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 
 const CTASection = () => {
   return (
-    <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#f093fb] via-[#f5576c] to-[#4facfe] text-white relative overflow-hidden">
+    <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#f093fb] via-[#f5576c] to-[#4facfe] text-white relative overflow-hidden gradient-animate">
       {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-white/10 rounded-full blur-3xl animate-pulse-slow" />
@@ -38,23 +38,23 @@ const CTASection = () => {
           transition={{ duration: 0.6, delay: 0.2 }}
           className="flex flex-col sm:flex-row justify-center gap-4 sm:space-x-6"
         >
-          <motion.div whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.98 }}>
+          <motion.div whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.98 }} className="ripple-effect">
             <Button
               size="lg"
-              className="bg-white text-gray-900 hover:bg-gray-100 font-bold shadow-2xl hover:shadow-elevated-xl w-full sm:w-auto transition-all"
+              className="bg-white text-gray-900 hover:bg-gray-100 font-bold shadow-2xl hover:shadow-elevated-xl w-full sm:w-auto transition-all relative overflow-hidden"
               asChild
             >
-              <Link to="/dashboard">Try Free Demo</Link>
+              <Link to="/dashboard" className="relative z-10">Try Free Demo</Link>
             </Button>
           </motion.div>
 
-          <motion.div whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.98 }}>
+          <motion.div whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.98 }} className="ripple-effect">
             <Button
               size="lg"
               variant="outline"
-              className="border-2 border-white/90 text-white bg-white/10 backdrop-blur-sm hover:bg-white/20 hover:border-white w-full sm:w-auto transition-all shadow-lg"
+              className="border-2 border-white/90 text-white bg-white/10 backdrop-blur-sm hover:bg-white/20 hover:border-white w-full sm:w-auto transition-all shadow-lg relative overflow-hidden"
             >
-              Schedule Demo
+              <span className="relative z-10">Schedule Demo</span>
             </Button>
           </motion.div>
         </motion.div>

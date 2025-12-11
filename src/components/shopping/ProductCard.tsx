@@ -104,26 +104,30 @@ export const ProductCard = memo(({
 
   return (
     <motion.div
-      whileHover={{ y: -8, scale: 1.02 }}
+      whileHover={{ y: -10, scale: 1.03 }}
       transition={{ type: "spring", stiffness: 300, damping: 25 }}
-      className="bg-card rounded-xl shadow-elevated border border-border/50 overflow-hidden group card-hover relative"
+      className="bg-card rounded-2xl shadow-elevated border border-border/50 overflow-hidden group card-hover-enhanced card-premium relative"
     >
       {/* Product Image */}
       <div className="relative aspect-[3/4] overflow-hidden bg-gradient-to-br from-muted to-muted/50">
         {!imageLoaded && (
-          <div className="absolute inset-0 bg-gradient-to-br from-muted via-muted/80 to-muted animate-pulse" />
+          <div className="absolute inset-0 bg-gradient-to-br from-muted via-muted/80 to-muted image-loading" />
         )}
         <img
           src={product.images[0]}
           alt={product.name}
-          className={`w-full h-full object-cover transition-all duration-500 ease-out group-hover:scale-110 ${
+          className={`w-full h-full object-cover transition-all duration-700 ease-out group-hover:scale-110 ${
             imageLoaded ? 'opacity-100' : 'opacity-0'
           }`}
           onLoad={() => setImageLoaded(true)}
           loading="lazy"
         />
         {/* Image overlay gradient on hover */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/0 via-transparent to-transparent group-hover:from-black/5 transition-all duration-300 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/0 via-transparent to-transparent group-hover:from-black/10 transition-all duration-500 pointer-events-none" />
+        {/* Shine effect on hover */}
+        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none">
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+        </div>
         
         {/* Return Risk Indicator - Updated to use new metrics */}
         {returnRiskScore !== undefined && returnRiskScore > 0 && (
@@ -258,11 +262,13 @@ export const ProductCard = memo(({
           </div>
         )}
 
-        {/* Quick Actions Overlay */}
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-all duration-300 space-y-2 backdrop-blur-sm">
+        {/* Enhanced Quick Actions Overlay */}
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-black/85 to-black/60 p-4 opacity-0 group-hover:opacity-100 transition-all duration-500 space-y-2 backdrop-blur-lg border-t border-white/10">
           <motion.div
             initial={{ y: 10, opacity: 0 }}
-            whileHover={{ scale: 1.02 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.1 }}
+            whileHover={{ scale: 1.02, y: -2 }}
             whileTap={{ scale: 0.98 }}
           >
             <Button
@@ -270,7 +276,7 @@ export const ProductCard = memo(({
                 e.stopPropagation();
                 onAddToCart(product);
               }}
-              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-glow-primary transition-all"
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-glow-primary transition-all ripple-effect"
               size="sm"
             >
               <ShoppingBag className="w-4 h-4 mr-2" />
@@ -318,11 +324,11 @@ export const ProductCard = memo(({
       </div>
 
       {/* Product Info */}
-      <div className="p-4 space-y-2">
-        <h3 className="font-semibold text-foreground line-clamp-2 mb-1 group-hover:text-primary transition-colors">
+      <div className="p-5 space-y-2 bg-gradient-to-b from-card to-card/95">
+        <h3 className="font-semibold text-foreground line-clamp-2 mb-1 group-hover:text-primary transition-colors text-base">
           {product.name}
         </h3>
-        <p className="text-sm text-muted-foreground mb-2 line-clamp-1">
+        <p className="text-sm text-muted-foreground mb-2 line-clamp-1 font-medium">
           {product.brand}
         </p>
         

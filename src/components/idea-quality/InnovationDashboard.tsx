@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { InnovationScoringService } from '@/services/innovation-scoring-service';
+import { InnovationScoringService } from '@/services/analytics';
 import type { InnovationScore } from '@/lib/idea-quality/types';
 import { Sparkles, TrendingUp, Shield, Zap } from 'lucide-react';
 

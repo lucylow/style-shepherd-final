@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Sparkles, User } from 'lucide-react';
-import { getFashioniResponse } from '@/services/aiAssistant';
+import { getFashioniResponse } from '@/services/ai';
 import { toast } from 'sonner';
 
 interface Message {

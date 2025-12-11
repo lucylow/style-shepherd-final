@@ -8,7 +8,8 @@ import {
   Brain, 
   Settings,
   TrendingUp,
-  Users
+  Users,
+  BarChart3
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -25,7 +26,7 @@ const menuItems: MenuItem[] = [
   { icon: ShoppingBag, label: 'Products', to: '/products' },
   { icon: Mic, label: 'Voice Shop', to: '/voice-shop' },
   { icon: Brain, label: 'AI Memory', to: '/ai-memory', badge: 'New' },
-  { icon: TrendingUp, label: 'Analytics', to: '/lovable/analytics' },
+  { icon: BarChart3, label: 'Analytics', to: '/lovable/analytics' },
   { icon: Users, label: 'Demo', to: '/demo' },
   { icon: Settings, label: 'Settings', to: '/lovable/settings' },
 ];

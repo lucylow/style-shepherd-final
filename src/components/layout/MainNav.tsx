@@ -24,6 +24,7 @@ import {
   Ruler,
   Camera,
   Shirt,
+  Settings,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -86,6 +87,13 @@ const navGroups: NavGroup[] = [
       { href: "/admin/providers", label: "Provider Management", icon: Building2 },
     ],
   },
+  {
+    label: "Lovable",
+    items: [
+      { href: "/lovable/analytics", label: "Analytics", icon: BarChart3 },
+      { href: "/lovable/settings", label: "Settings", icon: Settings },
+    ],
+  },
 ];
 
 export default function MainNav() {
@@ -118,20 +126,40 @@ export default function MainNav() {
         <div className="p-4 border-b border-border flex items-center justify-between">
           <Link 
             to="/" 
-            className="font-bold text-lg text-foreground hover:text-primary transition-colors"
+            className="font-bold text-lg text-foreground hover:text-primary transition-colors flex items-center gap-2"
             onClick={() => setMobileOpen(false)}
           >
-            {!collapsed && "Style Shepherd"}
+            {collapsed ? (
+              <div className="w-8 h-8 bg-gradient-to-br from-primary via-primary/90 to-primary/70 rounded-lg" />
+            ) : (
+              <>
+                <div className="w-8 h-8 bg-gradient-to-br from-primary via-primary/90 to-primary/70 rounded-lg" />
+                <span>Style Shepherd</span>
+              </>
+            )}
           </Link>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setCollapsed(!collapsed)}
-            className="hidden md:flex"
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            <Menu className="h-4 w-4" />
-          </Button>
+          {!collapsed && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setCollapsed(!collapsed)}
+              className="hidden md:flex"
+              aria-label="Collapse sidebar"
+            >
+              <Menu className="h-4 w-4" />
+            </Button>
+          )}
+          {collapsed && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setCollapsed(!collapsed)}
+              className="hidden md:flex w-full justify-center"
+              aria-label="Expand sidebar"
+            >
+              <Menu className="h-4 w-4" />
+            </Button>
+          )}
         </div>
 
         <nav className="flex-1 overflow-y-auto p-2" role="navigation" aria-label="Main navigation">

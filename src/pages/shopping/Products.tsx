@@ -11,7 +11,7 @@ import { SkeletonLoader } from '@/components/ui/SkeletonLoader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { CartItem, Product } from '@/types/fashion';
 import { useAuth } from '@/contexts/AuthContext';
-import { productService } from '@/services/productService';
+import { productService } from '@/services/shopping';
 import { mockCartService } from '@/services/mocks/mockCart';
 import Breadcrumbs from '@/components/common/Breadcrumbs';
 import HeaderNav from '@/components/layout/HeaderNav';

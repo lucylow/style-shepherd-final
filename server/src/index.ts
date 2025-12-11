@@ -12,23 +12,18 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync } from 'fs';
 import env from './config/env.js';
-import vultrRoutes from './routes/vultr.js';
 import apiRoutes from './routes/api.js';
-import integrationsRoutes from './routes/integrations.js';
-import raindropRoutes from './routes/raindrop.js';
-import fraudRoutes from './routes/fraud.js';
 import personalizationRoutes from './routes/personalization.js';
-import adminRoutes from './routes/admin.js';
-import specializedAgentsRoutes from './routes/specialized-agents.js';
-import workflowRoutes from './routes/workflows.js';
-import shoppingSessionsRoutes from './routes/shopping-sessions.js';
 import guardrailsRoutes from './routes/guardrails.js';
 import errorRoutes from './routes/errors.js';
-import monitoringRoutes from './routes/monitoring.js';
 import trendAnalysisRoutes from './routes/trend-analysis.js';
-import { vultrPostgres } from './lib/vultr-postgres.js';
-import { vultrValkey } from './lib/vultr-valkey.js';
-import { initRaindrop } from './lib/raindropClient.js';
+import { vultrRoutes, raindropRoutes, brandTrackingRoutes, integrationsRoutes } from './routes/integrations/index.js';
+import { fraudRoutes, adminRoutes } from './routes/admin/index.js';
+import { specializedAgentsRoutes, workflowRoutes } from './routes/agents/index.js';
+import { shoppingSessionsRoutes } from './routes/shopping/index.js';
+import { monitoringRoutes } from './routes/monitoring/index.js';
+import { vultrPostgres, vultrValkey } from './lib/storage/index.js';
+import { initRaindrop } from './lib/clients/index.js';
 import { initializeGuardrails } from './lib/guardrails/index.js';
 import { initProviders } from './lib/initProviders.js';
 import { monitoringMiddleware, contextMiddleware } from './middleware/monitoring.js';
@@ -140,6 +135,7 @@ app.use('/api/guardrails', guardrailsRoutes);
 app.use('/api/errors', errorRoutes);
 app.use('/api/monitoring', monitoringRoutes);
 app.use('/api/functions', trendAnalysisRoutes);
+app.use('/api/brands', brandTrackingRoutes);
 // Note: returns-predictor routes are mounted under /api/agents/returns-predictor in apiRoutes
 app.use('/api', apiRoutes);
 
@@ -177,8 +173,7 @@ app.get('/', (req: express.Request, res: express.Response) => {
 });
 
 // Error handling middleware
-import { AppError, isAppError, toAppError } from './lib/errors.js';
-import { logError } from './lib/errorLogger.js';
+import { AppError, isAppError, toAppError, logError } from './lib/utils/index.js';
 
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   // Convert to AppError if needed

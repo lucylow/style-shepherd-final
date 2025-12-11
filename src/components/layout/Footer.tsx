@@ -3,7 +3,9 @@ import { motion } from "framer-motion";
 
 const Footer = () => {
   return (
-    <footer className="bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800 text-white py-12 px-4 sm:px-6 lg:px-8 border-t border-gray-800/50">
+    <footer className="bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800 text-white py-12 px-4 sm:px-6 lg:px-8 border-t border-gray-800/50 relative overflow-hidden">
+      {/* Subtle background pattern */}
+      <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '40px 40px' }} />
       <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
           <motion.div
@@ -14,10 +16,12 @@ const Footer = () => {
           >
             <div className="flex items-center space-x-3 mb-6">
               <motion.div 
-                whileHover={{ scale: 1.1, rotate: 5 }}
-                className="w-8 h-8 bg-gradient-to-br from-primary via-primary/90 to-fashion-gold rounded-lg shadow-lg"
-              />
-              <span className="text-xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">Style Shepherd</span>
+                whileHover={{ scale: 1.15, rotate: 10 }}
+                className="w-8 h-8 bg-gradient-to-br from-primary via-primary/90 to-fashion-gold rounded-lg shadow-elevated hover:shadow-glow-primary transition-all relative overflow-hidden"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300" />
+              </motion.div>
+              <span className="text-xl font-bold bg-gradient-to-r from-white via-white to-gray-300 bg-clip-text text-transparent">Style Shepherd</span>
             </div>
             <p className="text-gray-400 mb-6 leading-relaxed">
               AI-powered fashion assistant that reduces returns and enhances your shopping
@@ -33,9 +37,9 @@ const Footer = () => {
                 <motion.a
                   key={idx}
                   href={social.href}
-                  whileHover={{ scale: 1.2, y: -2 }}
+                  whileHover={{ scale: 1.25, y: -3, rotate: 5 }}
                   whileTap={{ scale: 0.9 }}
-                  className="text-gray-400 hover:text-primary transition-colors p-2 rounded-lg hover:bg-gray-800/50 hover:shadow-lg hover:shadow-primary/20"
+                  className="text-gray-400 hover:text-primary transition-all p-2 rounded-xl hover:bg-gray-800/60 hover:shadow-elevated hover:shadow-primary/30 focus-visible-enhanced"
                   aria-label={`Visit our ${social.icon.name} page`}
                 >
                   <social.icon className="w-5 h-5" />
@@ -87,7 +91,7 @@ const Footer = () => {
                     <motion.a
                       href={link.href}
                       whileHover={{ x: 4 }}
-                      className="text-gray-400 hover:text-primary transition-colors inline-block hover:underline underline-offset-4"
+                      className="text-gray-400 hover:text-primary transition-colors inline-block hover:underline underline-offset-4 focus-visible-enhanced"
                     >
                       {link.label}
                     </motion.a>

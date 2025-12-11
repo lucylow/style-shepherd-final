@@ -55,6 +55,8 @@ const UnitEconomicsPage = lazy(() => import('@/pages/demo/UnitEconomics'));
 const SponsorMetricsPage = lazy(() => import('@/pages/demo/SponsorMetrics'));
 
 // Lovable Cloud features have been integrated into MonitoringDashboard
+const LovableAnalytics = lazy(() => import('@/pages/lovable/Analytics'));
+const LovableSettings = lazy(() => import('@/pages/lovable/Settings'));
 
 // Demo & Integration pages
 const DemoIntegrations = lazy(() => import('@/pages/demo/DemoIntegrations'));
@@ -299,6 +301,18 @@ export const routeConfigs: RouteConfig[] = [
   },
 
   // Lovable Cloud features integrated into /monitoring route
+  {
+    path: '/lovable/analytics',
+    component: LovableAnalytics,
+    label: 'Analytics',
+    group: 'lovable',
+  },
+  {
+    path: '/lovable/settings',
+    component: LovableSettings,
+    label: 'Settings',
+    group: 'lovable',
+  },
 
   // Demo & Integration routes
   {

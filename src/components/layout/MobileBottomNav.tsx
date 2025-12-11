@@ -24,43 +24,53 @@ export default function MobileBottomNav() {
       role="navigation"
       aria-label="Mobile bottom navigation"
     >
-      <div className="bg-card/95 backdrop-blur-xl rounded-2xl shadow-lg flex justify-around p-2 border border-border">
+      <div className="bg-card/95 backdrop-blur-xl rounded-2xl shadow-elevated-lg flex justify-around p-2 border border-border/50">
         {navItems.map(({ href, label, icon: Icon }, index) => {
           const active = isActive(href);
           return (
-            <Link
+            <motion.div
               key={href}
-              to={href}
-              aria-label={label}
-              aria-current={active ? 'page' : undefined}
-              className={cn(
-                "relative flex flex-col items-center justify-center text-xs px-3 py-2 rounded-lg transition-all duration-200 min-w-[60px] group",
-                active
-                  ? 'text-primary-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
-              )}
+              whileTap={{ scale: 0.95 }}
+              className="flex-1"
             >
-              {active && (
-                <motion.div
-                  layoutId="mobileNavActive"
-                  className="absolute inset-0 bg-primary rounded-lg -z-10"
-                  transition={{ type: "spring", bounce: 0.2, duration: 0.4 }}
-                />
-              )}
-              <Icon 
-                size={20} 
+              <Link
+                to={href}
+                aria-label={label}
+                aria-current={active ? 'page' : undefined}
                 className={cn(
-                  "mb-1 transition-transform duration-200",
-                  active ? "scale-110" : "group-hover:scale-105"
-                )} 
-              />
-              <span className={cn(
-                "text-[10px] font-medium transition-colors",
-                active && "font-semibold"
-              )}>
-                {label}
-              </span>
-            </Link>
+                  "relative flex flex-col items-center justify-center text-xs px-3 py-2 rounded-lg transition-all duration-200 min-w-[60px] group focus-visible-enhanced",
+                  active
+                    ? 'text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {active && (
+                  <motion.div
+                    layoutId="mobileNavActive"
+                    className="absolute inset-0 bg-primary rounded-lg -z-10 shadow-sm shadow-primary/20"
+                    transition={{ type: "spring", bounce: 0.2, duration: 0.4 }}
+                  />
+                )}
+                <motion.div
+                  animate={active ? { scale: 1.1, y: -2 } : { scale: 1, y: 0 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                >
+                  <Icon 
+                    size={20} 
+                    className={cn(
+                      "mb-1 transition-transform duration-200",
+                      active ? "scale-110" : "group-hover:scale-105"
+                    )} 
+                  />
+                </motion.div>
+                <span className={cn(
+                  "text-[10px] font-medium transition-colors",
+                  active && "font-semibold"
+                )}>
+                  {label}
+                </span>
+              </Link>
+            </motion.div>
           );
         })}
       </div>

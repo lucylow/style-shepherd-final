@@ -42,11 +42,41 @@ export interface SearchResult {
   totalFound: number;
   searchTime: number;
   merchants: string[];
+  trendContext?: {
+    isTrendQuery: boolean;
+    trendKeywords: string[];
+    season?: string;
+    trendingStyles?: string[];
+    trendingColors?: string[];
+  };
 }
 
 export class SearchAgent {
   private readonly DEFAULT_LIMIT = 20;
   private readonly CACHE_TTL = 300; // 5 minutes
+
+  // Fashion trend keywords for SEO optimization
+  private readonly TREND_KEYWORDS = [
+    'trending', 'trend', 'trends', 'fashion trend', 'style trend',
+    'hot', 'popular', 'viral', 'must-have', 'in style', 'on trend',
+    'seasonal', 'spring', 'summer', 'fall', 'winter', 'autumn',
+    'new arrival', 'latest', 'current', 'now', 'this season',
+    'oversized', 'minimalist', 'vintage', 'retro', 'classic',
+    'sustainable', 'eco-friendly', 'organic', 'ethical fashion',
+    'athleisure', 'streetwear', 'bohemian', 'chic', 'elegant',
+    'casual', 'formal', 'business', 'party', 'wedding',
+    'linen', 'denim', 'silk', 'cotton', 'wool', 'cashmere',
+    'pastel', 'neutral', 'bold', 'bright', 'muted',
+    'corset', 'blazer', 'cargo', 'cargo pants', 'cargo shorts',
+    'y2k', '90s', '80s', '70s', 'grunge', 'preppy',
+  ];
+
+  private readonly SEASONAL_KEYWORDS: Record<string, string[]> = {
+    spring: ['spring', 'floral', 'pastel', 'light', 'fresh', 'renewal'],
+    summer: ['summer', 'beach', 'vacation', 'lightweight', 'breathable', 'sundress'],
+    fall: ['fall', 'autumn', 'cozy', 'layered', 'warm', 'pumpkin', 'rust'],
+    winter: ['winter', 'warm', 'cozy', 'layered', 'wool', 'cashmere', 'boots'],
+  };
 
   /**
    * Search for products across multiple merchants (Agent-to-Site)
@@ -97,11 +127,15 @@ export class SearchAgent {
       // Limit results
       const finalProducts = rankedProducts.slice(0, limit);
 
+      // Analyze query for trend context (SEO optimization)
+      const trendContext = this.analyzeTrendContext(enhancedParams.query);
+
       const result: SearchResult = {
         products: finalProducts,
         totalFound: products.length,
         searchTime: Date.now() - startTime,
         merchants: [...new Set(finalProducts.map(p => p.merchantName || 'Unknown'))],
+        trendContext,
       };
 
       // Cache results
@@ -280,6 +314,78 @@ export class SearchAgent {
       console.warn('AI ranking failed:', error);
       return products;
     }
+  }
+
+  /**
+   * Analyze search query for fashion trend context (SEO optimization)
+   */
+  private analyzeTrendContext(query: string): {
+    isTrendQuery: boolean;
+    trendKeywords: string[];
+    season?: string;
+    trendingStyles?: string[];
+    trendingColors?: string[];
+  } {
+    const queryLower = query.toLowerCase();
+    const trendKeywords: string[] = [];
+    let season: string | undefined;
+    const trendingStyles: string[] = [];
+    const trendingColors: string[] = [];
+
+    // Check for trend keywords
+    for (const keyword of this.TREND_KEYWORDS) {
+      if (queryLower.includes(keyword.toLowerCase())) {
+        trendKeywords.push(keyword);
+      }
+    }
+
+    // Detect season from query
+    for (const [seasonName, keywords] of Object.entries(this.SEASONAL_KEYWORDS)) {
+      if (keywords.some(kw => queryLower.includes(kw))) {
+        season = seasonName;
+        break;
+      }
+    }
+
+    // Detect current season if not found in query
+    if (!season) {
+      const currentMonth = new Date().getMonth() + 1;
+      if (currentMonth >= 12 || currentMonth <= 2) {
+        season = 'winter';
+      } else if (currentMonth >= 3 && currentMonth <= 5) {
+        season = 'spring';
+      } else if (currentMonth >= 6 && currentMonth <= 8) {
+        season = 'summer';
+      } else {
+        season = 'fall';
+      }
+    }
+
+    // Extract style keywords
+    const styleKeywords = ['oversized', 'minimalist', 'vintage', 'retro', 'classic', 
+      'athleisure', 'streetwear', 'bohemian', 'chic', 'elegant', 'casual', 'formal'];
+    styleKeywords.forEach(style => {
+      if (queryLower.includes(style)) {
+        trendingStyles.push(style);
+      }
+    });
+
+    // Extract color keywords
+    const colorKeywords = ['pastel', 'neutral', 'bold', 'bright', 'muted', 'black', 
+      'white', 'navy', 'burgundy', 'coral', 'turquoise', 'rust', 'olive'];
+    colorKeywords.forEach(color => {
+      if (queryLower.includes(color)) {
+        trendingColors.push(color);
+      }
+    });
+
+    return {
+      isTrendQuery: trendKeywords.length > 0 || trendingStyles.length > 0,
+      trendKeywords,
+      season,
+      trendingStyles: trendingStyles.length > 0 ? trendingStyles : undefined,
+      trendingColors: trendingColors.length > 0 ? trendingColors : undefined,
+    };
   }
 }
 

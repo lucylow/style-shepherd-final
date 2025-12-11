@@ -23,6 +23,12 @@ export function generateSlug(text: string): string {
  */
 export function generateSearchTitle(query?: string, category?: string, totalResults?: number): string {
   if (query) {
+    const isTrend = isTrendQuery(query);
+    const season = getSeasonFromQuery(query);
+    
+    if (isTrend) {
+      return `Trending "${query}" Fashion${totalResults ? ` (${totalResults} products)` : ''} - ${season.charAt(0).toUpperCase() + season.slice(1)} Trends | Style Shepherd`;
+    }
     return `Search Results for "${query}"${totalResults ? ` (${totalResults} products)` : ''} - Style Shepherd`;
   }
   if (category) {
@@ -41,12 +47,56 @@ export function generateSearchDescription(
   totalResults?: number
 ): string {
   if (query) {
+    const isTrend = isTrendQuery(query);
+    const season = getSeasonFromQuery(query);
+    
+    if (isTrend) {
+      return `Discover ${totalResults || ''} trending fashion products matching "${query}". Explore ${season} fashion trends, get AI-powered size predictions, and reduce returns by 90% with Style Shepherd's trend analysis.`;
+    }
     return `Find ${totalResults || ''} fashion products matching "${query}". AI-powered size predictions and personalized styling advice. Reduce returns by 90% with Style Shepherd.`;
   }
   if (category) {
     return `Browse our collection of ${category} products. Get perfect size predictions and reduce returns by 90% with AI-powered fashion assistance from Style Shepherd.`;
   }
   return 'Discover fashion products with AI-powered size predictions. Reduce returns by 90% and find your perfect fit with Style Shepherd.';
+}
+
+/**
+ * Detect if query contains fashion trend keywords
+ */
+export function isTrendQuery(query?: string): boolean {
+  if (!query) return false;
+  const queryLower = query.toLowerCase();
+  const trendKeywords = [
+    'trending', 'trend', 'trends', 'fashion trend', 'style trend',
+    'hot', 'popular', 'viral', 'must-have', 'in style', 'on trend',
+    'seasonal', 'spring', 'summer', 'fall', 'winter', 'autumn',
+    'new arrival', 'latest', 'current', 'now', 'this season',
+    'oversized', 'minimalist', 'vintage', 'retro', 'classic',
+    'sustainable', 'eco-friendly', 'organic', 'ethical fashion',
+    'athleisure', 'streetwear', 'bohemian', 'chic', 'elegant',
+  ];
+  return trendKeywords.some(keyword => queryLower.includes(keyword));
+}
+
+/**
+ * Extract season from query or return current season
+ */
+export function getSeasonFromQuery(query?: string): string {
+  if (query) {
+    const queryLower = query.toLowerCase();
+    if (queryLower.includes('spring') || queryLower.includes('floral')) return 'spring';
+    if (queryLower.includes('summer') || queryLower.includes('beach')) return 'summer';
+    if (queryLower.includes('fall') || queryLower.includes('autumn')) return 'fall';
+    if (queryLower.includes('winter') || queryLower.includes('cozy')) return 'winter';
+  }
+  
+  // Default to current season
+  const currentMonth = new Date().getMonth() + 1;
+  if (currentMonth >= 12 || currentMonth <= 2) return 'winter';
+  if (currentMonth >= 3 && currentMonth <= 5) return 'spring';
+  if (currentMonth >= 6 && currentMonth <= 8) return 'summer';
+  return 'fall';
 }
 
 /**
@@ -79,10 +129,28 @@ export function generateKeywords(query?: string, category?: string, products?: P
 
   if (query) {
     dynamicKeywords.push(query.toLowerCase());
+    
+    // Add trend-related keywords if query is trend-related
+    if (isTrendQuery(query)) {
+      const season = getSeasonFromQuery(query);
+      dynamicKeywords.push(
+        'fashion trends',
+        `${season} fashion trends`,
+        'trending fashion',
+        'current fashion trends',
+        'fashion trend analysis',
+        'style trends',
+        'what\'s trending in fashion',
+        'fashion trend predictions',
+      );
+    }
   }
 
   if (category) {
     dynamicKeywords.push(category.toLowerCase());
+    if (isTrendQuery(query || category)) {
+      dynamicKeywords.push(`trending ${category}`, `${category} trends`);
+    }
   }
 
   if (products && products.length > 0) {
@@ -92,9 +160,14 @@ export function generateKeywords(query?: string, category?: string, products?: P
     
     dynamicKeywords.push(...brands.map(b => b.toLowerCase()));
     dynamicKeywords.push(...categories.map(c => c.toLowerCase()));
+    
+    // Add trend context for products
+    if (isTrendQuery(query)) {
+      dynamicKeywords.push('trending products', 'popular fashion items');
+    }
   }
 
-  return [...baseKeywords, ...dynamicKeywords].slice(0, 30); // Increased limit to include brand keywords
+  return [...baseKeywords, ...dynamicKeywords].slice(0, 40); // Increased limit for trend keywords
 }
 
 /**

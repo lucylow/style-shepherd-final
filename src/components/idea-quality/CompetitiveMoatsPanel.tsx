@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { MoatAnalysisService } from '@/services/moat-analysis-service';
+import { MoatAnalysisService } from '@/services/analytics';
 import type { CompetitiveMoat, MoatScore } from '@/lib/idea-quality/types';
 import { Shield, TrendingUp, Clock } from 'lucide-react';
 

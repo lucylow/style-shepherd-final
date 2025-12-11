@@ -21,7 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { updateAgent } from "@/services/agentService";
+import { updateAgent } from "@/services/agents";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import AgentConfigSettings from "@/components/agents/AgentConfigSettings";
 import { RolePlayDialog } from "@/components/agents/RolePlayDialog";
