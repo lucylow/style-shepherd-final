@@ -4,8 +4,9 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import { AppError, isAppError, toAppError } from '../lib/errors.js';
+import { AppError, isAppError, toAppError, ErrorCode } from '../lib/errors.js';
 import { logError } from '../lib/errorLogger.js';
+import { createErrorContext, enhanceErrorWithContext } from '../lib/errorContext.js';
 
 /**
  * Async error handler wrapper
@@ -15,7 +16,15 @@ export function asyncHandler(
   fn: (req: Request, res: Response, next: NextFunction) => Promise<any>
 ) {
   return (req: Request, res: Response, next: NextFunction) => {
-    Promise.resolve(fn(req, res, next)).catch(next);
+    Promise.resolve(fn(req, res, next)).catch((error) => {
+      // Enhance error with context before passing to error handler
+      if (isAppError(error)) {
+        const context = createErrorContext(req);
+        const enhancedError = enhanceErrorWithContext(error, context);
+        return next(enhancedError);
+      }
+      next(error);
+    });
   };
 }
 
@@ -32,20 +41,35 @@ export function errorHandler(
   // Convert to AppError if needed
   const error = isAppError(err) ? err : toAppError(err);
   
+  // Enhance with request context if not already enhanced
+  let finalError = error;
+  if (req && (!error.details?.context)) {
+    const context = createErrorContext(req);
+    finalError = enhanceErrorWithContext(error, context);
+  }
+  
   // Log error with structured logging
-  logError(error, req);
+  logError(finalError, req);
   
   // Send error response
   // Don't expose internal error details in production for non-operational errors
-  const shouldExposeDetails = process.env.NODE_ENV === 'development' || error.isOperational;
+  const shouldExposeDetails = process.env.NODE_ENV === 'development' || finalError.isOperational;
   
-  res.status(error.statusCode).json({
+  // Determine if we should send error response or if response was already sent
+  if (res.headersSent) {
+    return next(finalError);
+  }
+  
+  res.status(finalError.statusCode).json({
     error: {
-      code: error.code,
-      message: error.message,
-      statusCode: error.statusCode,
-      ...(shouldExposeDetails && { details: error.details }),
-      timestamp: error.timestamp.toISOString(),
+      code: finalError.code,
+      message: finalError.message,
+      statusCode: finalError.statusCode,
+      ...(shouldExposeDetails && { details: finalError.details }),
+      timestamp: finalError.timestamp.toISOString(),
+      ...(process.env.NODE_ENV === 'development' && {
+        requestId: req.headers['x-request-id'],
+      }),
     },
   });
 }

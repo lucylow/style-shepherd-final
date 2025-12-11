@@ -167,8 +167,9 @@ class PaymentService {
   }
 
   /**
-   * Create a Stripe checkout session
-   * Note: Uses payment intent endpoint as backend uses Stripe payment intents
+   * Create a Stripe checkout session for one-time payments
+   * Uses Stripe Checkout Sessions which redirect to Stripe's hosted checkout page
+   * This is better for Lovable Cloud as it handles all payment UI on Stripe's side
    */
   async createCheckoutSession(
     items: CartItem[],
@@ -177,14 +178,66 @@ class PaymentService {
     cancelUrl: string,
     shippingInfo?: ShippingInfo
   ): Promise<CheckoutSession> {
-    // Use payment intent for checkout session
-    const paymentIntent = await this.createPaymentIntent(items, userId, shippingInfo);
-    
-    // Return checkout session format compatible with frontend
-    return {
-      sessionId: paymentIntent.clientSecret,
-      url: successUrl, // Frontend will handle redirect after payment
-    };
+    // Calculate total amount
+    const totalAmount = items.reduce(
+      (sum, item) => sum + item.product.price * item.quantity,
+      0
+    );
+
+    // Build line items for checkout session
+    const lineItems = items.map(item => ({
+      productId: item.product.id,
+      name: item.product.name,
+      description: item.product.description || undefined,
+      price: item.product.price,
+      quantity: item.quantity,
+      images: item.product.images && item.product.images.length > 0 
+        ? item.product.images.map(img => typeof img === 'string' ? img : img.url)
+        : undefined,
+    }));
+
+    return this.retryApiCall(async () => {
+      const response = await fetch(`${this.API_BASE}/payments/checkout-session`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId,
+          mode: 'payment',
+          lineItems,
+          amount: totalAmount, // Fallback if line items fail
+          currency: 'usd',
+          successUrl,
+          cancelUrl,
+          shippingInfo: shippingInfo ? {
+            name: shippingInfo.name,
+            address: shippingInfo.address,
+            city: shippingInfo.city,
+            state: shippingInfo.state,
+            zip: shippingInfo.zipCode,
+            country: shippingInfo.country,
+          } : undefined,
+          metadata: {
+            cartItemCount: items.length.toString(),
+            totalAmount: totalAmount.toString(),
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const error = new Error(errorData.message || `Failed to create checkout session: ${response.statusText}`);
+        (error as any).status = response.status;
+        throw error;
+      }
+
+      const data = await response.json();
+      return {
+        sessionId: data.sessionId,
+        url: data.url,
+      };
+    });
   }
 
   /**

@@ -1,7 +1,5 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { stripePromise } from '@/lib/stripe';
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,21 +7,29 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/AuthContext';
 import { CartItem } from '@/types/fashion';
-import { stripeService } from '@/services/stripeService';
+import { paymentService } from '@/services/paymentService';
 import { mockCartService } from '@/services/mocks/mockCart';
 import { useCartCalculations } from '@/hooks/useCartCalculations';
 import { toast } from 'sonner';
-import { ArrowLeft, CreditCard, Lock, CheckCircle, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, CreditCard, Lock, CheckCircle, Loader2 } from 'lucide-react';
 import { CartReview } from '@/components/CartReview';
 import { returnsPredictor, type CartValidationResponse } from '@/services/returnsPredictor';
 
-interface CheckoutFormProps {
-  cartItems: CartItem[];
-  onOrderComplete: () => void;
+// Helper function to build URLs that work with Lovable Cloud
+function buildCheckoutUrl(path: string): string {
+  if (typeof window === 'undefined') return path;
+  
+  // Use relative URLs for Lovable Cloud (works automatically)
+  // For local development, use full URL
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return `${window.location.origin}${path}`;
+  }
+  
+  // For production/Lovable, use relative path
+  return path;
 }
 
-// Mock checkout form (when Stripe Elements not available)
-const MockCheckoutForm = ({ cartItems, onOrderComplete }: CheckoutFormProps) => {
+const CheckoutForm = ({ cartItems }: { cartItems: CartItem[] }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
