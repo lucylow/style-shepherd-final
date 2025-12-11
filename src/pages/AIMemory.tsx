@@ -53,6 +53,44 @@ import { cn } from '@/lib/utils';
 import { getApiBaseUrl } from '@/lib/api-config';
 import InteractiveIntegrationPanel from '@/components/integrations/InteractiveIntegrationPanel';
 
+// Memory helper functions using API
+const deleteMemory = async (userId: string, memoryId: string) => {
+  const apiBase = getApiBaseUrl();
+  const res = await fetch(`${apiBase}/raindrop/delete-memory`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId, memoryId }),
+  });
+  if (!res.ok) throw new Error('Failed to delete memory');
+  return res.json();
+};
+
+const storeMemory = async (userId: string, type: MemoryType, text: string, metadata?: Record<string, unknown>) => {
+  const apiBase = getApiBaseUrl();
+  const res = await fetch(`${apiBase}/raindrop/store-memory`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId, type, text, metadata }),
+  });
+  if (!res.ok) throw new Error('Failed to store memory');
+  return res.json();
+};
+
+const updateMemory = async (userId: string, memoryId: string, text: string, type: MemoryType) => {
+  const apiBase = getApiBaseUrl();
+  const res = await fetch(`${apiBase}/raindrop/update-memory`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId, memoryId, text, type }),
+  });
+  if (!res.ok) throw new Error('Failed to update memory');
+  return res.json();
+};
+
+const clearAllMemories = async () => {
+  console.log('Clearing all memories (mock)');
+};
+
 type MemoryType = 'working' | 'semantic' | 'episodic' | 'procedural';
 
 interface MemoryEntry {

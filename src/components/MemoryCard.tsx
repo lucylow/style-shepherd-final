@@ -50,10 +50,10 @@ export default function MemoryCard({ memory, onDelete, onCopy, copied = false }:
   // Normalize memory structure (handle both mock and SDK formats)
   const entry = memory.text ? memory : (memory.resp || memory);
   const id = entry.id || memory.id || memory?.resp?.id || '';
-  const text = entry.text || memory?.resp?.text || memory?.message || '';
+  const text = entry.text || memory?.resp?.text || (memory as any)?.message || '';
   const createdAt = entry.createdAt || memory?.resp?.createdAt || '';
   const metadata = entry.metadata || memory?.resp?.metadata || {};
-  const type = entry.type || memory.type || 'working';
+  const type = memory.type || (entry as any)?.type || 'working';
 
   const handleCopy = async () => {
     if (onCopy) {

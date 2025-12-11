@@ -9,12 +9,9 @@ import React, { useState, useCallback, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { 
-
-  FaSearch, FaFilter, FaHeart, FaCartPlus, FaSparkles, 
-
-  FaSun, FaCloudRain, FaSnowflake, FaPalette 
-
-} from "react-icons/fa";
+  Search as FaSearch, Filter as FaFilter, Heart as FaHeart, ShoppingCart as FaCartPlus, Sparkles as FaSparkles, 
+  Sun as FaSun, CloudRain as FaCloudRain, Snowflake as FaSnowflake, Palette as FaPalette 
+} from "lucide-react";
 
 // ============================================================================
 

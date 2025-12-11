@@ -331,36 +331,38 @@ class SizeComparisonEngine {
     let bestVariance = Infinity;
     const sizeCandidates: string[] = [];
 
-    for (const [size, sizeRange] of Object.entries(brandChart.sizes)) {
-      const distance = this.kernelDistance(body, sizeRange);
-      const score = 1 - distance;
-      
-      if (score > bestScore) {
-        bestScore = score;
-        bestSize = size;
-        bestVariance = distance;
-      }
+    if (brandChart.sizes) {
+      for (const [size, sizeRange] of Object.entries(brandChart.sizes)) {
+        const distance = this.kernelDistance(body, sizeRange);
+        const score = 1 - distance;
+        
+        if (score > bestScore) {
+          bestScore = score;
+          bestSize = size;
+          bestVariance = distance;
+        }
 
-      if (score > 0.6) sizeCandidates.push(size);
+        if (score > 0.6) sizeCandidates.push(size);
+      }
     }
 
     // Calculate measurement variances
-    const bestSizeRange = brandChart.sizes[bestSize];
+    const bestSizeRange = brandChart.sizes?.[bestSize];
     const measurementsMatch: SizeComparisonResult['measurementsMatch'] = {
-      waist: this.getVariance(body.waist, bestSizeRange.waist),
-      hips: this.getVariance(body.hips, bestSizeRange.hips),
+      waist: this.getVariance(body.waist, bestSizeRange?.waist),
+      hips: this.getVariance(body.hips, bestSizeRange?.hips),
     };
 
-    if (body.bust && bestSizeRange.bust) {
+    if (body.bust && bestSizeRange?.bust) {
       measurementsMatch.bust = this.getVariance(body.bust, bestSizeRange.bust);
     }
-    if (body.chest && bestSizeRange.chest) {
+    if (body.chest && bestSizeRange?.chest) {
       measurementsMatch.chest = this.getVariance(body.chest, bestSizeRange.chest);
-    } else if (body.chest && bestSizeRange.bust) {
+    } else if (body.chest && bestSizeRange?.bust) {
       measurementsMatch.chest = this.getVariance(body.chest, bestSizeRange.bust);
     }
 
-    const riskFactors = this.identifyRisks(measurementsMatch, brandChart, bestVariance);
+    const riskFactors = this.identifyRisks(measurementsMatch, brandChart as BrandSizeChart, bestVariance);
 
     return {
       productId: product.productId,

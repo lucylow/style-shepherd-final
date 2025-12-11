@@ -64,8 +64,8 @@ export function useWorkflowProgress(workflowId: string | null): UseWorkflowProgr
 
     const fetchInitialData = async () => {
       try {
-        // Fetch initial workflow state
-        const { data: workflowData, error: workflowError } = await supabase
+        // Fetch initial workflow state (cast to any for dynamic table)
+        const { data: workflowData, error: workflowError } = await (supabase as any)
           .from('shopping_workflows')
           .select('*')
           .eq('id', workflowId)
@@ -77,8 +77,8 @@ export function useWorkflowProgress(workflowId: string | null): UseWorkflowProgr
 
         setWorkflow(workflowData as WorkflowState);
 
-        // Fetch initial messages
-        const { data: messagesData, error: messagesError } = await supabase
+        // Fetch initial messages (cast to any for dynamic table)
+        const { data: messagesData, error: messagesError } = await (supabase as any)
           .from('agent_messages')
           .select('*')
           .eq('workflow_id', workflowId)
@@ -155,10 +155,10 @@ export function useWorkflowProgress(workflowId: string | null): UseWorkflowProgr
     // Get completed agents from messages
     const completedAgents = messages
       .filter((m) => m.message_type === 'output')
-      .map((m) => m.agent_type)
+      .map((m) => m.agent_type as string)
       .filter((v, i, a) => a.indexOf(v) === i);
 
-    const pendingAgents = allAgents.filter((agent) => !completedAgents.includes(agent));
+    const pendingAgents = allAgents.filter((agent) => !completedAgents.includes(agent as any));
 
     // Calculate percentage based on status
     let percentage = 0;

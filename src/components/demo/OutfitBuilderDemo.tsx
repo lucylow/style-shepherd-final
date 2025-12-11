@@ -9,12 +9,19 @@ import React, { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { 
+  Sun, CloudSun, Snowflake, Umbrella, 
+  Briefcase, Wine, Activity, Utensils 
+} from "lucide-react";
 
-  FaSun, FaCloudSun, FaSnowflake, FaUmbrellaBeach, 
-
-  FaSuitcase, FaCocktail, FaRunning, FaUtensils 
-
-} from "react-icons/fa";
+// Icon mapping for compatibility
+const FaSun = Sun;
+const FaCloudSun = CloudSun;
+const FaSnowflake = Snowflake;
+const FaUmbrellaBeach = Umbrella;
+const FaSuitcase = Briefcase;
+const FaCocktail = Wine;
+const FaRunning = Activity;
+const FaUtensils = Utensils;
 
 
 

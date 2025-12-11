@@ -1,6 +1,7 @@
 import { CartItem } from '@/types/fashion';
 import { apiPost, apiGet, ApiClientOptions } from '@/lib/apiClient';
 import { handleError } from '@/lib/errorHandler';
+import { getApiBaseUrl } from '@/lib/api-config';
 
 export interface PaymentIntent {
   clientSecret: string;
@@ -39,11 +40,27 @@ interface PaymentMethod {
 }
 
 class PaymentService {
+  private readonly API_BASE = getApiBaseUrl();
   private readonly errorOptions: ApiClientOptions = {
     retry: {
       maxRetries: 3,
     },
   };
+
+  private async retryApiCall<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
+    let lastError: Error | null = null;
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        return await fn();
+      } catch (e) {
+        lastError = e instanceof Error ? e : new Error(String(e));
+        if (i < maxRetries - 1) {
+          await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+        }
+      }
+    }
+    throw lastError;
+  }
 
   /**
    * Create a payment intent for Stripe
@@ -153,7 +170,7 @@ class PaymentService {
       price: item.product.price,
       quantity: item.quantity,
       images: item.product.images && item.product.images.length > 0 
-        ? item.product.images.map(img => typeof img === 'string' ? img : img.url)
+        ? item.product.images.map((img: any) => typeof img === 'string' ? img : (img?.url || ''))
         : undefined,
     }));
 
