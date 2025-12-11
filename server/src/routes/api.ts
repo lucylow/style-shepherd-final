@@ -439,9 +439,8 @@ router.post(
       useOrchestrator: z.boolean().optional(), // Optional flag to force orchestrator usage
     })
   ),
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { query, userId, audioPreferred, useOrchestrator, context } = req.body;
+  asyncHandler(async (req: Request, res: Response) => {
+    const { query, userId, audioPreferred, useOrchestrator, context } = req.body;
       
       // Process text query through voice assistant (which now integrates with MultiAgentOrchestrator)
       const response = await voiceAssistant.processTextQuery(query, userId, {
@@ -516,16 +515,12 @@ router.get(
   '/voice/conversation/history/:userId',
   validateParams(z.object({ userId: commonSchemas.userId })),
   validateQuery(z.object({ limit: z.string().optional().transform((val) => (val ? parseInt(val, 10) : undefined)) })),
-  async (req: Request, res: Response, next: NextFunction) => {
-  try {
+  asyncHandler(async (req: Request, res: Response) => {
     const { userId } = req.params;
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
     const history = await voiceAssistant.getConversationHistory(userId, limit);
     res.json({ history });
-  } catch (error) {
-      next(error);
-    }
-  }
+  })
 );
 
 router.post(
@@ -536,15 +531,11 @@ router.post(
       userId: z.string().optional(),
     })
   ),
-  async (req: Request, res: Response, next: NextFunction) => {
-  try {
+  asyncHandler(async (req: Request, res: Response) => {
     const { conversationId, userId } = req.body;
     await voiceAssistant.endConversation(conversationId, userId);
     res.json({ success: true });
-  } catch (error) {
-      next(error);
-    }
-  }
+  })
 );
 
 // Voice Preferences

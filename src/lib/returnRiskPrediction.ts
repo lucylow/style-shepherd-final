@@ -297,8 +297,11 @@ class ReturnRiskModel {
       totalWeight += weight;
     }
 
-    // Normalize
+    // Normalize - scale to reasonable range
     let riskScore = weightedSum / Math.max(totalWeight, 1);
+    
+    // Scale to typical range [0.1, 0.4] for most cases, then adjust
+    riskScore = riskScore * 0.3 + 0.1;
 
     // Apply business rules
     riskScore = this.applyBusinessRules(riskScore, features);
@@ -321,8 +324,20 @@ class ReturnRiskModel {
       score += 0.05;
     }
 
-    // Rule: Loyal customers get discount
-    if (features.user_loyalty_tier > 0.6) {
+    // Rule: Loyal customers get discount (stronger for platinum)
+    if (features.user_loyalty_tier > 0.7) {
+      score -= 0.12; // Strong discount for platinum
+    } else if (features.user_loyalty_tier > 0.5) {
+      score -= 0.05;
+    }
+
+    // Rule: Very low return rate customers get additional discount
+    if (features.user_return_rate < 0.05 && features.user_total_purchases > 0.3) {
+      score -= 0.08; // Strong discount for excellent return history
+    }
+
+    // Rule: High size accuracy reduces risk
+    if (features.user_size_accuracy > 0.9) {
       score -= 0.05;
     }
 
