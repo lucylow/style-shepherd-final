@@ -14,7 +14,7 @@
     "build:all": "npm run build && npm run build:server",
     "lint": "eslint .",
     "preview": "vite preview --port 5173",
-    "start": "if [ -f server/dist/index.js ]; then cd server && node dist/index.js; else node server/index.cjs; fi",
+    "start": "node server/index.cjs",
     "start:simple": "node server/index.cjs",
     "start:full": "cd server && npm run build && node dist/index.js",
     "heroku-postbuild": "npm run build:all",
