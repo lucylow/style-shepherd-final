@@ -9,26 +9,37 @@ import { useAuth } from '@/contexts/AuthContext';
 const OrderSuccess = () => {
   const [searchParams] = useSearchParams();
   const orderId = searchParams.get('orderId');
+  const sessionId = searchParams.get('session_id'); // From Stripe Checkout
   const { user } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const loadOrder = async () => {
-      if (!orderId || !user) return;
+      if (!user) return;
 
-      try {
-        const orderData = await mockOrderService.getOrderById(orderId);
-        setOrder(orderData);
-      } catch (error) {
-        console.error('Error loading order:', error);
-      } finally {
+      // If we have a session_id from Stripe Checkout, we can retrieve order info
+      // For now, try to load by orderId if available
+      if (orderId) {
+        try {
+          const orderData = await mockOrderService.getOrderById(orderId);
+          setOrder(orderData);
+        } catch (error) {
+          console.error('Error loading order:', error);
+        } finally {
+          setIsLoading(false);
+        }
+      } else if (sessionId) {
+        // If we only have session_id, show success message
+        // The webhook will create the order, so we can show a generic success
+        setIsLoading(false);
+      } else {
         setIsLoading(false);
       }
     };
 
     loadOrder();
-  }, [orderId, user]);
+  }, [orderId, sessionId, user]);
 
   if (isLoading) {
     return (

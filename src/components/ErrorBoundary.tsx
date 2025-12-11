@@ -42,6 +42,7 @@ export class ErrorBoundary extends Component<Props, State> {
       timestamp: new Date().toISOString(),
       userAgent: navigator.userAgent,
       url: window.location.href,
+      userId: this.getUserId(),
     };
     
     // Log to error reporting service in production
@@ -49,8 +50,44 @@ export class ErrorBoundary extends Component<Props, State> {
       // TODO: Integrate with error reporting service (e.g., Sentry)
       // Example: Sentry.captureException(error, { contexts: { react: errorInfo } });
       console.error('Production error:', JSON.stringify(errorContext, null, 2));
+      
+      // Send to error tracking endpoint if available
+      this.reportError(errorContext).catch(err => {
+        console.error('Failed to report error:', err);
+      });
     } else {
       console.error('Development error context:', errorContext);
+    }
+  }
+
+  private getUserId(): string | undefined {
+    try {
+      // Try to get user ID from localStorage or context
+      const userData = localStorage.getItem('user');
+      if (userData) {
+        const user = JSON.parse(userData);
+        return user.id || user.userId;
+      }
+    } catch {
+      // Ignore errors when accessing localStorage
+    }
+    return undefined;
+  }
+
+  private async reportError(errorContext: any): Promise<void> {
+    try {
+      // Only report in production and if endpoint is available
+      if (import.meta.env.PROD && import.meta.env.VITE_ERROR_REPORTING_ENABLED === 'true') {
+        await fetch('/api/errors/report', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(errorContext),
+        }).catch(() => {
+          // Silently fail if error reporting endpoint is not available
+        });
+      }
+    } catch {
+      // Silently fail error reporting
     }
   }
 

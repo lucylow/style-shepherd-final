@@ -60,36 +60,31 @@ const CheckoutForm = ({ cartItems }: { cartItems: CartItem[] }) => {
     setIsProcessing(true);
 
     try {
-      // Create and confirm payment (mock)
-      const paymentIntent = await stripeService.createPaymentIntent(
+      // Build success and cancel URLs
+      const successUrl = buildCheckoutUrl(`/order-success?session_id={CHECKOUT_SESSION_ID}`);
+      const cancelUrl = buildCheckoutUrl('/checkout?canceled=true');
+
+      // Create Stripe Checkout Session (redirects to Stripe's hosted checkout)
+      const checkoutSession = await paymentService.createCheckoutSession(
         cartItems,
         user.id,
+        successUrl,
+        cancelUrl,
         shippingInfo
       );
 
-      // Simulate payment confirmation
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      const orderResult = await stripeService.confirmPayment(
-        paymentIntent.paymentIntentId,
-        cartItems,
-        user.id,
-        shippingInfo
-      );
-
-      // Clear cart
-      await mockCartService.clearCart(user.id);
-
-      toast.success('Payment successful! Order confirmed.');
-      onOrderComplete();
-      navigate(`/order-success?orderId=${orderResult.orderId}`);
+      // Redirect to Stripe Checkout
+      if (checkoutSession.url) {
+        window.location.href = checkoutSession.url;
+      } else {
+        throw new Error('No checkout URL returned');
+      }
     } catch (error: any) {
       console.error('Checkout error:', error);
       toast.error(error.message || 'An error occurred during checkout');
-    } finally {
       setIsProcessing(false);
     }
-  }, [user, cartItems, shippingInfo, navigate, onOrderComplete]);
+  }, [user, cartItems, shippingInfo, navigate]);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -161,14 +156,14 @@ const CheckoutForm = ({ cartItems }: { cartItems: CartItem[] }) => {
         </CardContent>
       </Card>
 
-      {/* Payment Information (Mock) */}
+      {/* Payment Information */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <CreditCard className="w-5 h-5" />
             <span>Payment Information</span>
           </CardTitle>
-          <CardDescription>Demo mode - no real payment will be processed</CardDescription>
+          <CardDescription>You'll be redirected to Stripe's secure checkout page</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -176,8 +171,8 @@ const CheckoutForm = ({ cartItems }: { cartItems: CartItem[] }) => {
               <div className="flex items-center gap-3 text-sm">
                 <CheckCircle className="w-5 h-5 text-green-500" />
                 <div>
-                  <p className="font-medium">Demo Payment Mode</p>
-                  <p className="text-muted-foreground">Click "Pay" to simulate a successful payment</p>
+                  <p className="font-medium">Secure Checkout</p>
+                  <p className="text-muted-foreground">Powered by Stripe - your payment details are never stored on our servers</p>
                 </div>
               </div>
             </div>
@@ -244,256 +239,36 @@ const CheckoutForm = ({ cartItems }: { cartItems: CartItem[] }) => {
           disabled={isProcessing}
           className="flex-1"
         >
-          {isProcessing ? 'Processing...' : `Pay $${total.toFixed(2)}`}
+          {isProcessing ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Processing...
+            </>
+          ) : (
+            `Pay $${total.toFixed(2)}`
+          )}
         </Button>
       </div>
     </form>
   );
 };
 
-// Stripe Elements checkout form
-const StripeCheckoutForm = ({ cartItems, onOrderComplete }: CheckoutFormProps) => {
-  const stripe = useStripe();
-  const elements = useElements();
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [shippingInfo, setShippingInfo] = useState({
-    name: '',
-    address: '',
-    city: '',
-    state: '',
-    zipCode: '',
-    country: 'US',
-  });
-
-  const { subtotal, shipping, tax, total } = useCartCalculations(cartItems);
-
-  const handleSubmit = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!stripe || !elements || !user) {
-      toast.error('Please sign in to continue');
-      return;
-    }
-
-    setIsProcessing(true);
-
-    try {
-      const paymentIntent = await stripeService.createPaymentIntent(
-        cartItems,
-        user.id,
-        shippingInfo
-      );
-
-      const { error: stripeError, paymentIntent: confirmedPayment } = await stripe.confirmPayment({
-        elements,
-        clientSecret: paymentIntent.clientSecret,
-        confirmParams: {
-          return_url: `${window.location.origin}/order-success`,
-          payment_method_data: {
-            billing_details: {
-              name: shippingInfo.name,
-              address: {
-                line1: shippingInfo.address,
-                city: shippingInfo.city,
-                state: shippingInfo.state,
-                postal_code: shippingInfo.zipCode,
-                country: shippingInfo.country,
-              },
-            },
-          },
-        },
-        redirect: 'if_required',
-      });
-
-      if (stripeError) {
-        toast.error(stripeError.message || 'Payment failed');
-        setIsProcessing(false);
-        return;
-      }
-
-      if (confirmedPayment?.status === 'succeeded') {
-        const orderResult = await stripeService.confirmPayment(
-          paymentIntent.paymentIntentId,
-          cartItems,
-          user.id,
-          shippingInfo
-        );
-
-        await mockCartService.clearCart(user.id);
-        toast.success('Payment successful! Order confirmed.');
-        onOrderComplete();
-        navigate(`/order-success?orderId=${orderResult.orderId}`);
-      }
-    } catch (error: any) {
-      console.error('Checkout error:', error);
-      toast.error(error.message || 'An error occurred during checkout');
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [stripe, elements, user, cartItems, shippingInfo, navigate, onOrderComplete]);
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Same shipping form as MockCheckoutForm */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Shipping Information</CardTitle>
-          <CardDescription>Enter your delivery details</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Full Name</Label>
-            <Input
-              id="name"
-              value={shippingInfo.name}
-              onChange={(e) => setShippingInfo({ ...shippingInfo, name: e.target.value })}
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="address">Address</Label>
-            <Input
-              id="address"
-              value={shippingInfo.address}
-              onChange={(e) => setShippingInfo({ ...shippingInfo, address: e.target.value })}
-              required
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="city">City</Label>
-              <Input
-                id="city"
-                value={shippingInfo.city}
-                onChange={(e) => setShippingInfo({ ...shippingInfo, city: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="state">State</Label>
-              <Input
-                id="state"
-                value={shippingInfo.state}
-                onChange={(e) => setShippingInfo({ ...shippingInfo, state: e.target.value })}
-                required
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="zipCode">ZIP Code</Label>
-              <Input
-                id="zipCode"
-                value={shippingInfo.zipCode}
-                onChange={(e) => setShippingInfo({ ...shippingInfo, zipCode: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="country">Country</Label>
-              <Input
-                id="country"
-                value={shippingInfo.country}
-                onChange={(e) => setShippingInfo({ ...shippingInfo, country: e.target.value })}
-                required
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Stripe Payment Element */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <CreditCard className="w-5 h-5" />
-            <span>Payment Information</span>
-          </CardTitle>
-          <CardDescription>Secure payment powered by Stripe</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="p-4 border border-border rounded-lg bg-muted/50">
-              <PaymentElement />
-            </div>
-            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-              <Lock className="w-4 h-4" />
-              <span>Your payment information is encrypted and secure</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Order Summary */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Order Summary</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            {cartItems.map((item) => (
-              <div key={item.product.id} className="flex justify-between text-sm">
-                <span>{item.product.name} × {item.quantity}</span>
-                <span>${(item.product.price * item.quantity).toFixed(2)}</span>
-              </div>
-            ))}
-          </div>
-          <Separator />
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>Subtotal</span>
-              <span>${subtotal.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span>Shipping</span>
-              <span>${shipping.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span>Tax</span>
-              <span>${tax.toFixed(2)}</span>
-            </div>
-            <Separator />
-            <div className="flex justify-between text-lg font-semibold">
-              <span>Total</span>
-              <span>${total.toFixed(2)}</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="flex space-x-4">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => navigate('/dashboard')}
-          className="flex-1"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Cart
-        </Button>
-        <Button
-          type="submit"
-          disabled={!stripe || isProcessing}
-          className="flex-1"
-        >
-          {isProcessing ? 'Processing...' : `Pay $${total.toFixed(2)}`}
-        </Button>
-      </div>
-    </form>
-  );
-};
 
 const Checkout = () => {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const [useStripeElements, setUseStripeElements] = useState(false);
   const [cartValidation, setCartValidation] = useState<CartValidationResponse | null>(null);
   const [isValidatingCart, setIsValidatingCart] = useState(false);
+
+  // Check if checkout was canceled
+  useEffect(() => {
+    if (searchParams.get('canceled') === 'true') {
+      toast.info('Checkout was canceled. You can try again anytime.');
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -534,18 +309,6 @@ const Checkout = () => {
           setIsValidatingCart(false);
         }
 
-        // Try to create payment intent for Stripe Elements
-        try {
-          const paymentIntent = await stripeService.createPaymentIntent(cart, user.id);
-          if (paymentIntent.clientSecret && paymentIntent.clientSecret.startsWith('pi_')) {
-            // Real Stripe client secret
-            setClientSecret(paymentIntent.clientSecret);
-            setUseStripeElements(true);
-          }
-        } catch {
-          // Fall back to mock checkout
-          setUseStripeElements(false);
-        }
       } catch (error) {
         console.error('Error loading cart:', error);
         toast.error('Failed to load cart');
@@ -606,19 +369,7 @@ const Checkout = () => {
           </div>
         )}
 
-        {useStripeElements && clientSecret ? (
-          <Elements
-            stripe={stripePromise}
-            options={{
-              clientSecret,
-              appearance: { theme: 'stripe' },
-            }}
-          >
-            <StripeCheckoutForm cartItems={cartItems} onOrderComplete={() => {}} />
-          </Elements>
-        ) : (
-          <MockCheckoutForm cartItems={cartItems} onOrderComplete={() => {}} />
-        )}
+        <CheckoutForm cartItems={cartItems} />
       </div>
     </div>
   );

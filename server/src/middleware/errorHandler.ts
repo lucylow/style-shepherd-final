@@ -80,8 +80,12 @@ export function errorHandler(
 export function notFoundHandler(req: Request, res: Response, next: NextFunction) {
   const error = new AppError(
     `Route ${req.method} ${req.path} not found`,
-    'NOT_FOUND' as any,
-    404
+    ErrorCode.NOT_FOUND,
+    404,
+    {
+      method: req.method,
+      path: req.path,
+    }
   );
   next(error);
 }

@@ -23,6 +23,7 @@ import specializedAgentsRoutes from './routes/specialized-agents.js';
 import workflowRoutes from './routes/workflows.js';
 import shoppingSessionsRoutes from './routes/shopping-sessions.js';
 import guardrailsRoutes from './routes/guardrails.js';
+import errorRoutes from './routes/errors.js';
 import { vultrPostgres } from './lib/vultr-postgres.js';
 import { vultrValkey } from './lib/vultr-valkey.js';
 import { initRaindrop } from './lib/raindropClient.js';
@@ -122,6 +123,7 @@ app.use('/api/agents', specializedAgentsRoutes);
 app.use('/api/shopping', shoppingSessionsRoutes);
 app.use('/api/workflows', workflowRoutes);
 app.use('/api/guardrails', guardrailsRoutes);
+app.use('/api/errors', errorRoutes);
 app.use('/api', apiRoutes);
 
 // Serve static files from client build in production
