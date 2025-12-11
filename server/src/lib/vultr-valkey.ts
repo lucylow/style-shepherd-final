@@ -213,6 +213,88 @@ class VultrValkeyService {
   }
 
   /**
+   * Set multiple keys at once (pipeline)
+   */
+  async mset(keyValues: Array<{ key: string; value: any; ttl?: number }>): Promise<boolean> {
+    try {
+      const pipeline = this.client.pipeline();
+      for (const { key, value, ttl } of keyValues) {
+        const serialized = typeof value === 'string' ? value : JSON.stringify(value);
+        if (ttl) {
+          pipeline.setex(key, ttl, serialized);
+        } else {
+          pipeline.set(key, serialized);
+        }
+      }
+      await this.withTimeout(pipeline.exec(), 'MSET pipeline');
+      return true;
+    } catch (error: any) {
+      console.error('Valkey mset error:', error);
+      throw new CacheError('Failed to set multiple cache values', error);
+    }
+  }
+
+  /**
+   * Get multiple keys at once
+   */
+  async mget<T = any>(keys: string[]): Promise<(T | null)[]> {
+    try {
+      const values = await this.withTimeout(this.client.mget(...keys), 'MGET');
+      return (values as string[]).map((val) => {
+        if (!val) return null;
+        try {
+          return JSON.parse(val) as T;
+        } catch {
+          return val as T;
+        }
+      });
+    } catch (error: any) {
+      console.error('Valkey mget error:', error);
+      return keys.map(() => null);
+    }
+  }
+
+  /**
+   * Delete multiple keys at once
+   */
+  async mdelete(keys: string[]): Promise<number> {
+    try {
+      if (keys.length === 0) return 0;
+      const result = await this.withTimeout(this.client.del(...keys), 'MDELETE') as number;
+      return result;
+    } catch (error: any) {
+      console.error('Valkey mdelete error:', error);
+      throw new CacheError('Failed to delete multiple cache keys', error);
+    }
+  }
+
+  /**
+   * Get all keys matching a pattern (use with caution in production)
+   */
+  async keys(pattern: string): Promise<string[]> {
+    try {
+      const result = await this.withTimeout(this.client.keys(pattern), 'KEYS');
+      return result as string[];
+    } catch (error: any) {
+      console.error('Valkey keys error:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get connection status and statistics
+   */
+  getConnectionStats(): {
+    status: string;
+    connected: boolean;
+  } {
+    return {
+      status: this.client.status,
+      connected: this.client.status === 'ready',
+    };
+  }
+
+  /**
    * Close connection
    */
   async close(): Promise<void> {

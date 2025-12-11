@@ -4,10 +4,6 @@
  */
 
 declare module '@prisma/client' {
-  export interface PrismaClient {
-    [key: string]: any;
-  }
-  
   export class PrismaClient {
     constructor(options?: any);
     $connect(): Promise<void>;

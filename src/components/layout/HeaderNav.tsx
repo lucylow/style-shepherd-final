@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {
   User, LogOut, Home, Package, Mic, LayoutDashboard, Brain, Layers,
-  Target, TrendingUp, BarChart3, Shield, Lightbulb, Award,
+  Target, TrendingUp, BarChart3, Shield, Award,
   PlayCircle, LineChart, Calculator, Building2, Cloud, ChevronDown
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -39,19 +39,6 @@ const navGroups: NavGroup[] = [
       { href: "/voice-shop", label: "Voice Shop", icon: Mic },
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/ai-memory", label: "AI Memory", icon: Brain },
-    ],
-  },
-  {
-    label: "Idea Quality",
-    items: [
-      { href: "/idea-quality", label: "Overview", icon: Lightbulb },
-      { href: "/competitive-analysis", label: "Competitive Analysis", icon: Target },
-      { href: "/market-opportunity", label: "Market Opportunity", icon: TrendingUp },
-      { href: "/problem-validation", label: "Problem Validation", icon: BarChart3 },
-      { href: "/innovation-scoring", label: "Innovation Scoring", icon: Award },
-      { href: "/impact-measurement", label: "Impact Measurement", icon: LineChart },
-      { href: "/competitive-moats", label: "Competitive Moats", icon: Shield },
-      { href: "/judging-criteria", label: "Judging Criteria", icon: Award },
     ],
   },
   {

@@ -227,3 +227,87 @@ export function isEnabled(): boolean {
   return raindropEnabled;
 }
 
+/**
+ * Batch store multiple memories
+ */
+export async function batchStoreMemory(
+  memories: Array<{
+    userId: string;
+    type: string;
+    text: string;
+    metadata?: Record<string, any>;
+  }>
+): Promise<Array<{ success: boolean; source: 'raindrop' | 'mock'; id?: string; error?: string }>> {
+  const results = [];
+  
+  if (raindropEnabled && raindropClient) {
+    try {
+      if (typeof raindropClient.smartMemory?.batchCreate === 'function') {
+        const resp = await raindropClient.smartMemory.batchCreate({ memories });
+        return memories.map((_, idx) => ({
+          success: true,
+          source: 'raindrop' as const,
+          id: resp?.results?.[idx]?.id,
+        }));
+      }
+    } catch (e) {
+      console.warn('Raindrop SDK batch error — falling back to mock', e);
+    }
+  }
+
+  // Mock path - store sequentially
+  const db = readMock();
+  for (const { userId, type, text, metadata = {} } of memories) {
+    try {
+      const entry: MemoryEntry = {
+        id: `${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        userId,
+        type,
+        text,
+        metadata,
+        createdAt: new Date().toISOString()
+      };
+      db.memories.push(entry);
+      results.push({ success: true, source: 'mock' as const, id: entry.id });
+    } catch (error: any) {
+      results.push({
+        success: false,
+        source: 'mock' as const,
+        error: error.message,
+      });
+    }
+  }
+  writeMock(db);
+  return results;
+}
+
+/**
+ * Get memory statistics for a user
+ */
+export async function getMemoryStats(userId: string = 'demo_user'): Promise<{
+  total: number;
+  byType: Record<string, number>;
+  oldest: string | null;
+  newest: string | null;
+}> {
+  const db = readMock();
+  const userMemories = db.memories.filter(m => m.userId === userId);
+  
+  const byType: Record<string, number> = {};
+  let oldest: string | null = null;
+  let newest: string | null = null;
+
+  for (const mem of userMemories) {
+    byType[mem.type] = (byType[mem.type] || 0) + 1;
+    if (!oldest || mem.createdAt < oldest) oldest = mem.createdAt;
+    if (!newest || mem.createdAt > newest) newest = mem.createdAt;
+  }
+
+  return {
+    total: userMemories.length,
+    byType,
+    oldest,
+    newest,
+  };
+}
+

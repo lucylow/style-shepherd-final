@@ -1205,6 +1205,23 @@ export class PaymentService {
                 });
               }
             }
+
+            // Update fraud incident if payment completed successfully
+            const incidentId = session.metadata?.incidentId;
+            if (incidentId && session.payment_status === 'paid') {
+              try {
+                await vultrPostgres.query(
+                  `UPDATE fraud_incidents 
+                   SET decision = 'allow', 
+                       notes = 'payment completed successfully',
+                       updated_at = $1
+                   WHERE id = $2`,
+                  [new Date().toISOString(), incidentId]
+                );
+              } catch (fraudError) {
+                console.error('Failed to update fraud incident for completed checkout:', fraudError);
+              }
+            }
           } catch (dbError) {
             console.error('Failed to process checkout.session.completed:', dbError);
             this.logPaymentOperation('checkoutSessionProcessingFailed', {
@@ -1391,29 +1408,6 @@ export class PaymentService {
           );
         } catch (dbError) {
           console.error('Failed to update subscription status:', dbError);
-        }
-        break;
-      }
-
-      case 'checkout.session.completed': {
-        const session = event.data.object as Stripe.Checkout.Session;
-        console.log('✅ Checkout session completed:', session.id);
-        
-        // Update fraud incident if payment completed successfully
-        try {
-          const incidentId = session.metadata?.incidentId;
-          if (incidentId) {
-            await vultrPostgres.query(
-              `UPDATE fraud_incidents 
-               SET decision = 'allow', 
-                   notes = 'payment completed successfully',
-                   updated_at = $1
-               WHERE id = $2`,
-              [new Date().toISOString(), incidentId]
-            );
-          }
-        } catch (dbError) {
-          console.error('Failed to update fraud incident for completed checkout:', dbError);
         }
         break;
       }

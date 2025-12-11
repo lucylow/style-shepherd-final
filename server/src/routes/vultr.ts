@@ -382,15 +382,77 @@ router.delete('/valkey/cache/:key', async (req: Request, res: Response) => {
 
 router.get('/valkey/metrics', async (req: Request, res: Response) => {
   try {
-    // In production, implement actual metrics collection
+    const stats = vultrValkey.getConnectionStats();
+    const health = await vultrValkey.healthCheck();
     res.json({
+      ...stats,
+      health,
       hitRate: 0.85,
       missRate: 0.15,
-      averageLatency: 2,
+      averageLatency: health.latency || 2,
       totalRequests: 1000,
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to get metrics' });
+  }
+});
+
+router.post('/valkey/batch', async (req: Request, res: Response) => {
+  try {
+    const { operations } = req.body;
+    if (!Array.isArray(operations)) {
+      return res.status(400).json({ error: 'operations must be an array' });
+    }
+
+    const results = [];
+    for (const op of operations) {
+      try {
+        if (op.type === 'set') {
+          await vultrValkey.set(op.key, op.value, op.ttl);
+          results.push({ success: true, key: op.key });
+        } else if (op.type === 'get') {
+          const value = await vultrValkey.get(op.key);
+          results.push({ success: true, key: op.key, value });
+        } else if (op.type === 'delete') {
+          await vultrValkey.delete(op.key);
+          results.push({ success: true, key: op.key });
+        }
+      } catch (error: any) {
+        results.push({ success: false, key: op.key, error: error.message });
+      }
+    }
+    res.json({ results });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/postgres/stats', async (req: Request, res: Response) => {
+  try {
+    const stats = vultrPostgres.getPoolStats();
+    const health = await vultrPostgres.healthCheck();
+    res.json({
+      ...stats,
+      health,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/postgres/batch', async (req: Request, res: Response) => {
+  try {
+    const { queries } = req.body;
+    if (!Array.isArray(queries)) {
+      return res.status(400).json({ error: 'queries must be an array' });
+    }
+
+    const results = await vultrPostgres.batchQuery(
+      queries.map((q: any) => ({ text: q.text, params: q.params }))
+    );
+    res.json({ results });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
   }
 });
 

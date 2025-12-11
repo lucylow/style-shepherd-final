@@ -176,6 +176,67 @@ class VultrPostgresService {
   }
 
   /**
+   * Execute batch queries in a transaction
+   */
+  async batchQuery<T = any>(queries: Array<{ text: string; params?: any[] }>): Promise<T[][]> {
+    return this.transaction(async (client) => {
+      const results: T[][] = [];
+      for (const { text, params } of queries) {
+        const res = await client.query(text, params);
+        results.push(res.rows as T[]);
+      }
+      return results;
+    });
+  }
+
+  /**
+   * Insert multiple records efficiently
+   */
+  async bulkInsert<T extends Record<string, any>>(
+    table: string,
+    records: T[],
+    columns: string[]
+  ): Promise<void> {
+    if (records.length === 0) return;
+
+    const values: any[] = [];
+    const placeholders: string[] = [];
+    let paramIndex = 1;
+
+    for (const record of records) {
+      const rowPlaceholders: string[] = [];
+      for (const col of columns) {
+        values.push(record[col] ?? null);
+        rowPlaceholders.push(`$${paramIndex++}`);
+      }
+      placeholders.push(`(${rowPlaceholders.join(', ')})`);
+    }
+
+    const query = `
+      INSERT INTO ${table} (${columns.join(', ')})
+      VALUES ${placeholders.join(', ')}
+      ON CONFLICT DO NOTHING
+    `;
+
+    await this.query(query, values);
+  }
+
+  /**
+   * Get connection pool statistics
+   */
+  getPoolStats(): {
+    totalCount: number;
+    idleCount: number;
+    waitingCount: number;
+  } {
+    return {
+      totalCount: this.pool.totalCount,
+      idleCount: this.pool.idleCount,
+      waitingCount: this.pool.waitingCount,
+    };
+  }
+
+  /**
    * Close all connections
    */
   async close(): Promise<void> {

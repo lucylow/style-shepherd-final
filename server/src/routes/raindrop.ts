@@ -238,5 +238,58 @@ router.post(
   }
 );
 
+/**
+ * POST /api/raindrop/batch-store-memory
+ * Store multiple memories at once
+ */
+router.post(
+  '/batch-store-memory',
+  validateBody(
+    z.object({
+      memories: z.array(
+        z.object({
+          userId: z.string().default('demo_user'),
+          type: z.string().default('working'),
+          text: z.string().min(1),
+          metadata: z.record(z.any()).optional().default({}),
+        })
+      ).min(1).max(100),
+    })
+  ),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { memories } = req.body;
+      const { batchStoreMemory } = await import('../lib/raindropClient.js');
+      const results = await batchStoreMemory(memories);
+      res.status(200).json({ success: true, results });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+/**
+ * GET /api/raindrop/memory-stats
+ * Get memory statistics for a user
+ */
+router.get(
+  '/memory-stats',
+  validateQuery(
+    z.object({
+      userId: z.string().default('demo_user'),
+    })
+  ),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = (req.query.userId as string) || 'demo_user';
+      const { getMemoryStats } = await import('../lib/raindropClient.js');
+      const stats = await getMemoryStats(userId);
+      res.status(200).json({ success: true, stats });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
 export default router;
 

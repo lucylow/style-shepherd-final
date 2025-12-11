@@ -42,16 +42,6 @@ const SubscriptionSuccess = lazy(() => import('@/pages/shopping/SubscriptionSucc
 // Makeup Artist page
 const MakeupArtist = lazy(() => import('@/pages/MakeupArtist'));
 
-// Idea Quality Framework pages
-const IdeaQualityIndex = lazy(() => import('@/pages/idea-quality/IdeaQualityIndex'));
-const CompetitiveAnalysis = lazy(() => import('@/pages/idea-quality/CompetitiveAnalysis'));
-const MarketOpportunity = lazy(() => import('@/pages/idea-quality/MarketOpportunity'));
-const ProblemValidation = lazy(() => import('@/pages/idea-quality/ProblemValidation'));
-const InnovationScoring = lazy(() => import('@/pages/idea-quality/InnovationScoring'));
-const ImpactMeasurement = lazy(() => import('@/pages/idea-quality/ImpactMeasurement'));
-const CompetitiveMoats = lazy(() => import('@/pages/idea-quality/CompetitiveMoats'));
-const IdeaQualityAssessment = lazy(() => import('@/pages/idea-quality/IdeaQualityAssessment'));
-const JudgingCriteriaAssessment = lazy(() => import('@/pages/idea-quality/JudgingCriteriaAssessment'));
 
 // Judge-Ready Demo pages
 const JudgeDemoPage = lazy(() => import('@/pages/demo/JudgeDemo'));
@@ -267,62 +257,6 @@ export const routeConfigs: RouteConfig[] = [
     component: SubscriptionSuccess,
     label: 'Subscription Success',
     group: 'shopping',
-  },
-
-  // Idea Quality Framework routes
-  {
-    path: '/idea-quality',
-    component: IdeaQualityIndex,
-    label: 'Idea Quality',
-    group: 'idea-quality',
-  },
-  {
-    path: '/competitive-analysis',
-    component: CompetitiveAnalysis,
-    label: 'Competitive Analysis',
-    group: 'idea-quality',
-  },
-  {
-    path: '/market-opportunity',
-    component: MarketOpportunity,
-    label: 'Market Opportunity',
-    group: 'idea-quality',
-  },
-  {
-    path: '/problem-validation',
-    component: ProblemValidation,
-    label: 'Problem Validation',
-    group: 'idea-quality',
-  },
-  {
-    path: '/innovation-scoring',
-    component: InnovationScoring,
-    label: 'Innovation Scoring',
-    group: 'idea-quality',
-  },
-  {
-    path: '/impact-measurement',
-    component: ImpactMeasurement,
-    label: 'Impact Measurement',
-    group: 'idea-quality',
-  },
-  {
-    path: '/competitive-moats',
-    component: CompetitiveMoats,
-    label: 'Competitive Moats',
-    group: 'idea-quality',
-  },
-  {
-    path: '/idea-quality-assessment',
-    component: IdeaQualityAssessment,
-    label: 'Idea Quality Assessment',
-    group: 'idea-quality',
-  },
-  {
-    path: '/judging-criteria',
-    component: JudgingCriteriaAssessment,
-    label: 'Judging Criteria',
-    group: 'idea-quality',
   },
 
   // Judge-Ready Demo routes

@@ -49,7 +49,7 @@ export class CartService {
   async getCart(userId: string, sessionId?: string): Promise<Cart> {
     try {
       // Try to get existing cart
-      let result = await vultrPostgres.query<Cart>(
+      const result = await vultrPostgres.query<Cart>(
         `SELECT cart_id as "cartId", user_id as "userId", items, session_id as "sessionId", 
          expires_at as "expiresAt", created_at as "createdAt", updated_at as "updatedAt"
          FROM carts 
