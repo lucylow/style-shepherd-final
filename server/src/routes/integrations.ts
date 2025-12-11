@@ -35,17 +35,17 @@ router.get('/status', async (req: Request, res: Response, next: NextFunction) =>
           'https://api.vultrinference.com/v1';
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 5000);
-        const r = await fetch(vultrPingUrl, { 
+        const r: Response | { ok: boolean; statusText: string } = await fetch(vultrPingUrl, { 
           method: 'HEAD',
           signal: controller.signal
         }).catch((e: unknown) => ({ 
           ok: false, 
           statusText: String(e) 
-        }));
+        } as { ok: boolean; statusText: string }));
         clearTimeout(timeout);
         pingResults.vultr = { 
           reachable: !!r.ok, 
-          status: (r as Response).status || null 
+          status: ('status' in r ? r.status : null) || null 
         };
       } catch (e) {
         pingResults.vultr = { 
@@ -60,7 +60,7 @@ router.get('/status', async (req: Request, res: Response, next: NextFunction) =>
         const elevenBase = process.env.ELEVENLABS_BASE_URL || 'https://api.elevenlabs.io/v1/voices';
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 5000);
-        const r = await fetch(elevenBase, {
+        const r: Response | { ok: boolean; statusText: string } = await fetch(elevenBase, {
           method: 'GET',
           headers: {
             'xi-api-key': process.env.ELEVENLABS_API_KEY || 
@@ -71,11 +71,11 @@ router.get('/status', async (req: Request, res: Response, next: NextFunction) =>
         }).catch((e: unknown) => ({ 
           ok: false, 
           statusText: String(e) 
-        }));
+        } as { ok: boolean; statusText: string }));
         clearTimeout(timeout);
         pingResults.eleven = { 
-          reachable: !!(r as Response).ok, 
-          status: (r as Response).status || null 
+          reachable: !!r.ok, 
+          status: ('status' in r ? r.status : null) || null 
         };
       } catch (e) {
         pingResults.eleven = { 

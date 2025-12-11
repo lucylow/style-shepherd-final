@@ -67,14 +67,14 @@ router.get(
          FROM users WHERE id = $1`,
         [userId]
       );
-      const profile = profileResult.rows[0] || null;
+      const profile = profileResult[0] || null;
 
       // Fetch preferences
       const prefsResult = await vultrPostgres.query(
         `SELECT key, value, created_at FROM preferences WHERE user_id = $1`,
         [userId]
-      ).catch(() => ({ rows: [] }));
-      const preferences = prefsResult.rows || [];
+      ).catch(() => []);
+      const preferences = prefsResult || [];
 
       // Fetch interactions
       const interactionsResult = await vultrPostgres.query(
@@ -82,8 +82,8 @@ router.get(
          FROM interactions WHERE user_id = $1 
          ORDER BY created_at DESC`,
         [userId]
-      ).catch(() => ({ rows: [] }));
-      const interactions = interactionsResult.rows || [];
+      ).catch(() => []);
+      const interactions = interactionsResult || [];
 
       // Fetch orders (if orders table exists)
       const ordersResult = await vultrPostgres.query(
@@ -91,8 +91,8 @@ router.get(
          FROM orders WHERE user_id = $1 
          ORDER BY created_at DESC`,
         [userId]
-      ).catch(() => ({ rows: [] }));
-      const orders = ordersResult.rows || [];
+      ).catch(() => []);
+      const orders = ordersResult || [];
 
       const payload = {
         exportedAt: new Date().toISOString(),

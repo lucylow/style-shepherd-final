@@ -74,7 +74,6 @@ export class CartService {
     } catch (error: any) {
       throw new DatabaseError(
         `Failed to get cart: ${error.message}`,
-        ErrorCode.DATABASE_ERROR,
         error
       );
     }
@@ -95,11 +94,11 @@ export class CartService {
         [sessionId]
       );
 
-      if (result.rows.length === 0) {
+      if (result.length === 0) {
         return null;
       }
 
-      const cart = this.mapCartFromDb(result.rows[0]);
+      const cart = this.mapCartFromDb(result[0]);
       
       // Check expiration
       if (cart.expiresAt && cart.expiresAt < new Date()) {

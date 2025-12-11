@@ -7,7 +7,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { hitlOrchestrator } from '../services/HITLOrchestrator.js';
 import { validateBody, validateParams, validateQuery } from '../middleware/validation.js';
 import { z } from 'zod';
-import { AppError } from '../lib/errors.js';
+import { AppError, ErrorCode } from '../lib/errors.js';
 
 const router = Router();
 
@@ -65,7 +65,7 @@ router.get(
       const session = await hitlOrchestrator.getSession(sessionId);
 
       if (!session) {
-        throw new AppError('Session not found', 404);
+        throw new AppError('Session not found', ErrorCode.NOT_FOUND, 404);
       }
 
       res.json({

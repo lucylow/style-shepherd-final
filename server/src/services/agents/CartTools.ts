@@ -6,12 +6,12 @@
 
 import { cartService, type CartItem } from '../CartService.js';
 import { paymentService } from '../PaymentService.js';
-import { vultrPostgres } from '../lib/vultr-postgres.js';
+import { vultrPostgres } from '../../lib/vultr-postgres.js';
 import {
   BusinessLogicError,
   ValidationError,
   ErrorCode,
-} from '../lib/errors.js';
+} from '../../lib/errors.js';
 
 export interface AgentCartAddItemParams {
   userId: string;
@@ -308,7 +308,7 @@ export class CartTools {
           userId,
           items: orderItems,
           totalAmount,
-          shippingInfo: shippingInfo || undefined,
+          ...(shippingInfo && { shippingInfo }),
         }
       );
 

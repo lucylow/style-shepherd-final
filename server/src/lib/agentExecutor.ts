@@ -10,7 +10,7 @@ import {
   logLLMCall,
   agentTaskLatency,
 } from './monitoring.js';
-import { context, Span, SpanStatusCode } from '@opentelemetry/api';
+import { context, trace, Span, SpanStatusCode } from '@opentelemetry/api';
 
 export interface AgentExecutionOptions {
   agentName: string;

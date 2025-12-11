@@ -42,10 +42,10 @@ export class ElevenLabsAdapter implements TTSAdapter {
     try {
       const audio = await this.client.textToSpeech.convert(voiceId, {
         text,
-        model_id: 'eleven_monolingual_v1',
-        voice_settings: {
+        modelId: 'eleven_monolingual_v1',
+        voiceSettings: {
           stability,
-          similarity_boost: similarityBoost,
+          similarityBoost: similarityBoost,
         },
       });
 

@@ -80,15 +80,15 @@ router.post(
       personalized = {
         perspective: 'personalized',
         topStyles: topStyles
-          .filter((t) =>
-            prefs.some((p) =>
+          .filter((t: { name: string; score: number }) =>
+            prefs.some((p: string) =>
               t.name.toLowerCase().includes(p.toLowerCase())
             )
           )
           .slice(0, 6),
         topColors: topColors
-          .filter((c) =>
-            prefs.some((p) =>
+          .filter((c: { name: string; score: number }) =>
+            prefs.some((p: string) =>
               c.name.toLowerCase().includes(p.toLowerCase())
             )
           )

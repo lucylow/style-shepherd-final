@@ -1143,10 +1143,10 @@ router.post(
   ),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const outfits = await personalShopperAgent.curateOutfits(req.body);
+      const result = await personalShopperAgent.recommendOutfits(req.body);
       res.json({
-        outfits,
-        count: outfits.length,
+        outfits: result.outfits,
+        count: result.totalOutfits,
         query: req.body,
       });
     } catch (error) {

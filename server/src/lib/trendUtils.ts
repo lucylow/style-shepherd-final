@@ -92,7 +92,7 @@ function linearFitPredict(
     const xk = n + (k - 1);
     const yk = intercept + slope * xk;
     preds.push({
-      monthIndex: k,
+      step: k,
       predicted: Number(Math.max(0, yk).toFixed(2)),
     });
   }
