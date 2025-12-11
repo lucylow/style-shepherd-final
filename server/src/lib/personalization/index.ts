@@ -199,7 +199,9 @@ export async function personalizedRecommendations(
     );
 
     // Filter out nulls and sort by score
-    const valid = scored.filter((s): s is PersonalizedRecommendation => s !== null);
+    const valid = scored.filter((s): s is PersonalizedRecommendation => {
+      return s !== null && typeof s === 'object' && 'id' in s && 'score' in s;
+    });
     valid.sort((a, b) => b.score - a.score);
 
     // Return top N
