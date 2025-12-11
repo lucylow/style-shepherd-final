@@ -328,7 +328,6 @@ const Products = () => {
                       label: 'Clear Search',
                       onClick: () => {
                         setSearchParams({});
-                        setSearchQuery('');
                       },
                     }
                   : undefined

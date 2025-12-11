@@ -367,7 +367,7 @@ class ReturnsPredictor {
         })),
         summary: {
           averageRisk: localAnalysis.cart_risk_score,
-          highRiskItems: localAnalysis.risk_distribution.high,
+          highRiskItems: localAnalysis.risk_insights?.risk_distribution?.high || 0,
           totalPotentialSavings: 0, // Would calculate based on item values
           recommendations: localAnalysis.mitigation_recommendations
             .flatMap(rec => rec.recommended_actions.map(a => a.reason)),

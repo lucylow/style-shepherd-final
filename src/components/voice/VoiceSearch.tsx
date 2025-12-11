@@ -10,7 +10,7 @@ import { Mic, MicOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getApiBaseUrl } from '@/lib/api-config';
 
-const SpeechRecognition = typeof window !== 'undefined' && (window.SpeechRecognition || (window as any).webkitSpeechRecognition || null);
+const SpeechRecognition = typeof window !== 'undefined' ? ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition || null) : null;
 
 interface VoiceSearchProps {
   onResults: (results: any[]) => void;

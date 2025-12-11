@@ -90,13 +90,11 @@ export function useErrorMonitoring() {
         // Silently fail
       });
 
-      // Still show error to user
-      handleError(error, {
-        defaultMessage: 'An unexpected error occurred',
-      });
+      // Still show error to user (handleError only takes error)
+      handleError(error);
     };
 
-    const handleError = (event: ErrorEvent) => {
+    const handleGlobalError = (event: ErrorEvent) => {
       const error = event.error || new Error(event.message);
       
       reportError(error, {
@@ -107,11 +105,11 @@ export function useErrorMonitoring() {
     };
 
     window.addEventListener('unhandledrejection', handleUnhandledRejection);
-    window.addEventListener('error', handleError);
+    window.addEventListener('error', handleGlobalError);
 
     return () => {
       window.removeEventListener('unhandledrejection', handleUnhandledRejection);
-      window.removeEventListener('error', handleError);
+      window.removeEventListener('error', handleGlobalError);
     };
   }, [reportError]);
 

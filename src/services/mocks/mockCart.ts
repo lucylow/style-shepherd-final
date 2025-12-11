@@ -157,6 +157,16 @@ class MockCartService {
   }
 
   /**
+   * Update cart item (alias for updateQuantity with simpler interface)
+   */
+  async updateCartItem(userId: string, productId: string, quantity: number): Promise<CartItem[]> {
+    const cart = this.getCartFromStorage(userId);
+    const item = cart.find(i => i.product.id === productId);
+    const size = item?.size || item?.selectedSize || 'M';
+    return this.updateQuantity(userId, productId, size, quantity);
+  }
+
+  /**
    * Remove item from cart
    */
   async removeFromCart(userId: string, productId: string, size?: string): Promise<CartItem[]> {

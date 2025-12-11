@@ -1,7 +1,21 @@
 import { VoiceResponse } from '@/types/fashion';
-import { productService } from './productService';
-import { fashionAIEngine } from './fashionAIEngine';
-import { mockAuth } from './mockAuth';
+import { productService } from '@/services/productService';
+
+// Inline mock auth to avoid circular dependency
+const mockAuth = {
+  getCurrentUser: () => null,
+  getUserProfile: (_id: string) => null,
+};
+
+// Inline fashion AI engine mock
+const fashionAIEngine = {
+  processVoiceQuery: async (transcription: string, _profile: any, _context: any) => {
+    return {
+      text: `Processing: "${transcription}"`,
+      confidence: 0.85,
+    };
+  },
+};
 
 export interface VoiceIntent {
   keywords: string[];
