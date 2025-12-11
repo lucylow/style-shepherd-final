@@ -1,266 +1,317 @@
 # Error Handling Improvements Summary
 
-This document outlines the comprehensive error handling improvements implemented across the Style Shepherd application.
+This document outlines the comprehensive error handling improvements made to the Style Shepherd application.
 
 ## Overview
 
-The error handling system has been enhanced with:
-- **Structured error classes** with proper error codes and status codes
-- **Automatic retry logic** for transient failures
-- **Error context tracking** for better debugging
-- **Error monitoring and reporting** for production environments
-- **Enhanced error boundaries** with better user feedback
-- **Consistent error handling patterns** across frontend and backend
+The error handling system has been enhanced across both frontend and backend to provide:
+- Consistent error handling patterns
+- Better error context and logging
+- Automatic error conversion and recovery
+- Timeout handling for long-running operations
+- Improved user experience with meaningful error messages
 
 ## Backend Improvements
 
-### 1. Error Context Utilities (`server/src/lib/errorContext.ts`)
-- **Purpose**: Adds request context to errors for better debugging
-- **Features**:
-  - Automatically captures user ID, request ID, operation, and resource information
-  - Enhances errors with metadata before logging
-  - Provides wrapper functions for adding context to async operations
+### 1. Route Handler Error Handling
 
-### 2. Error Recovery Utilities (`server/src/lib/errorRecovery.ts`)
-- **Purpose**: Provides strategies for recovering from errors
-- **Features**:
-  - Fallback value strategies
-  - Retry strategies for transient errors
-  - Composable recovery mechanisms
+**Before:** Routes used manual try-catch blocks with inconsistent error handling.
 
-### 3. Enhanced Error Handler Middleware (`server/src/middleware/errorHandler.ts`)
-- **Improvements**:
-  - Automatically adds request context to errors
-  - Better error code handling
-  - Prevents double response sending
-  - Includes request ID in development mode
+**After:** All routes now use the `asyncHandler` middleware wrapper that:
+- Automatically catches async errors
+- Converts all errors to `AppError` instances
+- Enhances errors with request context (userId, requestId, operation)
+- Passes errors to centralized error middleware
 
-### 4. Error Reporting Endpoint (`server/src/routes/errors.ts`)
-- **Purpose**: Receives error reports from client-side
-- **Features**:
-  - Validates error report format
-  - Logs errors with full context
-  - Ready for integration with external error tracking services (Sentry, DataDog, etc.)
+**Files Modified:**
+- `server/src/routes/api.ts` - Updated multiple route handlers to use `asyncHandler`
+- `server/src/middleware/asyncHandler.ts` - Enhanced to convert all errors to AppError
 
-## Frontend Improvements
-
-### 1. Retry Utilities (`src/lib/retry.ts`)
-- **Purpose**: Provides automatic retry logic for failed operations
-- **Features**:
-  - Exponential backoff
-  - Configurable retry attempts
-  - Smart retryable error detection (network errors, 5xx, timeouts)
-  - Custom retry strategies
-
-### 2. Enhanced API Client (`src/lib/api.ts` & `src/lib/apiClient.ts`)
-- **Improvements**:
-  - Increased timeout to 30 seconds
-  - Automatic request ID generation
-  - Built-in retry logic in interceptors
-  - Better error logging with context
-  - New `apiClient.ts` with retry-enabled convenience methods
-
-### 3. Enhanced Error Boundary (`src/components/ErrorBoundary.tsx`)
-- **Improvements**:
-  - Automatic error reporting to backend
-  - User ID extraction from localStorage
-  - Better error context capture
-  - Improved user feedback
-
-### 4. Error Monitoring Hook (`src/hooks/useErrorMonitoring.ts`)
-- **Purpose**: Provides error monitoring and reporting utilities
-- **Features**:
-  - Automatic error reporting
-  - Global error handler setup
-  - Context-aware error tracking
-  - Integration with error reporting endpoint
-
-### 5. Enhanced Global Error Handler (`src/lib/globalErrorHandler.ts`)
-- **Improvements**:
-  - Automatic error reporting
-  - Better error context
-  - Configurable via environment variables
-
-## Key Features
-
-### Automatic Retry Logic
-- Network errors are automatically retried with exponential backoff
-- Configurable retry attempts and delays
-- Smart detection of retryable vs non-retryable errors
-
-### Error Context Tracking
-- All errors include request context (user ID, request ID, operation)
-- Better debugging with full error context
-- Structured error logging
-
-### Error Monitoring
-- Client-side errors are automatically reported to backend
-- Ready for integration with external error tracking services
-- Configurable via `VITE_ERROR_REPORTING_ENABLED` environment variable
-
-### Consistent Error Handling
-- All backend routes use `asyncHandler` for consistent error handling
-- Frontend uses centralized error handling utilities
-- User-friendly error messages
-
-## Usage Examples
-
-### Backend: Using asyncHandler
+**Example:**
 ```typescript
-import { asyncHandler } from '../middleware/asyncHandler.js';
-
-router.get('/products', asyncHandler(async (req, res) => {
-  const products = await productService.getProducts();
-  res.json({ products });
-}));
-```
-
-### Frontend: Using API Client with Retry
-```typescript
-import { apiGet } from '@/lib/apiClient';
-
-try {
-  const response = await apiGet('/api/products', {}, {
-    retry: { maxRetries: 3 },
-    showErrorToast: true,
-  });
-} catch (error) {
-  // Error is already handled and retried
-}
-```
-
-### Frontend: Using Error Monitoring Hook
-```typescript
-import { useErrorMonitoring } from '@/hooks/useErrorMonitoring';
-
-function MyComponent() {
-  const { handleErrorWithMonitoring } = useErrorMonitoring();
-  
-  const handleAction = async () => {
-    try {
-      await someAsyncOperation();
-    } catch (error) {
-      handleErrorWithMonitoring(error, {
-        context: { component: 'MyComponent', action: 'handleAction' },
-      });
-    }
-  };
-}
-```
-
-## Environment Variables
-
-### Frontend
-- `VITE_ERROR_REPORTING_ENABLED`: Set to `'true'` to enable error reporting to backend
-
-### Backend
-- Error reporting is always enabled (can be extended to support external services)
-
-## Future Enhancements
-
-1. **External Error Tracking Integration**
-   - Sentry integration
-   - DataDog integration
-   - Custom error tracking service
-
-2. **Error Analytics Dashboard**
-   - Error frequency tracking
-   - Error trend analysis
-   - User impact assessment
-
-3. **Advanced Retry Strategies**
-   - Circuit breaker pattern
-   - Rate limiting awareness
-   - Adaptive retry delays
-
-4. **Error Recovery UI**
-   - Automatic recovery suggestions
-   - User-initiated retry buttons
-   - Offline mode handling
-
-## Testing Error Handling
-
-### Testing Retry Logic
-```typescript
-// Simulate network error
-const mockApi = jest.fn()
-  .mockRejectedValueOnce(new Error('Network error'))
-  .mockResolvedValue({ data: 'success' });
-
-await retry(mockApi, { maxRetries: 2 });
-expect(mockApi).toHaveBeenCalledTimes(2);
-```
-
-### Testing Error Context
-```typescript
-const error = new AppError('Test error', ErrorCode.VALIDATION_ERROR);
-const context = { userId: '123', operation: 'GET /api/products' };
-const enhanced = enhanceErrorWithContext(error, context);
-expect(enhanced.details?.context?.userId).toBe('123');
-```
-
-## Best Practices
-
-1. **Always use asyncHandler for async routes** - Ensures errors are properly caught
-2. **Use structured error classes** - Provides better error information
-3. **Add context to errors** - Makes debugging easier
-4. **Use retry for transient errors** - Improves user experience
-5. **Report errors in production** - Helps identify and fix issues quickly
-6. **Provide user-friendly messages** - Don't expose technical details to users
-
-## Migration Guide
-
-### Migrating Existing Routes
-
-**Before:**
-```typescript
-router.get('/products', async (req, res, next) => {
+// Before
+router.post('/endpoint', async (req, res, next) => {
   try {
-    const products = await getProducts();
-    res.json({ products });
+    // ... handler code
   } catch (error) {
     next(error);
   }
 });
-```
 
-**After:**
-```typescript
-import { asyncHandler } from '../middleware/asyncHandler.js';
-
-router.get('/products', asyncHandler(async (req, res) => {
-  const products = await getProducts();
-  res.json({ products });
+// After
+router.post('/endpoint', asyncHandler(async (req, res) => {
+  // ... handler code (errors automatically handled)
 }));
 ```
 
-### Migrating Frontend API Calls
+### 2. Service Error Handling Utilities
 
-**Before:**
+**New File:** `server/src/lib/serviceErrorHandler.ts`
+
+Provides utilities for consistent error handling in service methods:
+- `withServiceErrorHandling()` - Wraps service methods with automatic error conversion and logging
+- `withFallback()` - Provides fallback values on error
+- `withServiceTimeout()` - Adds timeout handling to service methods
+
+**Usage:**
 ```typescript
-try {
-  const response = await api.get('/api/products');
-} catch (error) {
-  handleError(error);
+import { withServiceErrorHandling } from '../lib/serviceErrorHandler.js';
+
+class MyService {
+  async getData() {
+    // Method implementation
+  }
+  
+  // Wrap method with error handling
+  getData = withServiceErrorHandling(
+    this.getData.bind(this),
+    'MyService',
+    'getData'
+  );
 }
 ```
 
-**After:**
+### 3. Timeout Handling
+
+**New File:** `server/src/lib/timeout.ts`
+
+Provides timeout utilities for async operations:
+- `withTimeout()` - Wraps promises with timeout
+- `withTimeoutWrapper()` - Creates timeout wrapper for functions
+
+**Usage:**
 ```typescript
-import { apiGet } from '@/lib/apiClient';
+import { withTimeout } from '../lib/timeout.js';
+
+const result = await withTimeout(
+  longRunningOperation(),
+  { timeoutMs: 10000, errorMessage: 'Operation timed out' }
+);
+```
+
+### 4. Enhanced Error Context
+
+The error context system now automatically includes:
+- User ID from request
+- Request ID for tracking
+- Operation name (HTTP method + path)
+- Additional metadata
+
+## Frontend Improvements
+
+### 1. Global Error Handlers
+
+**File:** `src/lib/globalErrorHandler.ts`
+
+Initialized on app startup to catch:
+- Unhandled errors
+- Unhandled promise rejections
+- React error boundaries (via ErrorBoundary component)
+
+**File:** `src/App.tsx`
+- Global error handlers are now initialized at module level (not just in useEffect)
+- Ensures error handling is active immediately
+
+### 2. API Client Error Handling
+
+**Files:**
+- `src/lib/api.ts` - Base API client with interceptors
+- `src/lib/apiClient.ts` - Enhanced client with retry logic
+
+**Features:**
+- Automatic retry for retryable errors (network errors, 5xx, 429)
+- Exponential backoff for retries
+- Enhanced error logging with request context
+- Request ID tracking for debugging
+
+### 3. Error Handler Utilities
+
+**File:** `src/lib/errorHandler.ts`
+
+Provides:
+- `handleError()` - Centralized error handling with toast notifications
+- `getErrorMessage()` - Extracts user-friendly error messages
+- `isNetworkError()`, `isTimeoutError()` - Error type detection
+- `createErrorHandler()` - Creates reusable error handlers
+
+**Usage:**
+```typescript
+import { handleError, useErrorHandler } from '@/lib/errorHandler';
+
+// In component
+const { handle } = useErrorHandler();
 
 try {
-  const response = await apiGet('/api/products');
+  await apiCall();
 } catch (error) {
-  // Error is already handled with retry
+  handle(error, { defaultMessage: 'Operation failed' });
 }
 ```
 
-## Conclusion
+### 4. Error Boundary
 
-These improvements provide a robust, consistent error handling system that:
-- Improves user experience with automatic retries
-- Makes debugging easier with error context
-- Enables error monitoring in production
-- Provides consistent error handling patterns
-- Ready for integration with external error tracking services
+**File:** `src/components/ErrorBoundary.tsx`
+
+Enhanced React error boundary that:
+- Catches React component errors
+- Logs errors with full context
+- Reports errors to backend in production
+- Provides user-friendly error UI
+
+## Error Types and Codes
+
+All errors use the standardized `ErrorCode` enum:
+
+- **Validation Errors (400):** `VALIDATION_ERROR`, `INVALID_INPUT`, `MISSING_REQUIRED_FIELD`
+- **Authentication Errors (401):** `UNAUTHORIZED`, `INVALID_TOKEN`, `TOKEN_EXPIRED`
+- **Authorization Errors (403):** `FORBIDDEN`, `INSUFFICIENT_PERMISSIONS`
+- **Not Found Errors (404):** `NOT_FOUND`, `RESOURCE_NOT_FOUND`, `USER_NOT_FOUND`, `PRODUCT_NOT_FOUND`
+- **Database Errors (500):** `DATABASE_ERROR`, `DATABASE_CONNECTION_ERROR`, `DATABASE_QUERY_ERROR`, `DATABASE_TIMEOUT`
+- **Cache Errors (500):** `CACHE_ERROR`, `CACHE_CONNECTION_ERROR`
+- **External Service Errors (502):** `EXTERNAL_SERVICE_ERROR`, `PAYMENT_SERVICE_ERROR`, `VOICE_SERVICE_ERROR`, `ML_SERVICE_ERROR`, `API_TIMEOUT`
+- **Business Logic Errors (400):** `INVALID_OPERATION`, `PAYMENT_FAILED`, `INSUFFICIENT_STOCK`, `ORDER_NOT_FOUND`
+- **Server Errors (500):** `INTERNAL_SERVER_ERROR`, `SERVICE_UNAVAILABLE`
+
+## Error Logging
+
+**File:** `server/src/lib/errorLogger.ts`
+
+Structured error logging with:
+- Request context (method, path, query, body, IP, userAgent, userId)
+- Error details (code, message, statusCode, stack, details)
+- Environment information
+- Sanitization of sensitive data (passwords, tokens, etc.)
+
+**Log Levels:**
+- `ERROR` - Non-operational errors (bugs, unexpected errors)
+- `WARN` - Operational errors (validation, business logic)
+- `INFO` - Informational messages
+- `DEBUG` - Debug information
+
+## Error Recovery
+
+**File:** `server/src/lib/errorRecovery.ts`
+
+Provides recovery strategies:
+- `createFallbackStrategy()` - Returns fallback value on error
+- `createRetryStrategy()` - Retries on transient errors
+- `attemptRecovery()` - Attempts recovery using multiple strategies
+- `withRecovery()` - Wraps functions with recovery logic
+
+## Retry Logic
+
+**File:** `src/lib/retry.ts` (frontend)
+**File:** `server/src/lib/vultr-postgres.ts` (backend - database queries)
+
+Features:
+- Exponential backoff
+- Configurable max retries
+- Retryable error detection
+- Retry callbacks for logging
+
+## Best Practices
+
+### Backend
+
+1. **Always use `asyncHandler` for route handlers:**
+   ```typescript
+   router.post('/endpoint', asyncHandler(async (req, res) => {
+     // Handler code
+   }));
+   ```
+
+2. **Use service error handling utilities:**
+   ```typescript
+   class MyService {
+     getData = withServiceErrorHandling(
+       this.getData.bind(this),
+       'MyService',
+       'getData'
+     );
+   }
+   ```
+
+3. **Throw appropriate error types:**
+   ```typescript
+   throw new NotFoundError('Product', productId);
+   throw new ValidationError('Invalid input', { field: 'email' });
+   ```
+
+4. **Use timeout for long-running operations:**
+   ```typescript
+   const result = await withTimeout(operation(), { timeoutMs: 10000 });
+   ```
+
+### Frontend
+
+1. **Use error handler hook:**
+   ```typescript
+   const { handle } = useErrorHandler();
+   try {
+     await apiCall();
+   } catch (error) {
+     handle(error);
+   }
+   ```
+
+2. **Use API client with retry:**
+   ```typescript
+   import { apiGet } from '@/lib/apiClient';
+   const response = await apiGet('/endpoint', {}, { retry: { maxRetries: 3 } });
+   ```
+
+3. **Wrap components with ErrorBoundary:**
+   ```typescript
+   <ErrorBoundary>
+     <YourComponent />
+   </ErrorBoundary>
+   ```
+
+## Testing Error Handling
+
+To test error handling:
+
+1. **Network errors:** Disconnect network or use invalid URLs
+2. **Timeout errors:** Use endpoints that take longer than timeout
+3. **Validation errors:** Send invalid request data
+4. **Server errors:** Trigger 5xx errors from backend
+5. **Client errors:** Trigger 4xx errors (unauthorized, not found, etc.)
+
+## Future Improvements
+
+1. **Error Tracking Integration:**
+   - Integrate with Sentry or similar service
+   - Add error analytics dashboard
+   - Track error rates and trends
+
+2. **Enhanced Recovery:**
+   - Circuit breaker pattern for external services
+   - Automatic fallback to cached data
+   - Graceful degradation for non-critical features
+
+3. **User Experience:**
+   - In-app error reporting
+   - Error recovery suggestions
+   - Offline mode with error queuing
+
+4. **Monitoring:**
+   - Real-time error alerts
+   - Error rate monitoring
+   - Performance impact tracking
+
+## Files Modified/Created
+
+### Backend
+- `server/src/routes/api.ts` - Updated route handlers
+- `server/src/middleware/asyncHandler.ts` - Enhanced error conversion
+- `server/src/lib/serviceErrorHandler.ts` - **NEW** Service error utilities
+- `server/src/lib/timeout.ts` - **NEW** Timeout utilities
+
+### Frontend
+- `src/App.tsx` - Initialize global error handlers
+- `src/lib/errorHandler.ts` - Already exists, documented usage
+- `src/lib/apiClient.ts` - Already exists, documented usage
+- `src/lib/globalErrorHandler.ts` - Already exists, documented usage
+
+### Documentation
+- `ERROR_HANDLING_IMPROVEMENTS.md` - **NEW** This document

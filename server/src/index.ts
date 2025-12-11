@@ -125,6 +125,7 @@ app.use('/api/shopping', shoppingSessionsRoutes);
 app.use('/api/workflows', workflowRoutes);
 app.use('/api/guardrails', guardrailsRoutes);
 app.use('/api/errors', errorRoutes);
+app.use('/api/functions', returnRiskPredictionRoutes);
 app.use('/api', apiRoutes);
 
 // Serve static files from client build in production
