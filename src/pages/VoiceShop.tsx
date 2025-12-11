@@ -17,6 +17,7 @@ import MobileBottomNav from '@/components/layout/MobileBottomNav';
 import RouteLoadingIndicator from '@/components/common/RouteLoadingIndicator';
 import useScrollRestoration from '@/hooks/useScrollRestoration';
 import { speakText } from '@/lib/ttsClient';
+import { SearchableSEO } from '@/components/seo/SearchableSEO';
 
 const VoiceShop = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -219,9 +220,16 @@ const VoiceShop = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-20 md:pb-0">
-      <HeaderNav />
-      <RouteLoadingIndicator />
+    <>
+      <SearchableSEO
+        title="Voice Shopping - Style Shepherd"
+        description="Shop fashion products using voice commands. AI-powered voice shopping with natural language search and personalized recommendations."
+        products={products}
+        searchQuery={lastCommand}
+      />
+      <div className="min-h-screen bg-background pb-20 md:pb-0">
+        <HeaderNav />
+        <RouteLoadingIndicator />
       
       <main id="main" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Breadcrumbs />
@@ -480,6 +488,7 @@ const VoiceShop = () => {
 
       <MobileBottomNav />
     </div>
+    </>
   );
 };
 

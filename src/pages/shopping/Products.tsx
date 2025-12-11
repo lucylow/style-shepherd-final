@@ -21,6 +21,7 @@ import useScrollRestoration from '@/hooks/useScrollRestoration';
 import { usePrefetch } from '@/hooks/usePrefetch';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { toast } from 'sonner';
+import { SearchableSEO } from '@/components/seo/SearchableSEO';
 
 const Products = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -180,6 +181,12 @@ const Products = () => {
 
   return (
     <ErrorBoundary>
+      <SearchableSEO
+        products={products}
+        searchQuery={searchQuery}
+        category={categoryFilter}
+        totalResults={products.length}
+      />
       <div className="min-h-screen bg-background pb-20 md:pb-0">
         <HeaderNav />
         <RouteLoadingIndicator />
