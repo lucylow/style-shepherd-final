@@ -32,7 +32,9 @@
     "netlify:build": "npm run build",
     "cloudflare:dev": "cd server && wrangler dev",
     "cloudflare:deploy": "cd server && wrangler deploy",
-    "cloudflare:build": "cd server && npm run build:cloudflare"
+    "cloudflare:build": "cd server && npm run build:cloudflare",
+    "trend-service:start": "cd server/trend-service && bash start.sh",
+    "trend-service:install": "cd server/trend-service && python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

@@ -1050,7 +1050,7 @@ export class PaymentService {
       const commissionAmount = Math.round(params.preventedValue * params.commissionRate * 100);
 
       // Create invoice item
-      await this.stripe.invoiceItems.create({
+      await this.stripe!.invoiceItems.create({
         customer: params.retailerCustomerId,
         amount: commissionAmount,
         currency: 'usd',
@@ -1253,9 +1253,13 @@ export class PaymentService {
     reason?: 'duplicate' | 'fraudulent' | 'requested_by_customer',
     metadata?: Record<string, string>
   ): Promise<{ refundId: string; amount: number; status: string }> {
+    if (this.isMockMode()) {
+      throw new BusinessLogicError('Refunds not supported in mock mode', ErrorCode.VALIDATION_ERROR);
+    }
+    
     try {
       // Verify payment intent exists and is refundable
-      const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
+      const paymentIntent = await this.stripe!.paymentIntents.retrieve(paymentIntentId);
       
       if (paymentIntent.status !== 'succeeded') {
         throw new PaymentError(
@@ -1498,7 +1502,7 @@ export class PaymentService {
       
       const subscriptionRevenue = subscriptions.length * 19.99; // Approximate monthly subscription
       const oneTimeRevenue = totalRevenue - subscriptionRevenue;
-      const refundsTotal = parseFloat(refunds[0]?.refund_amount || '0');
+      const refundsTotal = parseFloat(String(refunds[0]?.refund_amount || '0'));
       const netRevenue = totalRevenue - refundsTotal;
 
       // Revenue by day
@@ -1951,7 +1955,7 @@ export class PaymentService {
           // Update order status to refunded
           try {
             const paymentIntentId = charge.payment_intent as string;
-            if (paymentIntentId) {
+            if (paymentIntentId && this.stripe) {
               const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
               const userId = paymentIntent.metadata?.userId;
               const orderId = paymentIntent.metadata?.orderId;

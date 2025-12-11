@@ -27,3 +27,16 @@ models/
 *.njsproj
 *.sln
 *.sw?
+
+# Python virtual environments
+server/trend-service/.venv/
+server/trend-service/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
