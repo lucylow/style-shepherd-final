@@ -56,7 +56,7 @@ export async function textToSpeech({
   voiceId = DEFAULT_VOICE
 }: TextToSpeechOptions): Promise<TextToSpeechResponse> {
   if (!text || typeof text !== 'string') {
-    return { success: false, error: 'text required' };
+    return { success: false, source: 'mock', error: 'text required' };
   }
 
   // If no key -> return demo mp3 path (judges should add public/mock/demo_voice.mp3)

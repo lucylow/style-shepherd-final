@@ -22,6 +22,7 @@ import { personalShopperAgent } from '../services/agents/PersonalShopperAgent.js
 import { sizePredictorAgent } from '../services/agents/size-predictor/index.js';
 import { makeupArtistAgent } from '../services/agents/MakeupArtistAgent/index.js';
 import { multiAgentOrchestrator } from '../services/MultiAgentOrchestrator.js';
+import { fraudMiddleware } from '../middleware/fraudMiddleware.js';
 
 const router = Router();
 

@@ -28,6 +28,7 @@ import { vultrPostgres } from './lib/vultr-postgres.js';
 import { vultrValkey } from './lib/vultr-valkey.js';
 import { initRaindrop } from './lib/raindropClient.js';
 import { initializeGuardrails } from './lib/guardrails/index.js';
+import { initProviders } from './lib/initProviders.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

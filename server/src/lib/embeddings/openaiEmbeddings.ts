@@ -15,7 +15,7 @@ export class OpenAIEmbeddingsAdapter implements EmbeddingsAdapter {
 
   private apiKey: string;
   private model: string;
-  private dimension: number;
+  private _dimension: number;
 
   constructor(
     apiKey: string,
@@ -26,7 +26,7 @@ export class OpenAIEmbeddingsAdapter implements EmbeddingsAdapter {
     }
     this.apiKey = apiKey;
     this.model = options?.model || 'text-embedding-3-small';
-    this.dimension = this.model.includes('3-small') ? 1536 : 3072; // text-embedding-3-small = 1536, text-embedding-3-large = 3072
+    this._dimension = this.model.includes('3-small') ? 1536 : 3072; // text-embedding-3-small = 1536, text-embedding-3-large = 3072
     if (options?.priority !== undefined) {
       this.meta.priority = options.priority;
     }
@@ -64,6 +64,6 @@ export class OpenAIEmbeddingsAdapter implements EmbeddingsAdapter {
   }
 
   dimension(): number {
-    return this.dimension;
+    return this._dimension;
   }
 }
