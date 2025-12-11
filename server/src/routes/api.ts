@@ -11,8 +11,9 @@ import { paymentService } from '../services/PaymentService.js';
 import { authService } from '../services/AuthService.js';
 import { ttsService } from '../services/TTSService.js';
 import { agentRegistry } from '../services/AgentRegistry.js';
-import { NotFoundError } from '../lib/errors.js';
+import { NotFoundError, toAppError } from '../lib/errors.js';
 import { validateBody, validateParams, validateQuery, commonSchemas } from '../middleware/validation.js';
+import { asyncHandler } from '../middleware/asyncHandler.js';
 import { z } from 'zod';
 import agentRoutes from './agents.js';
 import returnsPredictorRoutes from './returns-predictor.js';
@@ -104,15 +105,11 @@ router.post(
       }),
     })
   ),
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { userId, productId, feedback } = req.body;
-      await productRecommendationAPI.recordFeedback(userId, productId, feedback);
-      res.json({ success: true, message: 'Feedback recorded' });
-    } catch (error) {
-      next(error);
-    }
-  }
+  asyncHandler(async (req: Request, res: Response) => {
+    const { userId, productId, feedback } = req.body;
+    await productRecommendationAPI.recordFeedback(userId, productId, feedback);
+    res.json({ success: true, message: 'Feedback recorded' });
+  })
 );
 
 // Interaction logging endpoint for metrics (A/B testing, analytics)
@@ -127,22 +124,18 @@ router.post(
       metadata: z.record(z.any()).optional(),
     })
   ),
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { userId, productId, type, value, metadata } = req.body;
-      
-      const { vultrPostgres } = await import('../lib/vultr-postgres.js');
-      await vultrPostgres.query(
-        `INSERT INTO interactions (user_id, product_id, type, value, metadata, created_at)
-         VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)`,
-        [userId, productId, type, value, JSON.stringify(metadata || {})]
-      );
-      
-      res.json({ success: true, message: 'Interaction logged' });
-    } catch (error) {
-      next(error);
-    }
-  }
+  asyncHandler(async (req: Request, res: Response) => {
+    const { userId, productId, type, value, metadata } = req.body;
+    
+    const { vultrPostgres } = await import('../lib/vultr-postgres.js');
+    await vultrPostgres.query(
+      `INSERT INTO interactions (user_id, product_id, type, value, metadata, created_at)
+       VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)`,
+      [userId, productId, type, value, JSON.stringify(metadata || {})]
+    );
+    
+    res.json({ success: true, message: 'Interaction logged' });
+  })
 );
 
 router.post(
@@ -153,18 +146,14 @@ router.post(
       limit: z.number().int().positive().max(50).optional().default(10),
     })
   ),
-  async (req: Request, res: Response, next: NextFunction) => {
-  try {
+  asyncHandler(async (req: Request, res: Response) => {
     const { imageUrl, limit } = req.body;
     const results = await productRecommendationAPI.findSimilarProducts(
       imageUrl,
-        limit
+      limit
     );
     res.json({ results });
-  } catch (error) {
-      next(error);
-    }
-  }
+  })
 );
 
 router.post(
@@ -181,18 +170,14 @@ router.post(
       productId: z.string().min(1, 'Product ID is required'),
     })
   ),
-  async (req: Request, res: Response, next: NextFunction) => {
-  try {
+  asyncHandler(async (req: Request, res: Response) => {
     const { measurements, productId } = req.body;
     const result = await productRecommendationAPI.predictOptimalSize(
       measurements,
       productId
     );
     res.json(result);
-  } catch (error) {
-      next(error);
-    }
-  }
+  })
 );
 
 // Judge-ready demo endpoints for idea quality validation
@@ -213,66 +198,62 @@ router.post(
       category: z.string().optional(),
     })
   ),
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { userId, productId, measurements, brand, category } = req.body;
-      
-      // Get size recommendation with detailed reasoning
-      let recommendedSize = 'M';
-      let confidence = 0.75;
-      const reasoning: string[] = [];
+  asyncHandler(async (req: Request, res: Response) => {
+    const { userId, productId, measurements, brand, category } = req.body;
+    
+    // Get size recommendation with detailed reasoning
+    let recommendedSize = 'M';
+    let confidence = 0.75;
+    const reasoning: string[] = [];
 
-      if (measurements) {
-        const result = await productRecommendationAPI.predictOptimalSize(
-          measurements,
-          productId
-        );
-        recommendedSize = result.recommendedSize;
-        confidence = result.confidence;
+    if (measurements) {
+      const result = await productRecommendationAPI.predictOptimalSize(
+        measurements,
+        productId
+      );
+      recommendedSize = result.recommendedSize;
+      confidence = result.confidence;
 
-        // Generate interpretable reasoning
-        if (measurements.waist) {
-          if (measurements.waist < 28) {
-            reasoning.push(`Based on your waist measurement (${measurements.waist}"), size XS-S is recommended`);
-          } else if (measurements.waist < 32) {
-            reasoning.push(`Based on your waist measurement (${measurements.waist}"), size S-M is recommended`);
-          } else if (measurements.waist < 36) {
-            reasoning.push(`Based on your waist measurement (${measurements.waist}"), size M-L is recommended`);
-          } else {
-            reasoning.push(`Based on your waist measurement (${measurements.waist}"), size L-XL is recommended`);
-          }
+      // Generate interpretable reasoning
+      if (measurements.waist) {
+        if (measurements.waist < 28) {
+          reasoning.push(`Based on your waist measurement (${measurements.waist}"), size XS-S is recommended`);
+        } else if (measurements.waist < 32) {
+          reasoning.push(`Based on your waist measurement (${measurements.waist}"), size S-M is recommended`);
+        } else if (measurements.waist < 36) {
+          reasoning.push(`Based on your waist measurement (${measurements.waist}"), size M-L is recommended`);
+        } else {
+          reasoning.push(`Based on your waist measurement (${measurements.waist}"), size L-XL is recommended`);
         }
-
-        if (brand) {
-          reasoning.push(`${brand} typically runs ${getBrandSizingNote(brand)}`);
-        }
-
-        // Cross-brand size normalization insight
-        reasoning.push(`Adjusted for ${brand || 'this brand'}'s sizing variance (${((1 - confidence) * 3).toFixed(1)}% deviation from standard)`);
-      } else {
-        confidence = 0.5;
-        reasoning.push('No measurements provided - using default size recommendation');
-        reasoning.push('For better accuracy, please provide your measurements or upload a photo');
       }
 
-      res.json({
-        recommendedSize,
-        confidence: Math.round(confidence * 100) / 100,
-        confidencePercentage: Math.round(confidence * 100),
-        reasoning,
-        fitConfidence: `${Math.round(confidence * 100)}%`,
-        alternativeSizes: getAlternativeSizes(recommendedSize),
-        brandSizingNotes: brand ? getBrandSizingNote(brand) : null,
-        crossBrandNormalization: {
-          standardSize: recommendedSize,
-          brandAdjusted: true,
-          variance: `${((1 - confidence) * 3).toFixed(1)}%`,
-        },
-      });
-    } catch (error) {
-      next(error);
+      if (brand) {
+        reasoning.push(`${brand} typically runs ${getBrandSizingNote(brand)}`);
+      }
+
+      // Cross-brand size normalization insight
+      reasoning.push(`Adjusted for ${brand || 'this brand'}'s sizing variance (${((1 - confidence) * 3).toFixed(1)}% deviation from standard)`);
+    } else {
+      confidence = 0.5;
+      reasoning.push('No measurements provided - using default size recommendation');
+      reasoning.push('For better accuracy, please provide your measurements or upload a photo');
     }
-  }
+
+    res.json({
+      recommendedSize,
+      confidence: Math.round(confidence * 100) / 100,
+      confidencePercentage: Math.round(confidence * 100),
+      reasoning,
+      fitConfidence: `${Math.round(confidence * 100)}%`,
+      alternativeSizes: getAlternativeSizes(recommendedSize),
+      brandSizingNotes: brand ? getBrandSizingNote(brand) : null,
+      crossBrandNormalization: {
+        standardSize: recommendedSize,
+        brandAdjusted: true,
+        variance: `${((1 - confidence) * 3).toFixed(1)}%`,
+      },
+    });
+  })
 );
 
 router.post(
@@ -292,9 +273,8 @@ router.post(
       }).optional(),
     })
   ),
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { userId, productId, selectedSize, product } = req.body;
+  asyncHandler(async (req: Request, res: Response) => {
+    const { userId, productId, selectedSize, product } = req.body;
       
       // Calculate return risk with detailed breakdown
       const baseRisk = 0.25; // Industry average
@@ -345,28 +325,25 @@ router.post(
       const estimatedReturnCost = product?.price ? product.price * 0.30 : 0; // ~30% handling cost
       const co2Saved = riskScore * 24; // 24kg CO2 per prevented return
 
-      res.json({
-        riskScore: Math.round(riskScore * 100) / 100,
-        riskLevel,
-        returnRisk: `${returnRiskPercentage}%`,
-        confidence: Math.round(confidence * 100),
-        primaryFactors: factors.length > 0 ? factors : ['Standard return risk for online fashion purchase'],
-        mitigationStrategies: mitigation.length > 0 ? mitigation : ['Item has good compatibility based on available data'],
-        impact: {
-          estimatedReturnCost: `$${estimatedReturnCost.toFixed(2)}`,
-          co2SavedIfPrevented: `${co2Saved.toFixed(1)}kg CO₂`,
-          timeSaved: `${Math.round(riskScore * 180)} minutes`, // Average return process time
-        },
-        recommendation: riskLevel === 'high' 
-          ? 'Consider reviewing size recommendations and product details before purchase'
-          : riskLevel === 'medium'
-          ? 'Good fit likelihood - verify size recommendations for best results'
-          : 'Excellent fit likelihood - proceed with confidence',
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
+    res.json({
+      riskScore: Math.round(riskScore * 100) / 100,
+      riskLevel,
+      returnRisk: `${returnRiskPercentage}%`,
+      confidence: Math.round(confidence * 100),
+      primaryFactors: factors.length > 0 ? factors : ['Standard return risk for online fashion purchase'],
+      mitigationStrategies: mitigation.length > 0 ? mitigation : ['Item has good compatibility based on available data'],
+      impact: {
+        estimatedReturnCost: `$${estimatedReturnCost.toFixed(2)}`,
+        co2SavedIfPrevented: `${co2Saved.toFixed(1)}kg CO₂`,
+        timeSaved: `${Math.round(riskScore * 180)} minutes`, // Average return process time
+      },
+      recommendation: riskLevel === 'high' 
+        ? 'Consider reviewing size recommendations and product details before purchase'
+        : riskLevel === 'medium'
+        ? 'Good fit likelihood - verify size recommendations for best results'
+        : 'Excellent fit likelihood - proceed with confidence',
+    });
+  })
 );
 
 // Helper functions for size recommendations
@@ -396,15 +373,11 @@ function getAlternativeSizes(size: string): string[] {
 router.post(
   '/voice/conversation/start',
   validateBody(z.object({ userId: commonSchemas.userId })),
-  async (req: Request, res: Response, next: NextFunction) => {
-  try {
+  asyncHandler(async (req: Request, res: Response) => {
     const { userId } = req.body;
     const state = await voiceAssistant.startConversation(userId);
     res.json(state);
-  } catch (error) {
-      next(error);
-    }
-  }
+  })
 );
 
 router.post(

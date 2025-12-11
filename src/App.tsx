@@ -11,6 +11,9 @@ import { routeConfigs, createRouteElement } from "@/config/routes";
 import { KeyboardShortcutsProvider } from "@/components/KeyboardShortcutsProvider";
 import { initGlobalErrorHandlers } from "@/lib/globalErrorHandler";
 
+// Initialize global error handlers on app startup
+initGlobalErrorHandlers();
+
 // Create QueryClient outside component to prevent recreation on every render
 const queryClient = new QueryClient({
   defaultOptions: {
