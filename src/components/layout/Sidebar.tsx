@@ -37,7 +37,9 @@ export function Sidebar() {
     <aside className="w-64 bg-card border-r border-border h-full pt-4">
       <nav className="space-y-1 px-3">
         {menuItems.map((item) => {
-          const isActive = location.pathname === item.to;
+          const isActive = item.to === "/" 
+            ? location.pathname === "/"
+            : location.pathname === item.to || location.pathname.startsWith(item.to + "/");
           const Icon = item.icon;
           
           return (

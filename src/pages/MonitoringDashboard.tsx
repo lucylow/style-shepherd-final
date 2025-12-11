@@ -4,15 +4,16 @@
  * Includes: Dashboard overview, Deployment, Monitoring, Analytics, Logs, Health checks
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Activity, Server, Zap, AlertTriangle, TrendingUp, Clock, Cloud, BarChart3, FileText, Heart } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Activity, Zap, AlertTriangle, TrendingUp, Clock, Cloud, BarChart3, FileText, Heart, Server } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import HeaderNav from '@/components/layout/HeaderNav';
 import Footer from '@/components/layout/Footer';
-import DeploymentStatus from '@/components/admin/DeploymentStatus';
 import AnalyticsDashboard from '@/components/admin/AnalyticsDashboard';
 import LogsViewer from '@/components/admin/LogsViewer';
 import HealthChecks from '@/components/admin/HealthChecks';
@@ -49,15 +50,40 @@ export default function MonitoringDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
-  const fetchMetrics = async () => {
+  const fetchMetrics = useCallback(async () => {
     try {
+      setError(null);
+      
+      // Create abort controllers for timeout handling
+      const statsController = new AbortController();
+      const healthController = new AbortController();
+      
+      const statsTimeout = setTimeout(() => statsController.abort(), 10000);
+      const healthTimeout = setTimeout(() => healthController.abort(), 10000);
+      
       const [statsRes, healthRes] = await Promise.all([
-        fetch('/api/monitoring/stats'),
-        fetch('/api/monitoring/health'),
+        fetch('/api/monitoring/stats', {
+          headers: {
+            'Accept': 'application/json',
+          },
+          signal: statsController.signal,
+        }),
+        fetch('/api/monitoring/health', {
+          headers: {
+            'Accept': 'application/json',
+          },
+          signal: healthController.signal,
+        }),
       ]);
+      
+      clearTimeout(statsTimeout);
+      clearTimeout(healthTimeout);
 
-      if (!statsRes.ok || !healthRes.ok) {
-        throw new Error('Failed to fetch monitoring data');
+      if (!statsRes.ok) {
+        throw new Error(`Failed to fetch stats: ${statsRes.status} ${statsRes.statusText}`);
+      }
+      if (!healthRes.ok) {
+        throw new Error(`Failed to fetch health: ${healthRes.status} ${healthRes.statusText}`);
       }
 
       const statsData = await statsRes.json();
@@ -65,20 +91,38 @@ export default function MonitoringDashboard() {
 
       setMetrics(statsData);
       setHealth(healthData);
-      setError(null);
       setLastUpdate(new Date());
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      if (err instanceof Error && err.name === 'AbortError') {
+        setError('Request timeout - please check your connection');
+      } else {
+        setError(err instanceof Error ? err.message : 'Unknown error occurred');
+      }
+      // Keep previous data on error instead of clearing it
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchMetrics();
     const interval = setInterval(fetchMetrics, 5000); // Refresh every 5 seconds
-    return () => clearInterval(interval);
-  }, []);
+    
+    return () => {
+      clearInterval(interval);
+    };
+  }, [fetchMetrics]);
+
+  // Separate effect for error retry
+  useEffect(() => {
+    if (!error) return;
+    
+    const retryTimeout = setTimeout(() => {
+      fetchMetrics();
+    }, 10000); // Retry after 10 seconds on error
+    
+    return () => clearTimeout(retryTimeout);
+  }, [error, fetchMetrics]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -130,28 +174,52 @@ export default function MonitoringDashboard() {
               Comprehensive monitoring, deployment, and analytics for Style Shepherd
             </p>
           </div>
-          <Badge variant="outline" className="text-sm">
-            Last update: {lastUpdate.toLocaleTimeString()}
-          </Badge>
+          <div className="flex items-center gap-3">
+            <Badge variant="outline" className="text-sm">
+              Last update: {lastUpdate.toLocaleTimeString()}
+            </Badge>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setLoading(true);
+                fetchMetrics();
+              }}
+              disabled={loading}
+              className="gap-2"
+            >
+              <Activity className={cn("h-4 w-4", loading && "animate-spin")} />
+              Refresh
+            </Button>
+          </div>
         </div>
 
         {error && (
-          <Alert variant="destructive">
+          <Alert variant="destructive" className="animate-in slide-in-from-top-2">
             <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
+            <AlertTitle>Error Loading Data</AlertTitle>
+            <AlertDescription className="flex items-center justify-between">
+              <span>{error}</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setLoading(true);
+                  fetchMetrics();
+                }}
+                className="ml-4"
+              >
+                Retry
+              </Button>
+            </AlertDescription>
           </Alert>
         )}
 
         <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <Cloud className="w-4 h-4" />
               Dashboard
-            </TabsTrigger>
-            <TabsTrigger value="deployment" className="flex items-center gap-2">
-              <Server className="w-4 h-4" />
-              Deployment
             </TabsTrigger>
             <TabsTrigger value="monitoring" className="flex items-center gap-2">
               <Activity className="w-4 h-4" />
@@ -305,11 +373,6 @@ export default function MonitoringDashboard() {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
-
-          {/* Deployment Tab */}
-          <TabsContent value="deployment">
-            <DeploymentStatus />
           </TabsContent>
 
           {/* Monitoring Tab */}

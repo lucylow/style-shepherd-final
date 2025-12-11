@@ -13,7 +13,7 @@ import {
   User, LogOut, Home, Package, Mic, LayoutDashboard, Brain, Layers,
   Target, TrendingUp, BarChart3, Shield, Award,
   PlayCircle, LineChart, Calculator, Building2, Cloud, ChevronDown,
-  Sparkles, Ruler
+  Sparkles, Ruler, Camera, Shirt
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -47,6 +47,8 @@ const navGroups: NavGroup[] = [
     items: [
       { href: "/style-recommendations", label: "Style Recommendations", icon: Sparkles },
       { href: "/size-prediction", label: "Size Prediction", icon: Ruler },
+      { href: "/scan-item", label: "Scan Item", icon: Camera },
+      { href: "/wardrobe", label: "My Wardrobe", icon: Shirt },
     ],
   },
   {
@@ -85,7 +87,10 @@ export default function HeaderNav() {
 
   const isActive = (href: string) => {
     if (href === "/") return location.pathname === "/";
-    return location.pathname.startsWith(href);
+    // For exact matches or when pathname starts with href followed by / or end of string
+    // This handles routes like /features being active when on /features/:id
+    const pathname = location.pathname;
+    return pathname === href || pathname.startsWith(href + "/");
   };
 
   // Get main items (most commonly used)
@@ -157,93 +162,176 @@ export default function HeaderNav() {
                       ? 'bg-primary text-primary-foreground shadow-sm'
                       : 'text-foreground hover:bg-muted/50 hover:text-primary'
                   )}
+                  aria-label="More navigation options"
                 >
                   More
-                  <ChevronDown className="w-4 h-4 ml-1" />
+                  <ChevronDown className="w-4 h-4 ml-1 transition-transform group-data-[state=open]:rotate-180" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 max-h-[80vh] overflow-y-auto">
-                {navGroups.slice(1).map((group) => (
+              <DropdownMenuContent 
+                align="end" 
+                className="w-56 max-h-[80vh] overflow-y-auto"
+                onCloseAutoFocus={(e) => e.preventDefault()}
+              >
+                {navGroups.slice(1).map((group, groupIndex) => (
                   <div key={group.label}>
-                    <DropdownMenuLabel>{group.label}</DropdownMenuLabel>
+                    <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      {group.label}
+                    </DropdownMenuLabel>
                     {group.items.map((item) => {
                       const Icon = item.icon;
                       const active = isActive(item.href);
                       return (
-                        <DropdownMenuItem key={item.href} asChild>
+                        <DropdownMenuItem 
+                          key={item.href} 
+                          asChild
+                          className={cn(
+                            "cursor-pointer",
+                            active && "bg-primary/10"
+                          )}
+                        >
                           <Link 
                             to={item.href} 
                             className={cn(
-                              "flex items-center gap-2",
-                              active && "bg-primary/10 text-primary font-medium"
+                              "flex items-center gap-3 w-full py-2.5 px-2 rounded-md transition-colors",
+                              active 
+                                ? "text-primary font-semibold" 
+                                : "text-foreground hover:bg-muted"
                             )}
                           >
-                            {Icon && <Icon className="w-4 h-4" />}
-                            {item.label}
-                            {active && <span className="ml-auto w-2 h-2 bg-primary rounded-full" />}
+                            {Icon && (
+                              <Icon className={cn(
+                                "w-4 h-4 shrink-0 transition-transform",
+                                active && "scale-110"
+                              )} />
+                            )}
+                            <span className="flex-1">{item.label}</span>
+                            {active && (
+                              <motion.div
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                className="w-2 h-2 bg-primary rounded-full"
+                              />
+                            )}
                           </Link>
                         </DropdownMenuItem>
                       );
                     })}
-                    <DropdownMenuSeparator />
+                    {groupIndex < navGroups.length - 2 && <DropdownMenuSeparator className="my-2" />}
                   </div>
                 ))}
                 {/* Add remaining main items */}
-                {mainItems.slice(4).map((item) => {
-                  const Icon = item.icon;
-                  const active = isActive(item.href);
-                  return (
-                    <DropdownMenuItem key={item.href} asChild>
-                      <Link 
-                        to={item.href} 
-                        className={cn(
-                          "flex items-center gap-2",
-                          active && "bg-primary/10 text-primary font-medium"
-                        )}
-                      >
-                        {Icon && <Icon className="w-4 h-4" />}
-                        {item.label}
-                        {active && <span className="ml-auto w-2 h-2 bg-primary rounded-full" />}
-                      </Link>
-                    </DropdownMenuItem>
-                  );
-                })}
+                {mainItems.slice(4).length > 0 && (
+                  <>
+                    {navGroups.slice(1).length > 0 && <DropdownMenuSeparator className="my-2" />}
+                    {mainItems.slice(4).map((item) => {
+                      const Icon = item.icon;
+                      const active = isActive(item.href);
+                      return (
+                        <DropdownMenuItem 
+                          key={item.href} 
+                          asChild
+                          className={cn(
+                            "cursor-pointer",
+                            active && "bg-primary/10"
+                          )}
+                        >
+                          <Link 
+                            to={item.href} 
+                            className={cn(
+                              "flex items-center gap-3 w-full py-2.5 px-2 rounded-md transition-colors",
+                              active 
+                                ? "text-primary font-semibold" 
+                                : "text-foreground hover:bg-muted"
+                            )}
+                          >
+                            {Icon && (
+                              <Icon className={cn(
+                                "w-4 h-4 shrink-0 transition-transform",
+                                active && "scale-110"
+                              )} />
+                            )}
+                            <span className="flex-1">{item.label}</span>
+                            {active && (
+                              <motion.div
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                className="w-2 h-2 bg-primary rounded-full"
+                              />
+                            )}
+                          </Link>
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
 
-          {/* Mobile menu - simplified */}
+          {/* Mobile menu - enhanced */}
           <div className="lg:hidden">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  aria-label="Open navigation menu"
+                  className="relative"
+                >
                   <Layers className="w-5 h-5" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 max-h-[80vh] overflow-y-auto">
-                {navGroups.map((group) => (
+              <DropdownMenuContent 
+                align="end" 
+                className="w-64 max-h-[85vh] overflow-y-auto"
+                onCloseAutoFocus={(e) => e.preventDefault()}
+              >
+                {navGroups.map((group, groupIndex) => (
                   <div key={group.label}>
-                    <DropdownMenuLabel>{group.label}</DropdownMenuLabel>
+                    <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      {group.label}
+                    </DropdownMenuLabel>
                     {group.items.map((item) => {
                       const Icon = item.icon;
                       const active = isActive(item.href);
                       return (
-                        <DropdownMenuItem key={item.href} asChild>
+                        <DropdownMenuItem 
+                          key={item.href} 
+                          asChild
+                          className={cn(
+                            "cursor-pointer",
+                            active && "bg-primary/10"
+                          )}
+                        >
                           <Link 
                             to={item.href} 
                             className={cn(
-                              "flex items-center gap-2",
-                              active && "bg-primary/10 text-primary font-medium"
+                              "flex items-center gap-3 w-full py-2.5 px-2 rounded-md transition-colors",
+                              active 
+                                ? "text-primary font-semibold" 
+                                : "text-foreground hover:bg-muted"
                             )}
                           >
-                            {Icon && <Icon className="w-4 h-4" />}
-                            {item.label}
-                            {active && <span className="ml-auto w-2 h-2 bg-primary rounded-full" />}
+                            {Icon && (
+                              <Icon className={cn(
+                                "w-4 h-4 shrink-0 transition-transform",
+                                active && "scale-110"
+                              )} />
+                            )}
+                            <span className="flex-1">{item.label}</span>
+                            {active && (
+                              <motion.div
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                className="w-2 h-2 bg-primary rounded-full"
+                              />
+                            )}
                           </Link>
                         </DropdownMenuItem>
                       );
                     })}
-                    <DropdownMenuSeparator />
+                    {groupIndex < navGroups.length - 1 && <DropdownMenuSeparator className="my-2" />}
                   </div>
                 ))}
               </DropdownMenuContent>

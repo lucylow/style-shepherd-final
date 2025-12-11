@@ -1,5 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { Home, Search, Mic, LayoutDashboard } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { motion } from 'framer-motion';
 
 export default function MobileBottomNav() {
   const location = useLocation();
@@ -11,30 +13,58 @@ export default function MobileBottomNav() {
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   ];
 
+  const isActive = (href: string) => {
+    if (href === "/") return location.pathname === "/";
+    return location.pathname === href || location.pathname.startsWith(href + "/");
+  };
+
   return (
-    <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-40 w-[92%] max-w-md md:hidden">
-      <div className="bg-white rounded-2xl shadow-lg flex justify-around p-2 border border-gray-200">
-        {navItems.map(({ href, label, icon: Icon }) => {
-          const isActive = location.pathname === href;
+    <nav 
+      className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-40 w-[92%] max-w-md md:hidden"
+      role="navigation"
+      aria-label="Mobile bottom navigation"
+    >
+      <div className="bg-card/95 backdrop-blur-xl rounded-2xl shadow-lg flex justify-around p-2 border border-border">
+        {navItems.map(({ href, label, icon: Icon }, index) => {
+          const active = isActive(href);
           return (
             <Link
               key={href}
               to={href}
               aria-label={label}
-              aria-current={isActive ? 'page' : undefined}
-              className={`flex flex-col items-center justify-center text-xs px-3 py-2 rounded-lg transition-colors min-w-[60px] ${
-                isActive
-                  ? 'bg-[#2D8CFF] text-white'
-                  : 'text-gray-600 hover:text-[#2D8CFF]'
-              }`}
+              aria-current={active ? 'page' : undefined}
+              className={cn(
+                "relative flex flex-col items-center justify-center text-xs px-3 py-2 rounded-lg transition-all duration-200 min-w-[60px] group",
+                active
+                  ? 'text-primary-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
             >
-              <Icon size={20} className="mb-1" />
-              <span className="text-[10px] font-medium">{label}</span>
+              {active && (
+                <motion.div
+                  layoutId="mobileNavActive"
+                  className="absolute inset-0 bg-primary rounded-lg -z-10"
+                  transition={{ type: "spring", bounce: 0.2, duration: 0.4 }}
+                />
+              )}
+              <Icon 
+                size={20} 
+                className={cn(
+                  "mb-1 transition-transform duration-200",
+                  active ? "scale-110" : "group-hover:scale-105"
+                )} 
+              />
+              <span className={cn(
+                "text-[10px] font-medium transition-colors",
+                active && "font-semibold"
+              )}>
+                {label}
+              </span>
             </Link>
           );
         })}
       </div>
-    </div>
+    </nav>
   );
 }
 

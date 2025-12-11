@@ -20,6 +20,10 @@ import {
   ChevronDown,
   Menu,
   X,
+  Sparkles,
+  Ruler,
+  Camera,
+  Shirt,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -28,6 +32,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { motion } from "framer-motion";
 
 interface NavItem {
   href: string;
@@ -55,6 +60,15 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    label: "Shopping & Style",
+    items: [
+      { href: "/style-recommendations", label: "Style Recommendations", icon: Sparkles },
+      { href: "/size-prediction", label: "Size Prediction", icon: Ruler },
+      { href: "/scan-item", label: "Scan Item", icon: Camera },
+      { href: "/wardrobe", label: "My Wardrobe", icon: Shirt },
+    ],
+  },
+  {
     label: "Demo & Metrics",
     items: [
       { href: "/demo", label: "Judge Demo", icon: PlayCircle },
@@ -62,6 +76,14 @@ const navGroups: NavGroup[] = [
       { href: "/pilot-kpis", label: "Pilot KPIs", icon: Target },
       { href: "/unit-economics", label: "Unit Economics", icon: Calculator },
       { href: "/sponsor-metrics", label: "Sponsor Metrics", icon: Building2 },
+    ],
+  },
+  {
+    label: "Admin",
+    items: [
+      { href: "/monitoring", label: "Admin Dashboard", icon: Cloud },
+      { href: "/admin/risk", label: "Risk & Compliance", icon: Shield },
+      { href: "/admin/providers", label: "Provider Management", icon: Building2 },
     ],
   },
 ];
@@ -73,68 +95,125 @@ export default function MainNav() {
 
   const isActive = (href: string) => {
     if (href === "/") return location.pathname === "/";
-    return location.pathname.startsWith(href);
+    // For exact matches or when pathname starts with href followed by / or end of string
+    // This handles routes like /features being active when on /features/:id
+    const pathname = location.pathname;
+    return pathname === href || pathname.startsWith(href + "/");
   };
 
-  const NavContent = () => (
-    <div className="flex flex-col h-full">
-      <div className="p-4 border-b border-border flex items-center justify-between">
-        <Link to="/" className="font-bold text-lg text-foreground">
-          {!collapsed && "Style Shepherd"}
-        </Link>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setCollapsed(!collapsed)}
-          className="hidden md:flex"
-        >
-          <Menu className="h-4 w-4" />
-        </Button>
-      </div>
+  const NavContent = () => {
+    const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(
+      navGroups.reduce((acc, group) => {
+        acc[group.label] = group.defaultOpen ?? false;
+        return acc;
+      }, {} as Record<string, boolean>)
+    );
 
-      <nav className="flex-1 overflow-y-auto p-2">
-        {navGroups.map((group) => (
-          <Collapsible key={group.label} defaultOpen={group.defaultOpen ?? false}>
-            <CollapsibleTrigger className="flex items-center justify-between w-full p-2 text-sm font-medium text-muted-foreground hover:text-foreground">
-              {!collapsed && (
-                <>
-                  <span>{group.label}</span>
-                  <ChevronDown className="h-4 w-4" />
-                </>
-              )}
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <ul className="space-y-1">
-                {group.items.map((item) => (
-                  <li key={item.href}>
-                    <Link
-                      to={item.href}
-                      onClick={() => setMobileOpen(false)}
-                      className={cn(
-                        "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-200 relative group",
-                        isActive(item.href)
-                          ? "bg-primary text-primary-foreground shadow-sm"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground hover:translate-x-1"
-                      )}
-                    >
-                      {isActive(item.href) && (
-                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary-foreground rounded-r-full" />
-                      )}
-                      <item.icon className={cn(
-                        "h-4 w-4 shrink-0 transition-transform",
-                        isActive(item.href) ? "scale-110" : "group-hover:scale-110"
-                      )} />
-                      {!collapsed && <span className="font-medium">{item.label}</span>}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </CollapsibleContent>
-          </Collapsible>
-        ))}
-      </nav>
-    </div>
-  );
+    const toggleGroup = (label: string) => {
+      setOpenGroups(prev => ({ ...prev, [label]: !prev[label] }));
+    };
+
+    return (
+      <div className="flex flex-col h-full">
+        <div className="p-4 border-b border-border flex items-center justify-between">
+          <Link 
+            to="/" 
+            className="font-bold text-lg text-foreground hover:text-primary transition-colors"
+            onClick={() => setMobileOpen(false)}
+          >
+            {!collapsed && "Style Shepherd"}
+          </Link>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setCollapsed(!collapsed)}
+            className="hidden md:flex"
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <Menu className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <nav className="flex-1 overflow-y-auto p-2" role="navigation" aria-label="Main navigation">
+          {navGroups.map((group) => (
+            <Collapsible 
+              key={group.label} 
+              open={openGroups[group.label]}
+              onOpenChange={() => toggleGroup(group.label)}
+            >
+              <CollapsibleTrigger 
+                className={cn(
+                  "flex items-center justify-between w-full p-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors rounded-md",
+                  !collapsed && "mb-1"
+                )}
+                disabled={collapsed}
+              >
+                {!collapsed && (
+                  <>
+                    <span className="text-xs uppercase tracking-wider">{group.label}</span>
+                    <ChevronDown className={cn(
+                      "h-4 w-4 transition-transform duration-200",
+                      openGroups[group.label] && "rotate-180"
+                    )} />
+                  </>
+                )}
+                {collapsed && group.items.some(item => isActive(item.href)) && (
+                  <div className="w-1 h-6 bg-primary rounded-r-full" />
+                )}
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <ul className="space-y-1">
+                  {group.items.map((item) => {
+                    const active = isActive(item.href);
+                    return (
+                      <li key={item.href}>
+                        <Link
+                          to={item.href}
+                          onClick={() => {
+                            setMobileOpen(false);
+                            if (collapsed) {
+                              setCollapsed(false);
+                            }
+                          }}
+                          className={cn(
+                            "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-200 relative group",
+                            active
+                              ? "bg-primary text-primary-foreground shadow-sm"
+                              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                          )}
+                          aria-current={active ? 'page' : undefined}
+                        >
+                          {active && !collapsed && (
+                            <motion.div
+                              layoutId="sidebarActive"
+                              className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary-foreground rounded-r-full"
+                              transition={{ type: "spring", bounce: 0.2, duration: 0.4 }}
+                            />
+                          )}
+                          <item.icon className={cn(
+                            "h-4 w-4 shrink-0 transition-transform",
+                            active ? "scale-110" : "group-hover:scale-110"
+                          )} />
+                          {!collapsed && (
+                            <span className={cn(
+                              "font-medium transition-all",
+                              active && "font-semibold"
+                            )}>
+                              {item.label}
+                            </span>
+                          )}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </CollapsibleContent>
+            </Collapsible>
+          ))}
+        </nav>
+      </div>
+    );
+  };
 
   return (
     <>
