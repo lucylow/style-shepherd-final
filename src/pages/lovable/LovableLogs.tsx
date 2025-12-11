@@ -89,7 +89,7 @@ export default function LovableLogs() {
           id: `log-${Date.now()}`,
           timestamp: new Date().toISOString(),
           level: ['info', 'warning', 'error', 'success'][Math.floor(Math.random() * 4)] as any,
-          service: services[Math.floor(Math.random() * services.length)],
+          service: SERVICES[Math.floor(Math.random() * SERVICES.length)],
           message: `New log entry: ${['Request received', 'Processing complete', 'Cache miss', 'Connection established'][Math.floor(Math.random() * 4)]}`,
         };
         setLogs(prev => [...prev.slice(-99), newLog]);
@@ -221,7 +221,7 @@ export default function LovableLogs() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Services</SelectItem>
-                  {services.map(service => (
+                  {SERVICES.map(service => (
                     <SelectItem key={service} value={service}>{service}</SelectItem>
                   ))}
                 </SelectContent>

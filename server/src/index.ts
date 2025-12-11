@@ -193,6 +193,25 @@ const server = app.listen(PORT, () => {
   console.log(`🔗 Health check: http://localhost:${PORT}/health`);
 });
 
+// Global error handlers for unhandled errors
+process.on('uncaughtException', (error: Error) => {
+  console.error('Uncaught Exception:', error);
+  // Log with structured logging
+  logError(error);
+  // Give time for logs to flush, then exit
+  setTimeout(() => {
+    process.exit(1);
+  }, 1000);
+});
+
+process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  // Log with structured logging
+  const error = reason instanceof Error ? reason : new Error(String(reason));
+  logError(error);
+  // Don't exit on unhandled rejection, but log it
+});
+
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   console.log('SIGTERM received, shutting down gracefully...');

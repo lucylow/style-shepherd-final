@@ -149,17 +149,12 @@ export async function getStyleRecommendations({
     occasion?: string;
   };
 }) {
-  try {
-    const { data, error } = await supabase.functions.invoke('style-recommendations', {
-      body: { userProfile, preferences, context },
-    });
+  const { data, error } = await supabase.functions.invoke('style-recommendations', {
+    body: { userProfile, preferences, context },
+  });
 
-    if (error) {
-      throw new Error(error.message || 'Failed to get style recommendations');
-    }
-    return data;
-  } catch (error) {
-    // Re-throw to let caller handle with handleError
-    throw error;
+  if (error) {
+    throw new Error(error.message || 'Failed to get style recommendations');
   }
+  return data;
 }

@@ -209,8 +209,8 @@ const AgentConfigSettings: React.FC<AgentConfigSettingsProps> = ({ agent, onAgen
     voiceProvider: agent.voiceProvider || 'Eleven Labs'
   });
 
-  const debouncedSave = React.useCallback(
-    debounce(async (updatedData: any) => {
+  const debouncedSave = React.useMemo(() => {
+    const saveFn = async (updatedData: any) => {
       try {
         setIsSaving(true);
         const updatedAgent = await updateAgent(agent.id, updatedData);
@@ -234,9 +234,11 @@ const AgentConfigSettings: React.FC<AgentConfigSettingsProps> = ({ agent, onAgen
       } finally {
         setIsSaving(false);
       }
-    }, 1000),
-    [agent.id, onAgentUpdate, toast, showSuccessToast]
-  );
+    };
+    
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return debounce(saveFn, 1000);
+  }, [agent.id, onAgentUpdate, toast, showSuccessToast]);
 
   useEffect(() => {
     const finalIndustry = industry === 'other' ? customIndustry : industry;

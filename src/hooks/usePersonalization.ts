@@ -3,7 +3,7 @@
  * React hook for fetching personalized recommendations
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api';
 
 export interface PersonalizedRecommendation {
@@ -39,7 +39,7 @@ export function usePersonalization(
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  const fetchRecommendations = async () => {
+  const fetchRecommendations = useCallback(async () => {
     if (!enabled || !params.userId) {
       return;
     }
@@ -57,13 +57,13 @@ export function usePersonalization(
     } finally {
       setLoading(false);
     }
-  };
+  }, [enabled, params.userId, params.query, params.intent, params.occasion, params.budget]);
 
   useEffect(() => {
     if (enabled && params.userId) {
       fetchRecommendations();
     }
-  }, [params.userId, params.query, params.intent, params.occasion, params.budget, enabled]);
+  }, [enabled, params.userId, fetchRecommendations]);
 
   return {
     recs,

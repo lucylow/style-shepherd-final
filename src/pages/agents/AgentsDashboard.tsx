@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { Bot, Search, CircleSlash, Loader2, UserCircle2, MoreVertical, Power, Edit, Eye, Archive, AlertCircle, Calendar, Phone, Mail, Copy, Sparkles, PlusCircle } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -128,7 +128,7 @@ const AgentsDashboard = () => {
 
       setFilteredAgents(filtered);
     }
-  }, [initialAgents, searchTerm, sortBy, filterType, filterChannel, filterStatus]);
+  }, [initialAgents, searchTerm, sortBy, filterType, filterChannel, filterStatus, newlyCreatedAgent]);
 
   const getFilterTitle = () => {
     switch (filter) {

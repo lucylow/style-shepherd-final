@@ -29,9 +29,28 @@ export class ErrorBoundary extends Component<Props, State> {
     // Ensure error is set in state (getDerivedStateFromError should have set it, but be defensive)
     this.setState({ error, errorInfo });
     
+    // Enhanced error logging with context
+    const errorContext = {
+      error: {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+      },
+      errorInfo: {
+        componentStack: errorInfo.componentStack,
+      },
+      timestamp: new Date().toISOString(),
+      userAgent: navigator.userAgent,
+      url: window.location.href,
+    };
+    
     // Log to error reporting service in production
     if (import.meta.env.PROD) {
       // TODO: Integrate with error reporting service (e.g., Sentry)
+      // Example: Sentry.captureException(error, { contexts: { react: errorInfo } });
+      console.error('Production error:', JSON.stringify(errorContext, null, 2));
+    } else {
+      console.error('Development error context:', errorContext);
     }
   }
 

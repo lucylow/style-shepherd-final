@@ -3,7 +3,7 @@
  * Register, manage, and monitor AI providers (LLM, embeddings, TTS, vector DBs)
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -67,7 +67,7 @@ export default function AdminProvidersPage() {
 
   const ADMIN_TOKEN = import.meta.env.VITE_ADMIN_TOKEN || '';
 
-  async function fetchProviders() {
+  const fetchProviders = useCallback(async () => {
     setLoading(true);
     try {
       const response = await api.get('/admin/providers', {
@@ -87,9 +87,9 @@ export default function AdminProvidersPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [ADMIN_TOKEN]);
 
-  async function fetchMetrics() {
+  const fetchMetrics = useCallback(async () => {
     try {
       const response = await api.get('/admin/metrics', {
         headers: { 'x-admin-token': ADMIN_TOKEN },
@@ -98,14 +98,14 @@ export default function AdminProvidersPage() {
     } catch (e: any) {
       console.warn('metrics fetch failed', e);
     }
-  }
+  }, [ADMIN_TOKEN]);
 
   useEffect(() => {
     fetchProviders();
     fetchMetrics();
     const interval = setInterval(fetchMetrics, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchProviders, fetchMetrics]);
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();

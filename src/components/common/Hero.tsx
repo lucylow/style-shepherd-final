@@ -75,7 +75,11 @@ const Hero = () => {
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-white/10 rounded-full blur-3xl animate-pulse-slow" />
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-white/10 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '2s' }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-white/5 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '4s' }} />
       </div>
+      
+      {/* Subtle grid overlay */}
+      <div className="absolute inset-0 bg-grid-white/5 opacity-30" style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)', backgroundSize: '50px 50px' }} />
       
       <div className="max-w-7xl mx-auto relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
@@ -123,28 +127,36 @@ const Hero = () => {
               transition={{ delay: 0.5 }}
               className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-6"
             >
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <motion.div 
+                whileHover={{ scale: 1.05, y: -2 }} 
+                whileTap={{ scale: 0.98 }}
+                className="group"
+              >
                 <Button
                   size="lg"
-                  className="bg-fashion-gold text-gray-900 hover:bg-fashion-gold/90 font-bold shadow-2xl hover:shadow-glow transition-all"
+                  className="bg-fashion-gold text-gray-900 hover:bg-fashion-gold/90 font-bold shadow-2xl hover:shadow-glow transition-all group-hover:shadow-2xl"
                   asChild
                 >
-                  <Link to="/dashboard">
-                    <Mic className="mr-2 h-5 w-5" />
+                  <Link to="/dashboard" className="flex items-center">
+                    <Mic className="mr-2 h-5 w-5 group-hover:animate-pulse" />
                     Try Voice Assistant
                   </Link>
                 </Button>
               </motion.div>
 
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <motion.div 
+                whileHover={{ scale: 1.05, y: -2 }} 
+                whileTap={{ scale: 0.98 }}
+                className="group"
+              >
                 <Button
                   size="lg"
                   variant="outline"
-                  className="border-2 border-white/90 text-white bg-white/10 backdrop-blur-sm hover:bg-white/20 hover:border-white font-semibold shadow-lg"
+                  className="border-2 border-white/90 text-white bg-white/10 backdrop-blur-sm hover:bg-white/20 hover:border-white font-semibold shadow-lg hover:shadow-xl transition-all"
                   asChild
                 >
-                  <Link to="/dashboard">
-                    <PlayCircle className="mr-2 h-5 w-5" />
+                  <Link to="/dashboard" className="flex items-center">
+                    <PlayCircle className="mr-2 h-5 w-5 group-hover:scale-110 transition-transform" />
                     Watch Demo
                   </Link>
                 </Button>
