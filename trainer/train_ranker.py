@@ -126,3 +126,4 @@ print('\nNext steps:')
 print('  1. Load the model in your recommendation service')
 print('  2. Compute features for candidate products')
 print('  3. Use model.predict_proba() to get ranking scores')
+

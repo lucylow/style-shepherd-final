@@ -50,3 +50,4 @@ export type AgentResponse = {
   explains?: string[]; // short reasons
   source?: 'mock' | 'vultr' | 'raindrop' | 'local';
 };
+

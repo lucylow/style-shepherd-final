@@ -232,7 +232,7 @@ interface RecommendationCardProps {
 
 function RecommendationCard({ item, onClick, onAddToCart }: RecommendationCardProps) {
   const product = item.product;
-  const imageUrl = product?.images?.[0] || (product as any)?.image_url || '/placeholder.svg';
+  const imageUrl = product?.images?.[0] || product?.image_url || '/placeholder.svg';
   const price = product?.price || 0;
   const name = product?.name || 'Product';
   const brand = product?.brand || 'Unknown Brand';

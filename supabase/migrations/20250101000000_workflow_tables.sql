@@ -243,3 +243,4 @@ USING (
     AND shopping_workflows.user_id = auth.uid()
   )
 );
+

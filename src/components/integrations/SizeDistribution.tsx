@@ -93,3 +93,4 @@ export default function SizeDistribution({ userId = 'demo_user' }: SizeDistribut
     </div>
   );
 }
+

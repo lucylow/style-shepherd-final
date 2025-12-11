@@ -125,3 +125,4 @@ export default function IntegrationStatus({ poll = true }: IntegrationStatusProp
     </div>
   );
 }
+

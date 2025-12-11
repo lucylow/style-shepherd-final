@@ -237,3 +237,4 @@ Test with mock users:
 - Unknown brands default to US sizing with standard grading
 - Confidence scores reflect model accuracy (89-94% range)
 - Risk scores combine size prediction + return history + fabric analysis
+

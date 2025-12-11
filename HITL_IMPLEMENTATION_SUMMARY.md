@@ -235,3 +235,4 @@ To test the HITL flow:
   - Service role key used for backend operations
 - Session validation at all endpoints
 - Stylist authentication required for actions
+

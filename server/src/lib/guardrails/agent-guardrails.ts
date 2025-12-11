@@ -465,3 +465,4 @@ export function initializeAgentGuardrails(): void {
   guardrailEngine.registerChecks('sizePredictor', SizePredictorGuardrails.getChecks());
   guardrailEngine.registerChecks('returnsPredictor', ReturnsPredictorGuardrails.getChecks());
 }
+

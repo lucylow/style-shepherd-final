@@ -81,7 +81,7 @@ export function subscribeToSession(
   }
 
   const channel = supabase.channel(`agents:session:${sessionId}`, {
-    config: { broadcast: { self: true } },
+    config: { broadcast: { self: true }, presence: false },
   });
 
   channel.on('broadcast', { event: 'agent_response' }, (payload) => {
@@ -95,13 +95,15 @@ export function subscribeToSession(
     }
   });
 
-  channel.subscribe((status) => {
-    if (status === 'SUBSCRIBED') {
-      console.log(`Subscribed to session channel: agents:session:${sessionId}`);
-    } else if (status === 'CHANNEL_ERROR') {
-      console.error(`Failed to subscribe to session channel: agents:session:${sessionId}`);
-    }
-  });
+  channel
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        console.log(`Subscribed to session channel: agents:session:${sessionId}`);
+      } else if (status === 'CHANNEL_ERROR') {
+        console.error(`Failed to subscribe to session channel: agents:session:${sessionId}`);
+      }
+    })
+    .catch((err) => console.error('Subscribe error:', err));
 
   return {
     unsubscribe: () => {
@@ -133,3 +135,4 @@ export async function getSessionHistory(
     return { ok: false, message: error.message || 'network-error' };
   }
 }
+

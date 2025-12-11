@@ -189,3 +189,4 @@ export const HITLSessionStatus = ({ sessionId, userId }: HITLSessionStatusProps)
     </Card>
   );
 };
+

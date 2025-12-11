@@ -20,7 +20,6 @@ import RouteLoadingIndicator from '@/components/common/RouteLoadingIndicator';
 import useScrollRestoration from '@/hooks/useScrollRestoration';
 import { usePrefetch } from '@/hooks/usePrefetch';
 import VoiceSearch from '@/components/voice/VoiceSearch';
-import { cn } from '@/lib/utils';
 
 const Products = () => {
   const [searchParams, setSearchParams] = useSearchParams();

@@ -76,3 +76,4 @@ Time: ${new Date().toISOString()}`;
   // Send SMS if configured
   await sendSMSAlert(message);
 }
+

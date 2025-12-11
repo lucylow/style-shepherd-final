@@ -134,3 +134,4 @@ The `lovable.yml` file has been updated to map secrets. In the Lovable dashboard
 3. Test endpoints with the curl commands above
 4. Verify mock mode works when keys are missing
 5. Add keys to `.env.local` and verify live mode works
+

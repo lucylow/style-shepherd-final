@@ -1,8 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { getApiBaseUrl } from '@/lib/api-config';
 
-// Streaming AI chat for real-time fashion advice using Lovable AI
-
 type Message = { role: 'user' | 'assistant'; content: string };
 
 interface FashioniResponse {
@@ -29,28 +27,27 @@ export async function streamFashionChat({
   onDone: () => void;
   onError?: (error: Error) => void;
 }) {
-  const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fashion-assistant`;
-
   try {
+    const { data, error } = await supabase.functions.invoke('fashion-assistant', {
+      body: { messages },
+    });
+
+    if (error) throw error;
+
+    // For streaming, we need to handle the response differently
+    const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fashion-assistant`;
+    
     const resp = await fetch(CHAT_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
       },
       body: JSON.stringify({ messages }),
     });
 
-    // Handle rate limiting and payment errors
-    if (resp.status === 429) {
-      throw new Error('Rate limit exceeded. Please try again later.');
-    }
-    if (resp.status === 402) {
-      throw new Error('AI credits depleted. Please add credits in Settings.');
-    }
     if (!resp.ok || !resp.body) {
-      const errorData = await resp.json().catch(() => ({}));
-      throw new Error(errorData.error || 'Failed to start chat stream');
+      throw new Error('Failed to start chat stream');
     }
 
     const reader = resp.body.getReader();
@@ -83,27 +80,9 @@ export async function streamFashionChat({
           const content = parsed.choices?.[0]?.delta?.content;
           if (content) onDelta(content);
         } catch {
-          // Incomplete JSON, put back and wait for more data
           buffer = line + '\n' + buffer;
           break;
         }
-      }
-    }
-
-    // Final flush for remaining buffer
-    if (buffer.trim()) {
-      for (let raw of buffer.split('\n')) {
-        if (!raw) continue;
-        if (raw.endsWith('\r')) raw = raw.slice(0, -1);
-        if (raw.startsWith(':') || raw.trim() === '') continue;
-        if (!raw.startsWith('data: ')) continue;
-        const jsonStr = raw.slice(6).trim();
-        if (jsonStr === '[DONE]') continue;
-        try {
-          const parsed = JSON.parse(jsonStr);
-          const content = parsed.choices?.[0]?.delta?.content;
-          if (content) onDelta(content);
-        } catch { /* ignore partial leftovers */ }
       }
     }
 
@@ -113,6 +92,7 @@ export async function streamFashionChat({
     if (onError) {
       onError(errorObj);
     } else {
+      // Fallback error handling if onError not provided
       console.error('Fashion chat error:', errorObj);
       throw errorObj;
     }

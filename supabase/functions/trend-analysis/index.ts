@@ -239,3 +239,4 @@ Analyze and return a structured JSON response with:
     );
   }
 });
+

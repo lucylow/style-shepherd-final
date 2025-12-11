@@ -422,3 +422,4 @@ export const PersonalShopper = ({ userId, onAddToCart }: PersonalShopperProps) =
     </div>
   );
 };
+

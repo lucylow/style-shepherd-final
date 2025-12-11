@@ -161,3 +161,4 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=str, default=OUTFILE, help="output JSON model file")
     args = parser.parse_args()
     main(args)
+

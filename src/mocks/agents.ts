@@ -467,3 +467,4 @@ export const MOCK_AGENT_RESPONSES: AgentResponse[] = [
  *   Use structured.* to render product cards, confidence for badges, 
  *   and explains as toggled "why this" content.
  */
+

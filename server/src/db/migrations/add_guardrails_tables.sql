@@ -72,3 +72,4 @@ CREATE TABLE IF NOT EXISTS user_auto_refund_tracking (
   FOREIGN KEY (user_id) REFERENCES user_profiles(user_id) ON DELETE CASCADE,
   INDEX idx_auto_refund_user_month (user_id, month_year)
 );
+

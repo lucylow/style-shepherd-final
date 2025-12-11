@@ -82,3 +82,4 @@ export interface UserReturnProfile {
   commonReasons: string[];
   location?: string;
 }
+

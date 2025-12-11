@@ -62,3 +62,4 @@ export class PermissionDeniedError extends GuardrailError {
     this.name = 'PermissionDeniedError';
   }
 }
+

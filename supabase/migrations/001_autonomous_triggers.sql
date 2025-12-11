@@ -101,3 +101,4 @@ CREATE TRIGGER agent_memory_update
   AFTER INSERT ON agent_trigger_log
   FOR EACH ROW
   EXECUTE FUNCTION update_agent_memory();
+

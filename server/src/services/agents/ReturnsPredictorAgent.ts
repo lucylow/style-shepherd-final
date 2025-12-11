@@ -543,3 +543,4 @@ export class ReturnsPredictorAgent {
 
 // Singleton instance
 export const returnsPredictorAgent = new ReturnsPredictorAgent();
+

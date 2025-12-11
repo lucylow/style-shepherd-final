@@ -709,3 +709,4 @@ export class MakeupArtistAgent {
 
 // Singleton instance
 export const makeupArtistAgent = new MakeupArtistAgent();
+

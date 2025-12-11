@@ -95,3 +95,4 @@ export interface CreateLookParams {
   preferences?: string[];
   userId?: string;
 }
+

@@ -96,3 +96,4 @@ export async function initProviders(): Promise<void> {
   console.log(`   - TTS: ${allProviders.tts.length}`);
   console.log(`   - Vector DB: ${allProviders.vectordb.length}`);
 }
+

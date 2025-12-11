@@ -291,3 +291,4 @@ CALENDAR_API_KEY=your_calendar_api_key
 - Self-healing actions are logged for transparency
 - Agent memory persists across sessions for continuous learning
 - Dashboard provides real-time visibility into agent activity
+

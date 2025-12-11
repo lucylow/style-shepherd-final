@@ -463,3 +463,4 @@ const SizePredictionCard = ({ prediction, index }: any) => (
     )}
   </motion.div>
 );
+

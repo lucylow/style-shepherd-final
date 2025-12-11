@@ -60,3 +60,4 @@ async function fraudMiddleware(req, res, next) {
 }
 
 module.exports = fraudMiddleware;
+

@@ -536,3 +536,4 @@ curl -X POST http://localhost:54321/functions/v1/size-prediction \
 4. **Validation**: Validate input data before processing
 5. **Logging**: Use `console.error` for error logging
 6. **Structured Output**: Use function calling for structured JSON responses
+

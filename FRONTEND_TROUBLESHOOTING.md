@@ -135,3 +135,4 @@ Open the site in an incognito/private window to bypass all cache:
 3. Check if the component is conditionally rendered (might be hidden)
 4. Verify route paths match exactly (case-sensitive)
 5. Check if there are multiple versions of the same component
+

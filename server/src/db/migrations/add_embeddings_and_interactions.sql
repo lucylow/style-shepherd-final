@@ -33,3 +33,4 @@ COMMENT ON COLUMN catalog.embedding IS 'Vector embedding for semantic search (st
 COMMENT ON COLUMN catalog.popularity IS 'Normalized popularity score (0-1)';
 COMMENT ON COLUMN catalog.return_risk IS 'Precomputed return risk probability (0-1)';
 COMMENT ON TABLE interactions IS 'Tracks user-product interactions for collaborative filtering and metrics';
+

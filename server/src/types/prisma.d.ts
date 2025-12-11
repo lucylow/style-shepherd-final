@@ -17,3 +17,4 @@ declare module '@prisma/client' {
   
   export default PrismaClient;
 }
+

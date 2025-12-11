@@ -129,3 +129,4 @@ export async function batchPredictSizes(
   const response = await predictSizes(measurements, products, userId);
   return response.predictions;
 }
+

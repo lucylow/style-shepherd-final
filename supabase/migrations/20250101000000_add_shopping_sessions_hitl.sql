@@ -288,3 +288,4 @@ CREATE TRIGGER auto_assign_stylist_trigger
   BEFORE INSERT OR UPDATE ON shopping_sessions
   FOR EACH ROW
   EXECUTE FUNCTION auto_assign_stylist();
+

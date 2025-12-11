@@ -63,3 +63,4 @@ export function useAsyncErrorHandler<T extends (...args: any[]) => Promise<any>>
     }
   }, [asyncFn, errorHandler]) as T;
 }
+

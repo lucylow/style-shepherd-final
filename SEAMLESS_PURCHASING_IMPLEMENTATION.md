@@ -165,3 +165,4 @@ Run the SQL migration in `server/src/db/init.sql` to create:
 - Guest cart expiration (30 days)
 - Session-based guest cart isolation
 - User ID validation on all operations
+

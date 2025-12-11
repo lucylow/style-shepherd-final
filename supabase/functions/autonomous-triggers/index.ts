@@ -58,9 +58,8 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error('[AutonomousTriggers] Error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ error: error.message }),
       { 
         status: 500,
         headers: { 'Content-Type': 'application/json' } 
@@ -125,3 +124,4 @@ async function triggerReturnsPredictor(userId: string, returnEvent: ReturnEvent)
   // Returns predictor is triggered via the same handle-return endpoint
   // It's handled in the triggerSizePredictor call above
 }
+

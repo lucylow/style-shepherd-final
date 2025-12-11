@@ -217,3 +217,4 @@ The frontend and backend are **properly linked** with:
 - `server/src/routes/api.ts` - Main API routes
 - `server/src/routes/vultr.ts` - Vultr service routes
 - `server/src/config/env.ts` - Environment configuration
+

@@ -128,3 +128,4 @@ export function searchProducts(products: Product[] = [], filters: SearchFilters 
 
   return out.slice(0, 60);
 }
+

@@ -137,3 +137,4 @@ class SizeComparisonService {
 }
 
 export const sizeComparisonService = new SizeComparisonService();
+

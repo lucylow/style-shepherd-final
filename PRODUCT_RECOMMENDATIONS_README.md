@@ -265,3 +265,4 @@ WHERE created_at > NOW() - INTERVAL '7 days';
 - OpenAI Embeddings API: https://platform.openai.com/docs/guides/embeddings
 - Cosine Similarity: Standard vector similarity metric
 - Hybrid Recommender Systems: Combines multiple recommendation strategies
+

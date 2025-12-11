@@ -269,3 +269,4 @@ CORS_ORIGIN=*
 
 **Last Updated:** 2024
 **Version:** 2.0.0
+

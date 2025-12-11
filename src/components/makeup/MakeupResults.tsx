@@ -242,3 +242,4 @@ export const MakeupResults = ({ look, onAddToCart, onViewBundle }: MakeupResults
     </div>
   );
 };
+

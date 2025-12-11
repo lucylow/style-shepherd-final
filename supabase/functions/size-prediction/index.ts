@@ -35,9 +35,6 @@ interface BrandNormalizationData {
     bust?: number;
     waist?: number;
     hips?: number;
-    bust_cm?: number;
-    waist_cm?: number;
-    hips_cm?: number;
   };
 }
 

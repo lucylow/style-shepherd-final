@@ -63,3 +63,4 @@ export interface PersonalShopperResponse {
   count: number;
   query: OutfitQuery;
 }
+

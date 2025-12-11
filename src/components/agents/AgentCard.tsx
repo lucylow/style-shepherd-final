@@ -69,3 +69,4 @@ export function AgentResponseCard({ res }: { res: AgentResponse }) {
     </Card>
   );
 }
+

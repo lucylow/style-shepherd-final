@@ -4,7 +4,6 @@ import { X, ShoppingBag, Heart, ZoomIn, Minus, Plus, AlertTriangle, Info } from 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,

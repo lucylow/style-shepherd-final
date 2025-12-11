@@ -89,3 +89,4 @@ export interface VectorDBQueryResult {
   score: number;
   metadata?: Record<string, any>;
 }
+

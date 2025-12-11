@@ -530,3 +530,4 @@ const SessionReviewPanel = ({ session, onAction, isProcessing }: SessionReviewPa
 };
 
 export default StylistDashboard;
+

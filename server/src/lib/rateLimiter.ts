@@ -27,3 +27,4 @@ export function available(): number {
 export function reset(): void {
   tokens = MAX_TOKENS;
 }
+

@@ -156,3 +156,4 @@ export function logInfo(message: string, context?: Record<string, any>): void {
     console.info(`[INFO] ${message}`, context || '');
   }
 }
+

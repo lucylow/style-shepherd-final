@@ -522,3 +522,4 @@ export class ProductRecommender {
     });
   }
 }
+

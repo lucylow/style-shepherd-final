@@ -149,3 +149,4 @@ For local development with Supabase CLI:
 - [Supabase Edge Functions Documentation](https://supabase.com/docs/guides/functions)
 - [Supabase Secrets Management](https://supabase.com/docs/guides/functions/secrets)
 - [Lovable AI Gateway Documentation](https://docs.lovable.dev)
+

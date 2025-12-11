@@ -90,3 +90,4 @@ export default function AdminFraudPage() {
     </div>
   );
 }
+

@@ -32,3 +32,4 @@ export function cacheDelete(key: string): void {
 export function cacheClear(): void {
   CACHE.clear();
 }
+

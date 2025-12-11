@@ -94,3 +94,4 @@ export function useKeyboardShortcuts(customShortcuts: KeyboardShortcut[] = []) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [navigate, customShortcuts]);
 }
+

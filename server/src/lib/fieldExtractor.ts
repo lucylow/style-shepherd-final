@@ -34,3 +34,4 @@ export function extractStructuredFields(text: string = ''): ExtractedFields {
     colors: [...new Set((colorMatch || []).map(s => normalizeColor(s.toLowerCase().trim())))]
   };
 }
+

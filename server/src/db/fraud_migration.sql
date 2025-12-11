@@ -60,3 +60,4 @@ CREATE TRIGGER update_fraud_incidents_updated_at BEFORE UPDATE ON fraud_incident
 -- Update timestamp trigger for user_risk_profiles
 CREATE TRIGGER update_user_risk_profiles_updated_at BEFORE UPDATE ON user_risk_profiles
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+

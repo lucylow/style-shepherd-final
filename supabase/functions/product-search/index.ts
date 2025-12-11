@@ -170,3 +170,4 @@ Analyze the query intent and return a structured JSON response with:
     );
   }
 });
+

@@ -12,3 +12,4 @@ export function KeyboardShortcutsProvider({ children }: KeyboardShortcutsProvide
   useKeyboardShortcuts([]);
   return <>{children}</>;
 }
+

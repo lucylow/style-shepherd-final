@@ -70,3 +70,4 @@ export default function TagCloud({ userId = 'demo_user', onTag }: TagCloudProps)
     </div>
   );
 }
+

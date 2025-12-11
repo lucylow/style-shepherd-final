@@ -226,3 +226,4 @@ export async function deleteMemory(
 export function isEnabled(): boolean {
   return raindropEnabled;
 }
+

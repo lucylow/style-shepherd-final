@@ -241,3 +241,4 @@ BASE_CATEGORY_RISKS = {
 - [AI2Easy - Returns Crisis in Fashion](https://www.ai2easy.com.au/blog/unmasking-the-multi-billion-returns-crisis-how-ai-is-turning-fashion-ecommerce-returns-into-revenue)
 - [Invent.ai - Returns Forecasting](https://www.invent.ai/blog/returns-forecasting-a-must-have-for-retailers)
 - [FitEZ - AI Size Recommendations](https://www.fitezapp.com/blog/ai-size-recommendations.html)
+

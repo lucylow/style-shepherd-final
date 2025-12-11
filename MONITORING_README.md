@@ -268,3 +268,4 @@ NODE_ENV=production
 - Monitoring has minimal overhead (<1% typically)
 - Use batch span processors in production
 - Consider sampling for high-traffic scenarios
+

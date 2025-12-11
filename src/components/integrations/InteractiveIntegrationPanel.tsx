@@ -91,3 +91,4 @@ export default function InteractiveIntegrationPanel({ userId = 'demo_user' }: In
     </div>
   );
 }
+
