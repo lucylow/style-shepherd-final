@@ -502,6 +502,7 @@ export class PaymentService {
 
   /**
    * Create checkout session for one-time payments or subscriptions
+   * Supports both simple amount-based payments and detailed line items for cart products
    */
   async createCheckoutSession(params: {
     userId: string;
@@ -513,6 +514,22 @@ export class PaymentService {
     cancelUrl: string;
     customerEmail?: string;
     metadata?: Record<string, string>;
+    lineItems?: Array<{
+      productId: string;
+      name: string;
+      description?: string;
+      price: number;
+      quantity: number;
+      images?: string[];
+    }>;
+    shippingInfo?: {
+      name: string;
+      address: string;
+      city: string;
+      state: string;
+      zip: string;
+      country: string;
+    };
   }): Promise<{ url: string; sessionId: string }> {
     try {
       const customerId = await this.getOrCreateCustomer(params.userId, params.customerEmail);
@@ -528,11 +545,53 @@ export class PaymentService {
           integration: 'style-shepherd',
           ...params.metadata,
         },
+        // Enable automatic tax calculation if available
+        automatic_tax: {
+          enabled: true,
+        },
+        // Collect shipping address if provided
+        shipping_address_collection: params.shippingInfo ? undefined : {
+          allowed_countries: ['US', 'CA', 'GB', 'AU'],
+        },
       };
 
-      if (params.mode === 'subscription' && params.priceId) {
+      // Add shipping details if provided
+      if (params.shippingInfo) {
+        sessionParams.shipping_options = [{
+          shipping_rate_data: {
+            type: 'fixed_amount',
+            fixed_amount: {
+              amount: 1000, // $10.00 in cents
+              currency: 'usd',
+            },
+            display_name: 'Standard Shipping',
+          },
+        }];
+      }
+
+      // Handle line items - prefer detailed line items over simple amount
+      if (params.lineItems && params.lineItems.length > 0) {
+        // Use detailed line items for cart products
+        sessionParams.line_items = params.lineItems.map(item => ({
+          price_data: {
+            currency: params.currency || 'usd',
+            product_data: {
+              name: item.name,
+              description: item.description,
+              images: item.images,
+              metadata: {
+                productId: item.productId,
+              },
+            },
+            unit_amount: Math.round(item.price * 100), // Convert to cents
+          },
+          quantity: item.quantity,
+        }));
+      } else if (params.mode === 'subscription' && params.priceId) {
+        // Subscription with price ID
         sessionParams.line_items = [{ price: params.priceId, quantity: 1 }];
       } else if (params.mode === 'payment' && params.amount) {
+        // Simple one-time payment with amount
         sessionParams.line_items = [{
           price_data: {
             currency: params.currency || 'usd',
@@ -543,20 +602,41 @@ export class PaymentService {
           },
           quantity: 1,
         }];
+      } else {
+        throw new BusinessLogicError(
+          'Either lineItems, priceId (for subscriptions), or amount (for payments) must be provided',
+          ErrorCode.VALIDATION_ERROR
+        );
       }
 
-      const session = await this.stripe.checkout.sessions.create(sessionParams);
+      const session = await this.retryStripeCall(
+        () => this.stripe.checkout.sessions.create(sessionParams),
+        'createCheckoutSession'
+      );
 
       if (!session.url) {
         throw new PaymentError('Failed to create checkout session - no URL returned');
       }
+
+      this.logPaymentOperation('createCheckoutSession', {
+        sessionId: session.id,
+        userId: params.userId,
+        mode: params.mode,
+        lineItemsCount: params.lineItems?.length || 1,
+      });
 
       return {
         url: session.url,
         sessionId: session.id,
       };
     } catch (error: any) {
-      if (error instanceof PaymentError) {
+      this.logPaymentOperation('createCheckoutSession', {
+        userId: params.userId,
+        mode: params.mode,
+        error: error.message,
+      }, false);
+
+      if (error instanceof PaymentError || error instanceof BusinessLogicError) {
         throw error;
       }
       throw new ExternalServiceError('Stripe', 'Failed to create checkout session', error);
@@ -1056,6 +1136,82 @@ export class PaymentService {
             eventId: event.id,
             paymentIntentId: paymentIntent.id,
           });
+          break;
+        }
+
+        case 'checkout.session.completed': {
+          const session = event.data.object as Stripe.Checkout.Session;
+          this.logPaymentOperation('webhook.checkout.session.completed', {
+            eventId: event.id,
+            sessionId: session.id,
+            mode: session.mode,
+            paymentStatus: session.payment_status,
+          });
+
+          // Handle completed checkout session
+          try {
+            const userId = session.metadata?.userId;
+            const paymentIntentId = session.payment_intent as string;
+
+            if (session.mode === 'payment' && paymentIntentId && userId) {
+              // Retrieve the payment intent to get order details
+              const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
+              const orderId = paymentIntent.metadata?.orderId;
+
+              if (orderId && session.payment_status === 'paid') {
+                // Update order status to paid
+                await vultrPostgres.query(
+                  `UPDATE orders 
+                   SET status = 'paid', 
+                       payment_intent_id = $1,
+                       checkout_session_id = $2,
+                       updated_at = $3
+                   WHERE order_id = $4 AND user_id = $5`,
+                  [
+                    paymentIntentId,
+                    session.id,
+                    new Date().toISOString(),
+                    orderId,
+                    userId,
+                  ]
+                );
+                this.logPaymentOperation('orderStatusUpdated', {
+                  orderId,
+                  status: 'paid',
+                  source: 'checkout.session.completed',
+                });
+              }
+            } else if (session.mode === 'subscription' && userId) {
+              // Handle subscription checkout completion
+              const subscriptionId = session.subscription as string;
+              if (subscriptionId) {
+                const subscription = await this.stripe.subscriptions.retrieve(subscriptionId);
+                await vultrPostgres.query(
+                  `INSERT INTO subscriptions (subscription_id, user_id, stripe_subscription_id, status, current_period_end, created_at)
+                   VALUES ($1, $2, $3, $4, $5, $6)
+                   ON CONFLICT (stripe_subscription_id) DO UPDATE SET status = $4, current_period_end = $5, updated_at = $6`,
+                  [
+                    `sub_${Date.now()}`,
+                    userId,
+                    subscription.id,
+                    subscription.status,
+                    new Date(subscription.current_period_end * 1000).toISOString(),
+                    new Date().toISOString(),
+                  ]
+                );
+                this.logPaymentOperation('subscriptionCreated', {
+                  subscriptionId: subscription.id,
+                  userId,
+                });
+              }
+            }
+          } catch (dbError) {
+            console.error('Failed to process checkout.session.completed:', dbError);
+            this.logPaymentOperation('checkoutSessionProcessingFailed', {
+              sessionId: session.id,
+              error: dbError instanceof Error ? dbError.message : String(dbError),
+            }, false);
+          }
           break;
         }
       

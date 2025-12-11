@@ -887,6 +887,24 @@ router.post(
       cancelUrl: z.string().url('Invalid cancel URL'),
       customerEmail: z.string().email().optional(),
       metadata: z.record(z.string()).optional(),
+      lineItems: z.array(
+        z.object({
+          productId: z.string(),
+          name: z.string(),
+          description: z.string().optional(),
+          price: z.number().positive(),
+          quantity: z.number().int().positive(),
+          images: z.array(z.string().url()).optional(),
+        })
+      ).optional(),
+      shippingInfo: z.object({
+        name: z.string().min(1),
+        address: z.string().min(1),
+        city: z.string().min(1),
+        state: z.string().min(1),
+        zip: z.string().min(1),
+        country: z.string().min(1),
+      }).optional(),
     })
   ),
   async (req: Request, res: Response, next: NextFunction) => {
