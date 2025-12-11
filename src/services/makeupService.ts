@@ -3,7 +3,7 @@
  * Client-side service for interacting with Makeup Artist Agent API
  */
 
-import api from './api';
+import api from '@/lib/api';
 import type { MakeupLook, SkinAnalysis, CreateLookParams } from '@/types/makeup';
 
 class MakeupService {
