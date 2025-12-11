@@ -67,7 +67,7 @@ const Features = () => {
               viewport={{ once: true }}
               transition={{ delay: idx * 0.1, duration: 0.5 }}
               whileHover={{ y: -8, scale: 1.02 }}
-              className="bg-card rounded-2xl p-8 border border-border/50 shadow-elevated hover:shadow-elevated-lg transition-all duration-300 group backdrop-blur-sm"
+              className="bg-card rounded-2xl p-8 border border-border/50 shadow-elevated hover:shadow-elevated-lg transition-all duration-300 group backdrop-blur-sm hover:border-primary/20"
             >
               <motion.div
                 whileHover={{ scale: 1.1, rotate: 5 }}

@@ -35,7 +35,8 @@ const Footer = () => {
                   href={social.href}
                   whileHover={{ scale: 1.2, y: -2 }}
                   whileTap={{ scale: 0.9 }}
-                  className="text-gray-400 hover:text-primary transition-colors p-2 rounded-lg hover:bg-gray-800/50"
+                  className="text-gray-400 hover:text-primary transition-colors p-2 rounded-lg hover:bg-gray-800/50 hover:shadow-lg hover:shadow-primary/20"
+                  aria-label={`Visit our ${social.icon.name} page`}
                 >
                   <social.icon className="w-5 h-5" />
                 </motion.a>
@@ -86,7 +87,7 @@ const Footer = () => {
                     <motion.a
                       href={link.href}
                       whileHover={{ x: 4 }}
-                      className="text-gray-400 hover:text-primary transition-colors inline-block"
+                      className="text-gray-400 hover:text-primary transition-colors inline-block hover:underline underline-offset-4"
                     >
                       {link.label}
                     </motion.a>

@@ -96,6 +96,21 @@ const AgentsDashboard = () => {
 
   useEffect(() => {
     if (initialAgents) {
+      const newlyCreatedAgent: AgentType = {
+        id: "new123",
+        name: "New Agent",
+        description: "This agent was just created and needs configuration to be fully operational.",
+        purpose: "Help users with customer inquiries and provide assistance with common questions.",
+        status: "inactive",
+        type: "Customer Service",
+        createdAt: "Just now",
+        interactions: 0,
+        channelConfigs: {
+          "web": { enabled: false },
+          "email": { enabled: false },
+          "voice": { enabled: false }
+        }
+      };
       let sorted = [newlyCreatedAgent, ...initialAgents];
       
       sorted = [...sorted].sort((a, b) => {
