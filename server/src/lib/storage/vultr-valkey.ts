@@ -190,18 +190,40 @@ class VultrValkeyService {
   }
 
   /**
-   * Health check
+   * Health check with detailed diagnostics
    */
-  async healthCheck(): Promise<{ status: string; latency?: number; error?: string }> {
+  async healthCheck(): Promise<{ 
+    status: string; 
+    latency?: number; 
+    error?: string;
+    connectionStatus?: string;
+    serverInfo?: any;
+  }> {
     const start = Date.now();
     try {
       await this.withTimeout(this.client.ping(), 'PING');
       const latency = Date.now() - start;
-      return { status: 'healthy', latency };
+      
+      // Get server info if available
+      let serverInfo = null;
+      try {
+        const info = await this.withTimeout(this.client.info('server'), 'INFO server');
+        serverInfo = info;
+      } catch {
+        // Ignore info errors
+      }
+
+      return { 
+        status: 'healthy', 
+        latency,
+        connectionStatus: this.client.status,
+        serverInfo,
+      };
     } catch (error: any) {
       return {
         status: 'unhealthy',
         error: error.message || 'Unknown error',
+        connectionStatus: this.client.status,
       };
     }
   }
@@ -279,6 +301,43 @@ class VultrValkeyService {
     } catch (error: any) {
       console.error('Valkey keys error:', error);
       return [];
+    }
+  }
+
+  /**
+   * Get multiple keys and delete them (atomic operation)
+   */
+  async mgetAndDelete(keys: string[]): Promise<(any | null)[]> {
+    if (keys.length === 0) return [];
+    
+    try {
+      const pipeline = this.client.pipeline();
+      
+      // Get all values
+      for (const key of keys) {
+        pipeline.get(key);
+      }
+      
+      // Delete all keys
+      for (const key of keys) {
+        pipeline.del(key);
+      }
+      
+      const results = await this.withTimeout(pipeline.exec(), 'MGET_AND_DELETE');
+      
+      // Extract get results (first half of results)
+      const getResults = results.slice(0, keys.length);
+      return getResults.map(([err, val]: [Error | null, any]) => {
+        if (err) return null;
+        try {
+          return JSON.parse(val);
+        } catch {
+          return val;
+        }
+      });
+    } catch (error: any) {
+      console.error('Valkey mgetAndDelete error:', error);
+      return keys.map(() => null);
     }
   }
 

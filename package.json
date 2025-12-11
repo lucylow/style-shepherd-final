@@ -34,7 +34,12 @@
     "cloudflare:deploy": "cd server && wrangler deploy",
     "cloudflare:build": "cd server && npm run build:cloudflare",
     "trend-service:start": "cd server/trend-service && bash start.sh",
-    "trend-service:install": "cd server/trend-service && python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt"
+    "trend-service:install": "cd server/trend-service && python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt",
+    "raindrop:code": "raindrop-code",
+    "raindrop:deploy": "raindrop deploy",
+    "raindrop:status": "raindrop status",
+    "raindrop:logs": "raindrop logs",
+    "raindrop:build": "raindrop build"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -106,6 +111,8 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
+    "@liquidmetal-ai/raindrop": "^0.13.0",
+    "@liquidmetal-ai/raindrop-code": "^0.0.6",
     "@tailwindcss/typography": "^0.5.16",
     "@testing-library/jest-dom": "^6.1.5",
     "@testing-library/react": "^14.1.2",

@@ -456,5 +456,159 @@ router.post('/postgres/batch', async (req: Request, res: Response) => {
   }
 });
 
+// Management API Routes
+router.get('/management/account', async (req: Request, res: Response) => {
+  try {
+    const { vultrManagement } = await import('../../lib/vultr/vultr-management.js');
+    if (!vultrManagement.isAvailable()) {
+      return res.status(503).json({ 
+        error: 'Vultr Management API is not available. Set VULTR_API_KEY or VULTR_MANAGEMENT_API_KEY.' 
+      });
+    }
+    const account = await vultrManagement.getAccountInfo();
+    res.json(account);
+  } catch (error: any) {
+    console.error('Get account info error:', error);
+    res.status(500).json({ error: error.message || 'Failed to get account info' });
+  }
+});
+
+router.get('/management/databases', async (req: Request, res: Response) => {
+  try {
+    const { vultrManagement } = await import('../../lib/vultr/vultr-management.js');
+    if (!vultrManagement.isAvailable()) {
+      return res.status(503).json({ 
+        error: 'Vultr Management API is not available' 
+      });
+    }
+    const databases = await vultrManagement.listDatabases();
+    res.json({ databases });
+  } catch (error: any) {
+    console.error('List databases error:', error);
+    res.status(500).json({ error: error.message || 'Failed to list databases' });
+  }
+});
+
+router.get('/management/databases/:databaseId', async (req: Request, res: Response) => {
+  try {
+    const { databaseId } = req.params;
+    const { vultrManagement } = await import('../../lib/vultr/vultr-management.js');
+    if (!vultrManagement.isAvailable()) {
+      return res.status(503).json({ 
+        error: 'Vultr Management API is not available' 
+      });
+    }
+    const database = await vultrManagement.getDatabase(databaseId);
+    if (!database) {
+      return res.status(404).json({ error: 'Database not found' });
+    }
+    res.json(database);
+  } catch (error: any) {
+    console.error('Get database error:', error);
+    res.status(500).json({ error: error.message || 'Failed to get database' });
+  }
+});
+
+router.get('/management/databases/:databaseId/health', async (req: Request, res: Response) => {
+  try {
+    const { databaseId } = req.params;
+    const { vultrManagement } = await import('../../lib/vultr/vultr-management.js');
+    if (!vultrManagement.isAvailable()) {
+      return res.status(503).json({ 
+        error: 'Vultr Management API is not available' 
+      });
+    }
+    const health = await vultrManagement.getDatabaseHealth(databaseId);
+    res.json(health);
+  } catch (error: any) {
+    console.error('Get database health error:', error);
+    res.status(500).json({ error: error.message || 'Failed to get database health' });
+  }
+});
+
+router.get('/management/valkey', async (req: Request, res: Response) => {
+  try {
+    const { vultrManagement } = await import('../../lib/vultr/vultr-management.js');
+    if (!vultrManagement.isAvailable()) {
+      return res.status(503).json({ 
+        error: 'Vultr Management API is not available' 
+      });
+    }
+    const instances = await vultrManagement.listValkeyInstances();
+    res.json({ instances });
+  } catch (error: any) {
+    console.error('List Valkey instances error:', error);
+    res.status(500).json({ error: error.message || 'Failed to list Valkey instances' });
+  }
+});
+
+router.get('/management/instances', async (req: Request, res: Response) => {
+  try {
+    const { vultrManagement } = await import('../../lib/vultr/vultr-management.js');
+    if (!vultrManagement.isAvailable()) {
+      return res.status(503).json({ 
+        error: 'Vultr Management API is not available' 
+      });
+    }
+    const instances = await vultrManagement.listInstances();
+    res.json({ instances });
+  } catch (error: any) {
+    console.error('List instances error:', error);
+    res.status(500).json({ error: error.message || 'Failed to list instances' });
+  }
+});
+
+router.get('/management/summary', async (req: Request, res: Response) => {
+  try {
+    const { vultrManagement } = await import('../../lib/vultr/vultr-management.js');
+    if (!vultrManagement.isAvailable()) {
+      return res.status(503).json({ 
+        error: 'Vultr Management API is not available' 
+      });
+    }
+    const summary = await vultrManagement.getInfrastructureSummary();
+    res.json(summary);
+  } catch (error: any) {
+    console.error('Get infrastructure summary error:', error);
+    res.status(500).json({ error: error.message || 'Failed to get infrastructure summary' });
+  }
+});
+
+// Health and Utility Routes
+router.get('/health', async (req: Request, res: Response) => {
+  try {
+    const { checkVultrHealth } = await import('../../lib/vultr/vultr-utils.js');
+    const health = await checkVultrHealth();
+    const statusCode = health.overall === 'healthy' ? 200 : 
+                      health.overall === 'degraded' ? 200 : 503;
+    res.status(statusCode).json(health);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || 'Health check failed' });
+  }
+});
+
+router.get('/stats', async (req: Request, res: Response) => {
+  try {
+    const { getVultrStats } = await import('../../lib/vultr/vultr-utils.js');
+    const stats = await getVultrStats();
+    res.json(stats);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || 'Failed to get stats' });
+  }
+});
+
+router.post('/test', async (req: Request, res: Response) => {
+  try {
+    const { testVultrServices } = await import('../../lib/vultr/vultr-utils.js');
+    const results = await testVultrServices();
+    res.json({
+      success: results.postgres && results.valkey && results.inference,
+      results,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || 'Test failed' });
+  }
+});
+
 export default router;
 

@@ -6,6 +6,7 @@
 import OpenAI from 'openai';
 import env from '../config/env.js';
 import providerRegistry from '../lib/providerRegistry.js';
+import { mockAIService } from './MockAIService.js';
 
 export interface IntentAnalysis {
   intent: string;
@@ -131,7 +132,7 @@ export class LLMService {
 
   /**
    * Extract intent and entities using LLM
-   * Falls back to keyword matching if LLM is unavailable
+   * Falls back to MockAIService if LLM is unavailable
    */
   async extractIntentAndEntities(
     text: string,
@@ -139,7 +140,15 @@ export class LLMService {
     userProfile?: any
   ): Promise<IntentAnalysis> {
     if (!this.client && !this.useProviderRegistry) {
-      return this.fallbackIntentExtraction(text);
+      // Use MockAIService for better fallback
+      const mockResult = mockAIService.extractIntentAndEntities(text, conversationHistory, userProfile);
+      return {
+        intent: mockResult.intent,
+        entities: mockResult.entities,
+        confidence: mockResult.confidence,
+        sentiment: mockResult.sentiment,
+        context: mockResult.context,
+      };
     }
 
     try {
@@ -230,14 +239,22 @@ Respond with valid JSON only:
         context: parsed.context || {},
       };
     } catch (error) {
-      console.warn('LLM intent extraction failed, using fallback:', error);
-      return this.fallbackIntentExtraction(text);
+      console.warn('LLM intent extraction failed, using MockAIService fallback:', error);
+      // Use MockAIService for better fallback
+      const mockResult = mockAIService.extractIntentAndEntities(text, conversationHistory, userProfile);
+      return {
+        intent: mockResult.intent,
+        entities: mockResult.entities,
+        confidence: mockResult.confidence,
+        sentiment: mockResult.sentiment,
+        context: mockResult.context,
+      };
     }
   }
 
   /**
    * Generate contextual response using LLM
-   * Falls back to rule-based responses if LLM is unavailable
+   * Falls back to MockAIService if LLM is unavailable
    */
   async generateResponse(
     query: string,
@@ -247,7 +264,8 @@ Respond with valid JSON only:
     preferences?: any
   ): Promise<string> {
     if (!this.client && !this.useProviderRegistry) {
-      return this.fallbackResponse(query, intentAnalysis, userProfile, preferences);
+      // Use MockAIService for better fallback
+      return mockAIService.generateResponse(query, intentAnalysis, conversationHistory, userProfile, preferences);
     }
 
     try {
@@ -310,10 +328,10 @@ Remember to:
         (estimatedInputTokens / 1_000_000) * this.INPUT_COST_PER_MILLION +
         (estimatedOutputTokens / 1_000_000) * this.OUTPUT_COST_PER_MILLION;
       
-      return content.trim() || this.fallbackResponse(query, intentAnalysis, userProfile, preferences);
+      return content.trim() || mockAIService.generateResponse(query, intentAnalysis, conversationHistory, userProfile, preferences);
     } catch (error) {
-      console.warn('LLM response generation failed, using fallback:', error);
-      return this.fallbackResponse(query, intentAnalysis, userProfile, preferences);
+      console.warn('LLM response generation failed, using MockAIService fallback:', error);
+      return mockAIService.generateResponse(query, intentAnalysis, conversationHistory, userProfile, preferences);
     }
   }
 
@@ -329,9 +347,15 @@ Remember to:
     preferences?: any
   ): AsyncGenerator<string, void, unknown> {
     if (!this.client && !this.useProviderRegistry) {
-      // Fallback: yield full response at once
-      const response = this.fallbackResponse(query, intentAnalysis, userProfile, preferences);
-      yield response;
+      // Fallback: yield full response at once using MockAIService
+      const response = mockAIService.generateResponse(query, intentAnalysis, conversationHistory, userProfile, preferences);
+      // Simulate streaming by yielding in chunks
+      const words = response.split(' ');
+      for (let i = 0; i < words.length; i++) {
+        yield (i > 0 ? ' ' : '') + words[i];
+        // Small delay to simulate streaming
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
       return;
     }
 
@@ -421,9 +445,14 @@ User preferences: ${preferences ? JSON.stringify(preferences).substring(0, 200) 
         }
       }
     } catch (error) {
-      console.warn('LLM streaming response failed, using fallback:', error);
-      const response = this.fallbackResponse(query, intentAnalysis, userProfile, preferences);
-      yield response;
+      console.warn('LLM streaming response failed, using MockAIService fallback:', error);
+      const response = mockAIService.generateResponse(query, intentAnalysis, conversationHistory, userProfile, preferences);
+      // Simulate streaming by yielding in chunks
+      const words = response.split(' ');
+      for (let i = 0; i < words.length; i++) {
+        yield (i > 0 ? ' ' : '') + words[i];
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
     }
   }
 
@@ -435,10 +464,13 @@ User preferences: ${preferences ? JSON.stringify(preferences).substring(0, 200) 
     maxMessages: number = this.MAX_CONTEXT_MESSAGES
   ): Promise<ConversationSummary> {
     if ((!this.client && !this.useProviderRegistry) || conversationHistory.length <= maxMessages) {
+      // Use MockAIService for better summarization
+      const mockSummary = mockAIService.summarizeConversation(conversationHistory);
       return {
-        summary: 'Recent conversation',
-        keyPoints: conversationHistory.slice(-5).map((m: any) => m.message.substring(0, 50)),
-        timestamp: Date.now(),
+        summary: mockSummary.summary,
+        keyPoints: mockSummary.keyPoints,
+        userPreferences: mockSummary.userPreferences,
+        timestamp: mockSummary.timestamp,
       };
     }
 
@@ -512,8 +544,8 @@ User preferences: ${preferences ? JSON.stringify(preferences).substring(0, 200) 
       }
       return 'neutral';
     } catch (error) {
-      console.warn('Sentiment analysis failed:', error);
-      return 'neutral';
+      console.warn('Sentiment analysis failed, using MockAIService fallback:', error);
+      return mockAIService.analyzeSentiment(text);
     }
   }
 
@@ -700,7 +732,16 @@ User preferences: ${preferences ? JSON.stringify(preferences).substring(0, 200) 
     onChunk?: (chunk: string) => void
   ): Promise<string> {
     if (!this.client && !this.useProviderRegistry) {
-      return this.fallbackResponse(query, intentAnalysis, userProfile, preferences);
+      const response = mockAIService.generateResponse(query, intentAnalysis, conversationHistory, userProfile, preferences);
+      // Simulate streaming with callbacks
+      if (onChunk) {
+        const words = response.split(' ');
+        for (let i = 0; i < words.length; i++) {
+          onChunk((i > 0 ? ' ' : '') + words[i]);
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+      }
+      return response;
     }
 
     try {
@@ -740,7 +781,7 @@ User preferences: ${preferences ? JSON.stringify(preferences).substring(0, 200) 
               onChunk(chunk);
             }
           );
-          return fullResponse.trim() || this.fallbackResponse(query, intentAnalysis, userProfile, preferences);
+          return fullResponse.trim() || mockAIService.generateResponse(query, intentAnalysis, conversationHistory, userProfile, preferences);
         }
       }
 
@@ -794,14 +835,14 @@ User preferences: ${preferences ? JSON.stringify(preferences).substring(0, 200) 
           (estimatedInputTokens / 1_000_000) * this.INPUT_COST_PER_MILLION +
           (estimatedOutputTokens / 1_000_000) * this.OUTPUT_COST_PER_MILLION;
 
-        return fullResponse.trim() || this.fallbackResponse(query, intentAnalysis, userProfile, preferences);
+        return fullResponse.trim() || mockAIService.generateResponse(query, intentAnalysis, conversationHistory, userProfile, preferences);
       }
     } catch (error) {
-      console.warn('LLM streaming response generation failed, using fallback:', error);
-      return this.fallbackResponse(query, intentAnalysis, userProfile, preferences);
+      console.warn('LLM streaming response generation failed, using MockAIService fallback:', error);
+      return mockAIService.generateResponse(query, intentAnalysis, conversationHistory, userProfile, preferences);
     }
 
-    return this.fallbackResponse(query, intentAnalysis, userProfile, preferences);
+    return mockAIService.generateResponse(query, intentAnalysis, conversationHistory, userProfile, preferences);
   }
 }
 

@@ -14,6 +14,7 @@ import {
   DatabaseError,
   CacheError,
 } from '../lib/errors.js';
+import { mockAIService } from './MockAIService.js';
 
 const API_TIMEOUT_MS = 10000; // 10 seconds
 
@@ -135,18 +136,34 @@ export class ProductRecommendationAPI {
       return results;
     } catch (error: any) {
       if (error instanceof ExternalServiceError) {
-        // Fallback to database-based recommendations
+        // Fallback to database-based recommendations first, then mock if that fails
         console.warn('Vultr recommendation API error, falling back to local logic:', error);
-        return this.getFallbackRecommendations(userPreferences, context);
+        try {
+          return await this.getFallbackRecommendations(userPreferences, context);
+        } catch (fallbackError) {
+          console.warn('Database fallback also failed, using MockAIService:', fallbackError);
+          return this.getMockRecommendations(userPreferences, context);
+        }
       }
       
       if (error.name === 'AbortError') {
-        throw new ApiTimeoutError('Vultr ML API', API_TIMEOUT_MS, `${this.baseURL}/recommend`);
+        // On timeout, try database fallback first, then mock
+        try {
+          return await this.getFallbackRecommendations(userPreferences, context);
+        } catch (fallbackError) {
+          console.warn('Database fallback failed after timeout, using MockAIService:', fallbackError);
+          return this.getMockRecommendations(userPreferences, context);
+        }
       }
       
       // Unknown error, try fallback
       console.warn('Unknown error in recommendation API, falling back:', error);
-      return this.getFallbackRecommendations(userPreferences, context);
+      try {
+        return await this.getFallbackRecommendations(userPreferences, context);
+      } catch (fallbackError) {
+        console.warn('Database fallback failed, using MockAIService:', fallbackError);
+        return this.getMockRecommendations(userPreferences, context);
+      }
     }
   }
 
@@ -254,16 +271,29 @@ export class ProductRecommendationAPI {
         throw error;
       }
       
-      // If database fails, return empty array (graceful degradation)
-      console.error('Fallback recommendations failed:', error);
-      
-      // Log specific error details for debugging
-      if (error instanceof Error) {
-        console.error('Unexpected error in fallback recommendations:', error.message, error.stack);
-      }
-      
-      return [];
+      // If database fails, use MockAIService as final fallback
+      console.error('Fallback recommendations failed, using MockAIService:', error);
+      return this.getMockRecommendations(userPreferences, context);
     }
+  }
+
+  /**
+   * Mock recommendations using MockAIService (final fallback)
+   */
+  private getMockRecommendations(
+    userPreferences: UserPreferences,
+    context: RecommendationContext
+  ): RecommendationResult[] {
+    console.log('Using MockAIService for recommendations');
+    const mockRecs = mockAIService.generateMockRecommendations(userPreferences, context);
+    
+    return mockRecs.map(rec => ({
+      productId: rec.productId,
+      score: rec.score,
+      confidence: rec.confidence,
+      reasons: rec.reasons,
+      returnRisk: 0.15, // Low return risk for mock products
+    }));
   }
 
   /**

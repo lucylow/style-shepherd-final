@@ -15,7 +15,8 @@
 src/
 ├── integrations/
 │   └── raindrop/
-│       └── config.ts              # Raindrop SDK configuration and Smart Component clients
+│       ├── config.ts              # Raindrop SDK configuration (official SDK with fallback)
+│       └── errorHandler.ts        # Error handling, retry logic, and fallback utilities
 ├── services/
 │   ├── raindrop/
 │   │   ├── index.ts                # Centralized exports
@@ -176,13 +177,53 @@ All existing services have been updated to integrate with Raindrop Smart Compone
 
 ## 🚀 Deployment Configuration
 
-The `raindrop.yaml` file configures:
+### Enhanced `raindrop.yaml`
 
-- **Platform**: Raindrop (Google Cloud Platform foundation)
-- **Smart Components**: All four components with appropriate namespaces
-- **Scaling**: Auto-scaling from 1 to 10 instances
-- **Monitoring**: Health checks, metrics, and alerts
-- **Security**: API key authentication and rate limiting
+The `raindrop.yaml` file has been enhanced with:
+
+- **Multi-service architecture**: Separate web and server services
+- **Environment variable management**: Proper secret handling with `from_secret`
+- **Health checks**: Automated health monitoring for server service
+- **Auto-scaling**: Configurable scaling (1-10 instances) with CPU target (70%)
+- **Security**: API key authentication and proper environment isolation
+- **Build optimization**: Separate build commands for web and server
+
+### Official SDK Integration
+
+The integration now uses the official `@liquidmetal-ai/raindrop` SDK with automatic fallback to a custom implementation:
+
+- **Lazy loading**: Official SDK is loaded asynchronously when available
+- **Graceful degradation**: Falls back to custom implementation if SDK is unavailable
+- **Type safety**: Full TypeScript support maintained across both implementations
+- **Error handling**: Enhanced error handling with retry logic and fallback mechanisms
+
+### Raindrop Code Integration
+
+The project now includes `raindrop-code` for enhanced development workflow:
+
+```bash
+# Start Raindrop Code development environment
+npm run raindrop:code
+
+# Deploy to Raindrop platform
+npm run raindrop:deploy
+
+# Check deployment status
+npm run raindrop:status
+
+# View deployment logs
+npm run raindrop:logs
+
+# Build for Raindrop
+npm run raindrop:build
+```
+
+**Key Features of Raindrop Code**:
+- Interactive AI-powered development environment
+- GLM 4.6 as default model for consistent development
+- Structured workflow for building applications
+- Automatic architecture and infrastructure generation
+- Direct deployment to live infrastructure
 
 ## 📝 Environment Variables
 
@@ -196,6 +237,28 @@ VITE_RAINDROP_BASE_URL=https://api.raindrop.io
 
 ## 🎯 Deployment Steps
 
+### Option 1: Using Raindrop Code (Recommended)
+
+1. **Install Raindrop Code** (if not already installed):
+   ```bash
+   npm install -g @liquidmetal-ai/raindrop @liquidmetal-ai/raindrop-code
+   ```
+
+2. **Start Raindrop Code**:
+   ```bash
+   npm run raindrop:code
+   # or directly: raindrop-code
+   ```
+
+3. **In Raindrop Code, create a new application**:
+   ```
+   /new-raindrop-app
+   ```
+
+4. **Follow the interactive workflow** to build and deploy
+
+### Option 2: Using Raindrop CLI
+
 1. **Install Raindrop CLI**:
    ```bash
    npm install -g @liquidmetal-ai/raindrop
@@ -206,23 +269,64 @@ VITE_RAINDROP_BASE_URL=https://api.raindrop.io
    raindrop login
    ```
 
-3. **Deploy**:
+3. **Deploy using npm script**:
    ```bash
-   raindrop deploy
+   npm run raindrop:deploy
+   # or directly: raindrop deploy
    ```
 
-4. **Verify**:
-   - Check status: `raindrop status`
-   - View logs: `raindrop logs`
-   - Access the public URL provided by Raindrop
+4. **Verify Deployment**:
+   ```bash
+   # Check status
+   npm run raindrop:status
+   
+   # View logs
+   npm run raindrop:logs
+   
+   # Access the public URL provided by Raindrop
+   ```
 
 ## ✨ Key Benefits
 
-1. **Unified API**: All Smart Components accessible through consistent interfaces
-2. **Fallback Support**: Services gracefully degrade if Raindrop is unavailable
-3. **Type Safety**: Full TypeScript support with proper types
-4. **Scalability**: Built for production with auto-scaling and monitoring
-5. **Hackathon Compliance**: All four required Smart Components implemented
+1. **Official SDK Integration**: Uses `@liquidmetal-ai/raindrop` with automatic fallback
+2. **Raindrop Code Support**: Enhanced development workflow with AI-powered tools
+3. **Unified API**: All Smart Components accessible through consistent interfaces
+4. **Enhanced Error Handling**: Retry logic, exponential backoff, and graceful fallbacks
+5. **Production Ready**: Auto-scaling, health checks, and monitoring built-in
+6. **Type Safety**: Full TypeScript support with proper types across all components
+7. **Developer Experience**: Convenient npm scripts for common operations
+8. **Hackathon Compliance**: All four required Smart Components implemented
+
+## 🔧 Error Handling & Resilience
+
+The integration includes comprehensive error handling utilities (`src/integrations/raindrop/errorHandler.ts`):
+
+- **Retry Logic**: Automatic retries with exponential backoff for transient failures
+- **Error Classification**: Distinguishes between retryable and non-retryable errors
+- **Fallback Mechanisms**: Graceful degradation when Raindrop services are unavailable
+- **Configuration Checks**: Validates API keys and project IDs before operations
+- **Error Wrapping**: Consistent error types (`RaindropError`) for better error handling
+
+### Example: Using Error Handling
+
+```typescript
+import { withRetry, withFallback, isRaindropConfigured } from '@/integrations/raindrop/errorHandler';
+
+// Check if Raindrop is configured
+if (isRaindropConfigured()) {
+  // Use with retry
+  const result = await withRetry(
+    () => userMemoryService.getUserProfile(userId),
+    { maxRetries: 3, retryDelay: 1000 }
+  );
+  
+  // Use with fallback
+  const profile = await withFallback(
+    () => userMemoryService.getUserProfile(userId),
+    () => getMockUserProfile(userId) // fallback
+  );
+}
+```
 
 ## 📊 Demo Video Checklist
 

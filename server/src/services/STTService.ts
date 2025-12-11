@@ -8,6 +8,7 @@ import OpenAI from 'openai';
 import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
 import FormData from 'form-data';
 import env from '../config/env.js';
+import { mockAIService } from './MockAIService.js';
 
 export interface STTResult {
   text: string;
@@ -87,11 +88,14 @@ export class STTService {
       }
     }
 
-    // Final fallback
+    // Final fallback - use MockAIService for better mock transcription
+    console.warn('All STT services failed, using MockAIService fallback');
+    const mockResult = mockAIService.transcribe(audioBuffer, options);
     return {
-      text: '[Audio transcription needed - please configure STT service]',
-      source: 'fallback',
-      confidence: 0,
+      text: mockResult.text,
+      source: 'fallback' as const,
+      confidence: mockResult.confidence,
+      language: mockResult.language,
     };
   }
 
