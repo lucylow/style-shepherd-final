@@ -23,6 +23,13 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-vars": "off",
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-empty-object-type": "off",
+      "@typescript-eslint/no-require-imports": "off",
+    },
+  },
+  {
+    files: ["**/*.config.{ts,js}", "mocks/**/*.{ts,js}", "server/**/*.{ts,js}"],
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
     },
   },
 );

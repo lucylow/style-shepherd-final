@@ -25,6 +25,7 @@ function initializeRaindrop() {
   try {
     // Try to use the SDK if available
     // Note: This may not be available in all environments
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { RaindropSDK } = require('@raindrop-platform/sdk');
     raindropInstance = new RaindropSDK({
       apiKey: env.RAINDROP_API_KEY,
