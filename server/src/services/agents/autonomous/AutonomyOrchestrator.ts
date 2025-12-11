@@ -48,7 +48,7 @@ export class AutonomyOrchestrator {
         const batch = activeUsers.slice(i, i + batchSize);
         
         await Promise.all(
-          batch.map(user => this.monitorUser(user.userId))
+          batch.map((user: { userId: string }) => this.monitorUser(user.userId))
         );
       }
     } catch (error) {
@@ -204,12 +204,12 @@ export class AutonomyOrchestrator {
     });
     
     const accuracyScores = memoryRecords
-      .map(m => m.performanceMetrics as any)
-      .filter(m => m?.accuracy)
-      .map(m => m.accuracy);
+      .map((m: any) => m.performanceMetrics as any)
+      .filter((m: any) => m?.accuracy)
+      .map((m: any) => m.accuracy);
     
     const personalizationAccuracy = accuracyScores.length > 0
-      ? accuracyScores.reduce((sum, a) => sum + a, 0) / accuracyScores.length
+      ? accuracyScores.reduce((sum: number, a: number) => sum + a, 0) / accuracyScores.length
       : 0.85; // Default
 
     // Calculate business impact metrics (simplified - would use actual analytics)

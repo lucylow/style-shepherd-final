@@ -57,12 +57,12 @@ const ReturnsCalculator = () => {
           ))}
         </div>
 
-        <div className="bg-background rounded-2xl shadow-xl p-8">
-          <h3 className="text-2xl font-bold text-center text-foreground mb-8">
+        <div className="bg-background rounded-2xl shadow-xl p-4 sm:p-6 lg:p-8">
+          <h3 className="text-xl sm:text-2xl font-bold text-center text-foreground mb-6 sm:mb-8">
             Try Our Returns Calculator
           </h3>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 items-center">
             <div className="space-y-6">
               <div>
                 <label className="block text-foreground mb-2 font-medium">
@@ -105,8 +105,8 @@ const ReturnsCalculator = () => {
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-[#667eea] to-[#764ba2] rounded-2xl p-8 text-white">
-              <h4 className="text-xl font-bold mb-4">Your Potential Savings</h4>
+            <div className="bg-gradient-to-br from-[#667eea] to-[#764ba2] rounded-2xl p-6 sm:p-8 text-white">
+              <h4 className="text-lg sm:text-xl font-bold mb-4">Your Potential Savings</h4>
 
               <div className="space-y-4">
                 <div className="flex justify-between items-center">

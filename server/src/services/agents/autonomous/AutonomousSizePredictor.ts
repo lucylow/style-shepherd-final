@@ -374,7 +374,7 @@ export class AutonomousSizePredictor {
     });
 
     // Transform to ReturnLearningData format
-    return events.map(event => ({
+    return events.map((event: any) => ({
       orderId: event.orderId,
       productId: event.productId,
       brand: '', // Would be populated from product data

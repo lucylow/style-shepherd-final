@@ -41,24 +41,24 @@ const Features = () => {
 
   return (
     <ErrorBoundary>
-      <section id="features" className="py-20 px-4 sm:px-6 lg:px-8 bg-background">
+      <section id="features" className="py-12 sm:py-16 lg:py-20 px-4 sm:px-6 lg:px-8 bg-background">
         <div className="max-w-7xl mx-auto">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="text-center mb-16"
+          className="text-center mb-10 sm:mb-12 lg:mb-16"
         >
-          <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4 bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-3 sm:mb-4 bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
             Revolutionary AI Features
           </h2>
-          <p className="text-lg sm:text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+          <p className="text-base sm:text-lg lg:text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed px-4">
             Powered by cutting-edge machine learning and voice AI technology
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
           {features.map((feature, idx) => (
             <motion.div
               key={idx}
@@ -67,16 +67,16 @@ const Features = () => {
               viewport={{ once: true }}
               transition={{ delay: idx * 0.1, duration: 0.5 }}
               whileHover={{ y: -8, scale: 1.02 }}
-              className="bg-card rounded-2xl p-8 border border-border/50 shadow-elevated hover:shadow-elevated-lg transition-all duration-300 group backdrop-blur-sm hover:border-primary/20"
+              className="bg-card rounded-2xl p-6 sm:p-8 border border-border/50 shadow-elevated hover:shadow-elevated-lg transition-all duration-300 group backdrop-blur-sm hover:border-primary/20"
             >
               <motion.div
                 whileHover={{ scale: 1.1, rotate: 5 }}
-                className={`w-16 h-16 ${feature.color} rounded-2xl flex items-center justify-center mb-6 shadow-lg group-hover:shadow-glow-primary transition-all`}
+                className={`w-14 h-14 sm:w-16 sm:h-16 ${feature.color} rounded-2xl flex items-center justify-center mb-4 sm:mb-6 shadow-lg group-hover:shadow-glow-primary transition-all`}
               >
-                <feature.icon className="w-8 h-8 text-white" />
+                <feature.icon className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
               </motion.div>
-              <h3 className="text-xl font-bold text-foreground mb-4 group-hover:text-primary transition-colors">{feature.title}</h3>
-              <p className="text-muted-foreground mb-6 leading-relaxed">{feature.description}</p>
+              <h3 className="text-lg sm:text-xl font-bold text-foreground mb-3 sm:mb-4 group-hover:text-primary transition-colors">{feature.title}</h3>
+              <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6 leading-relaxed">{feature.description}</p>
               <ul className="space-y-3">
                 {feature.items.map((item, itemIdx) => (
                   <motion.li 

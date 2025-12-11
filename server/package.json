@@ -16,7 +16,9 @@
     "test:e2e": "vitest run tests/e2e",
     "test:performance": "vitest run tests/performance",
     "test:coverage": "vitest run --coverage",
-    "test:watch": "vitest watch"
+    "test:watch": "vitest watch",
+    "trend-service:start": "cd trend-service && bash start.sh",
+    "trend-service:install": "cd trend-service && python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt"
   },
   "dependencies": {
     "@elevenlabs/elevenlabs-js": "^2.25.0",

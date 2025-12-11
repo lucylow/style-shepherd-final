@@ -20,6 +20,7 @@ import { trace, context, Span, SpanStatusCode } from '@opentelemetry/api';
 
 // ===== OpenTelemetry Initialization =====
 
+// @ts-ignore - Resource may be type-only in some OpenTelemetry versions
 const resource = new Resource({
   [SemanticResourceAttributes.SERVICE_NAME]: 'style-shepherd',
   [SemanticResourceAttributes.SERVICE_VERSION]: '1.0.0',

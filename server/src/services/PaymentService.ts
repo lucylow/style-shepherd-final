@@ -71,6 +71,9 @@ export class PaymentService {
       console.log('🎭 PaymentService: Running in MOCK MODE - Stripe API calls will be simulated');
     } else {
       try {
+        if (!stripeKey) {
+          throw new Error('Stripe secret key is required');
+        }
         this.stripe = new Stripe(stripeKey, {
           apiVersion: '2023-10-16',
           maxNetworkRetries: 2,
@@ -981,10 +984,14 @@ export class PaymentService {
     priceId: string,
     customerEmail?: string
   ): Promise<{ subscriptionId: string; clientSecret?: string }> {
+    if (this.isMockMode()) {
+      throw new BusinessLogicError('Subscriptions not supported in mock mode', ErrorCode.VALIDATION_ERROR);
+    }
+    
     try {
       const customerId = await this.getOrCreateCustomer(userId, customerEmail);
 
-      const subscription = await this.stripe.subscriptions.create({
+      const subscription = await this.stripe!.subscriptions.create({
         customer: customerId,
         items: [{ price: priceId }],
         metadata: {
@@ -1012,11 +1019,15 @@ export class PaymentService {
    * Cancel subscription
    */
   async cancelSubscription(subscriptionId: string, immediately: boolean = false): Promise<void> {
+    if (this.isMockMode()) {
+      throw new BusinessLogicError('Subscriptions not supported in mock mode', ErrorCode.VALIDATION_ERROR);
+    }
+    
     try {
       if (immediately) {
-        await this.stripe.subscriptions.cancel(subscriptionId);
+        await this.stripe!.subscriptions.cancel(subscriptionId);
       } else {
-        await this.stripe.subscriptions.update(subscriptionId, {
+        await this.stripe!.subscriptions.update(subscriptionId, {
           cancel_at_period_end: true,
         });
       }
@@ -1053,7 +1064,7 @@ export class PaymentService {
       });
 
       // Create and finalize invoice
-      const invoice = await this.stripe.invoices.create({
+      const invoice = await this.stripe!.invoices.create({
         customer: params.retailerCustomerId,
         collection_method: 'send_invoice',
         days_until_due: 30,
@@ -1064,7 +1075,7 @@ export class PaymentService {
         },
       });
 
-      const finalizedInvoice = await this.stripe.invoices.finalizeInvoice(invoice.id);
+      const finalizedInvoice = await this.stripe!.invoices.finalizeInvoice(invoice.id);
 
       // Store in database
       try {
@@ -1109,10 +1120,14 @@ export class PaymentService {
    * Get saved payment methods for a customer
    */
   async getPaymentMethods(userId: string): Promise<Stripe.PaymentMethod[]> {
+    if (this.isMockMode()) {
+      return [];
+    }
+    
     try {
       const customerId = await this.getOrCreateCustomer(userId);
       
-      const paymentMethods = await this.stripe.paymentMethods.list({
+      const paymentMethods = await this.stripe!.paymentMethods.list({
         customer: customerId,
         type: 'card',
       });
@@ -1142,14 +1157,14 @@ export class PaymentService {
     try {
       const customerId = await this.getOrCreateCustomer(userId);
       
-      const paymentMethod = await this.stripe.paymentMethods.attach(paymentMethodId, {
+      const paymentMethod = await this.stripe!.paymentMethods.attach(paymentMethodId, {
         customer: customerId,
       });
 
       // Set as default if no default exists
-      const customer = await this.stripe.customers.retrieve(customerId);
+      const customer = await this.stripe!.customers.retrieve(customerId);
       if (!customer.deleted && !customer.invoice_settings?.default_payment_method) {
-        await this.stripe.customers.update(customerId, {
+        await this.stripe!.customers.update(customerId, {
           invoice_settings: {
             default_payment_method: paymentMethodId,
           },
@@ -1176,8 +1191,12 @@ export class PaymentService {
    * Detach payment method from customer
    */
   async detachPaymentMethod(paymentMethodId: string): Promise<void> {
+    if (this.isMockMode()) {
+      throw new BusinessLogicError('Payment methods not supported in mock mode', ErrorCode.VALIDATION_ERROR);
+    }
+    
     try {
-      await this.stripe.paymentMethods.detach(paymentMethodId);
+      await this.stripe!.paymentMethods.detach(paymentMethodId);
       
       this.logPaymentOperation('detachPaymentMethod', {
         paymentMethodId,
@@ -1198,10 +1217,14 @@ export class PaymentService {
     userId: string,
     paymentMethodId: string
   ): Promise<void> {
+    if (this.isMockMode()) {
+      throw new BusinessLogicError('Payment methods not supported in mock mode', ErrorCode.VALIDATION_ERROR);
+    }
+    
     try {
       const customerId = await this.getOrCreateCustomer(userId);
       
-      await this.stripe.customers.update(customerId, {
+      await this.stripe!.customers.update(customerId, {
         invoice_settings: {
           default_payment_method: paymentMethodId,
         },
@@ -1261,7 +1284,7 @@ export class PaymentService {
       }
 
       const refund = await this.retryStripeCall(
-        () => this.stripe.refunds.create(refundParams),
+        () => this.stripe!.refunds.create(refundParams),
         'createRefund'
       );
 
@@ -1838,7 +1861,7 @@ export class PaymentService {
             const userId = session.metadata?.userId;
             const paymentIntentId = session.payment_intent as string;
 
-            if (session.mode === 'payment' && paymentIntentId && userId) {
+            if (session.mode === 'payment' && paymentIntentId && userId && this.stripe) {
               // Retrieve the payment intent to get order details
               const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
               const orderId = paymentIntent.metadata?.orderId;
@@ -1870,7 +1893,7 @@ export class PaymentService {
               // Handle subscription checkout completion
               const subscriptionId = session.subscription as string;
               if (subscriptionId) {
-                const subscription = await this.stripe.subscriptions.retrieve(subscriptionId);
+                const subscription = await this.stripe!.subscriptions.retrieve(subscriptionId);
                 await vultrPostgres.query(
                   `INSERT INTO subscriptions (subscription_id, user_id, stripe_subscription_id, status, current_period_end, created_at)
                    VALUES ($1, $2, $3, $4, $5, $6)
@@ -2007,12 +2030,12 @@ export class PaymentService {
         // Update fraud incidents and user risk profiles
         try {
           const chargeId = dispute.charge as string;
-          if (chargeId) {
-            const charge = await this.stripe!.charges.retrieve(chargeId);
+          if (chargeId && this.stripe) {
+            const charge = await this.stripe.charges.retrieve(chargeId);
             const paymentIntentId = charge.payment_intent as string;
             
             if (paymentIntentId) {
-              const paymentIntent = await this.stripe!.paymentIntents.retrieve(paymentIntentId);
+              const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
               const userId = paymentIntent.metadata?.userId;
               const incidentId = paymentIntent.metadata?.incidentId;
               
@@ -2079,12 +2102,12 @@ export class PaymentService {
         
         try {
           const chargeId = warning.charge as string;
-          if (chargeId) {
-            const charge = await this.stripe!.charges.retrieve(chargeId);
+          if (chargeId && this.stripe) {
+            const charge = await this.stripe.charges.retrieve(chargeId);
             const paymentIntentId = charge.payment_intent as string;
             
             if (paymentIntentId) {
-              const paymentIntent = await this.stripe!.paymentIntents.retrieve(paymentIntentId);
+              const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
               const userId = paymentIntent.metadata?.userId;
               const incidentId = paymentIntent.metadata?.incidentId;
               

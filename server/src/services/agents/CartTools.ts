@@ -5,7 +5,7 @@
  */
 
 import { cartService, type CartItem } from '../CartService.js';
-import { paymentService } from '../PaymentService.js';
+import { paymentService, type Order } from '../PaymentService.js';
 import { vultrPostgres } from '../../lib/vultr-postgres.js';
 import {
   BusinessLogicError,
@@ -78,13 +78,13 @@ export class CartTools {
 
       // Validate inputs
       if (!userId || userId === 'guest') {
-        throw new ValidationError('Valid user ID is required', ErrorCode.VALIDATION_ERROR);
+        throw new ValidationError('Valid user ID is required');
       }
       if (!productId) {
-        throw new ValidationError('Product ID is required', ErrorCode.VALIDATION_ERROR);
+        throw new ValidationError('Product ID is required');
       }
       if (price <= 0) {
-        throw new ValidationError('Price must be positive', ErrorCode.VALIDATION_ERROR);
+        throw new ValidationError('Price must be positive');
       }
 
       // If confirmation required, return early
@@ -141,7 +141,7 @@ export class CartTools {
       const { userId, productId, quantity, size, sessionId } = params;
 
       if (!userId || userId === 'guest') {
-        throw new ValidationError('Valid user ID is required', ErrorCode.VALIDATION_ERROR);
+        throw new ValidationError('Valid user ID is required');
       }
 
       const cart = await cartService.updateQuantity(userId, productId, size, quantity || 0, sessionId);
@@ -176,7 +176,7 @@ export class CartTools {
       const { userId, productId, size, sessionId } = params;
 
       if (!userId || userId === 'guest') {
-        throw new ValidationError('Valid user ID is required', ErrorCode.VALIDATION_ERROR);
+        throw new ValidationError('Valid user ID is required');
       }
 
       const cart = await cartService.removeFromCart(userId, productId, size, sessionId);
@@ -270,13 +270,13 @@ export class CartTools {
       const { userId, shippingInfo, sessionId, requireConfirmation = true } = params;
 
       if (!userId || userId === 'guest') {
-        throw new ValidationError('User must be logged in to checkout', ErrorCode.VALIDATION_ERROR);
+        throw new ValidationError('User must be logged in to checkout');
       }
 
       // Get cart
       const cart = await cartService.getCart(userId, sessionId);
       if (cart.items.length === 0) {
-        throw new BusinessLogicError('Cart is empty', ErrorCode.VALIDATION_ERROR);
+        throw new BusinessLogicError('Cart is empty');
       }
 
       // If confirmation required, return early
@@ -302,15 +302,21 @@ export class CartTools {
         0
       );
 
-      // Create payment intent
-      const paymentIntent = await paymentService.createPaymentIntent(
-        {
-          userId,
-          items: orderItems,
-          totalAmount,
-          ...(shippingInfo && { shippingInfo }),
-        }
-      );
+      // Create payment intent - shippingInfo is optional
+      const order: Order = {
+        userId,
+        items: orderItems,
+        totalAmount,
+        shippingInfo: shippingInfo || {
+          name: '',
+          address: '',
+          city: '',
+          state: '',
+          zip: '',
+          country: 'US',
+        },
+      };
+      const paymentIntent = await paymentService.createPaymentIntent(order);
 
       // Track analytics
       await this.trackCartEvent(userId, 'checkout_initiated', {

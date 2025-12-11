@@ -31,7 +31,7 @@ export function cloudflareToExpress(request: Request): ExpressRequest {
     const contentType = request.headers.get('content-type') || '';
     if (contentType.includes('application/json')) {
       // Body will be parsed asynchronously
-      expressReq._bodyPromise = request.json();
+      (expressReq as any)._bodyPromise = request.json();
     } else if (contentType.includes('application/x-www-form-urlencoded')) {
       expressReq._bodyPromise = request.formData().then((fd) => {
         const body: Record<string, string> = {};
@@ -41,7 +41,7 @@ export function cloudflareToExpress(request: Request): ExpressRequest {
         return body;
       });
     } else {
-      expressReq._bodyPromise = request.text();
+      (expressReq as any)._bodyPromise = request.text();
     }
   }
 
@@ -62,7 +62,7 @@ export async function expressToCloudflare(
   }
 
   // Get response body from Express response
-  const responseBody = expressRes._body || body || expressRes.locals.body;
+  const responseBody = (expressRes as any)._body || body || expressRes.locals?.body;
   
   // Determine content type
   const contentType = expressRes.get('content-type') || 'application/json';
@@ -151,15 +151,15 @@ export function wrapExpressHandler(
 
     try {
       // Wait for body if needed
-      if (expressReq._bodyPromise) {
-        expressReq.body = await expressReq._bodyPromise;
+      if ((expressReq as any)._bodyPromise) {
+        expressReq.body = await (expressReq as any)._bodyPromise;
       }
 
       // Call Express handler
       await handler(expressReq, expressRes, next);
 
       // Convert to Cloudflare Response
-      return await expressToCloudflare(expressRes, expressReq._bodyPromise);
+      return await expressToCloudflare(expressRes, (expressReq as any)._bodyPromise);
     } catch (error: any) {
       // Error handling
       expressRes.statusCode = error.statusCode || 500;

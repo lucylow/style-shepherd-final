@@ -78,6 +78,9 @@ const envSchema = z.object({
   // Supabase (optional - for workflow orchestration)
   SUPABASE_URL: z.string().url().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+  
+  // Trend Service (optional - Python FastAPI service)
+  TREND_SERVICE_URL: z.string().url().optional().default('http://localhost:8000'),
 });
 
 export type Env = z.infer<typeof envSchema>;
