@@ -4,6 +4,8 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
+import { AppError, isAppError } from '../lib/errors.js';
+import { createErrorContext, enhanceErrorWithContext } from '../lib/errorContext.js';
 
 /**
  * Wraps an async route handler to automatically catch errors
@@ -13,7 +15,15 @@ export function asyncHandler(
   fn: (req: Request, res: Response, next: NextFunction) => Promise<any>
 ) {
   return (req: Request, res: Response, next: NextFunction) => {
-    Promise.resolve(fn(req, res, next)).catch(next);
+    Promise.resolve(fn(req, res, next)).catch((error) => {
+      // Enhance error with context before passing to error handler
+      if (isAppError(error)) {
+        const context = createErrorContext(req);
+        const enhancedError = enhanceErrorWithContext(error, context);
+        return next(enhancedError);
+      }
+      next(error);
+    });
   };
 }
 

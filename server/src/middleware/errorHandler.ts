@@ -9,26 +9,6 @@ import { logError } from '../lib/errorLogger.js';
 import { createErrorContext, enhanceErrorWithContext } from '../lib/errorContext.js';
 
 /**
- * Async error handler wrapper
- * Automatically catches errors from async route handlers
- */
-export function asyncHandler(
-  fn: (req: Request, res: Response, next: NextFunction) => Promise<any>
-) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    Promise.resolve(fn(req, res, next)).catch((error) => {
-      // Enhance error with context before passing to error handler
-      if (isAppError(error)) {
-        const context = createErrorContext(req);
-        const enhancedError = enhanceErrorWithContext(error, context);
-        return next(enhancedError);
-      }
-      next(error);
-    });
-  };
-}
-
-/**
  * Error handler middleware
  * Should be used as the last middleware
  */
