@@ -23,7 +23,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "retrain:agents": "npx tsx scripts/retrain-agents.ts",
+    "data:sync": "node scripts/data-sync.js",
+    "health:check": "node scripts/health-check.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
