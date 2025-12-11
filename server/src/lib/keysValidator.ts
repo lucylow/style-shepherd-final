@@ -140,13 +140,13 @@ export function validateAll(): ValidationReport {
 
   return {
     vultr: vultr 
-      ? { present: true, envName: vultr.envName, ok: vultr.ok } 
+      ? { present: true, envName: vultr.envName, ok: Boolean(vultr.ok) } 
       : { present: false, envName: null, ok: false },
     eleven: eleven 
-      ? { present: true, envName: eleven.envName, ok: eleven.ok } 
+      ? { present: true, envName: eleven.envName, ok: Boolean(eleven.ok) } 
       : { present: false, envName: null, ok: false },
     raindrop: raindrop 
-      ? { present: true, envName: raindrop.envName, ok: raindrop.ok } 
+      ? { present: true, envName: raindrop.envName, ok: Boolean(raindrop.ok) } 
       : { present: false, envName: null, ok: false },
     summary: { readyForLiveDemo, reasons }
   };
