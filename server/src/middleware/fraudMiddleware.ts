@@ -10,8 +10,7 @@ import {
   getUserRiskProfile,
   FraudContext,
 } from '../services/FraudDetector.js';
-// Import Express type extensions
-import '../types/express.js';
+// Express type extensions are automatically picked up from src/types/express.d.ts
 
 /**
  * Fraud detection middleware

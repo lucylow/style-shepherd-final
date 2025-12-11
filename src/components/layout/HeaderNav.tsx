@@ -100,9 +100,9 @@ export default function HeaderNav() {
   const mainItems = navGroups[0].items;
 
   return (
-    <nav role="navigation" aria-label="Main navigation" className="bg-background/95 backdrop-blur-xl shadow-elevated border-b border-border/50 sticky top-0 z-50">
+    <nav role="navigation" aria-label="Main navigation" className="bg-background/95 backdrop-blur-xl shadow-soft border-b border-border/50 sticky top-0 z-50 supports-[backdrop-filter]:bg-background/80">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-16 md:h-18">
           <div className="flex items-center gap-4">
             <Link 
               to="/" 
@@ -127,18 +127,23 @@ export default function HeaderNav() {
                   to={item.href}
                   aria-current={isActive(item.href) ? 'page' : undefined}
                   className={cn(
-                    "px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 relative flex items-center gap-2",
+                    "px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 relative flex items-center gap-2 group",
                     isActive(item.href)
-                      ? 'bg-primary text-primary-foreground shadow-sm'
-                      : 'text-foreground hover:bg-muted/50 hover:text-primary'
+                      ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/20'
+                      : 'text-foreground hover:bg-muted/60 hover:text-primary hover:shadow-soft'
                   )}
                 >
-                  {Icon && <Icon className="w-4 h-4" />}
-                  {item.label}
+                  {Icon && (
+                    <Icon className={cn(
+                      "w-4 h-4 transition-transform duration-300",
+                      isActive(item.href) ? 'scale-110' : 'group-hover:scale-110'
+                    )} />
+                  )}
+                  <span className="relative z-10">{item.label}</span>
                   {isActive(item.href) && (
                     <motion.div
                       layoutId="activeTab"
-                      className="absolute inset-0 bg-primary rounded-lg -z-10"
+                      className="absolute inset-0 bg-primary rounded-lg -z-10 shadow-sm"
                       transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
                     />
                   )}

@@ -104,20 +104,26 @@ export const ProductCard = memo(({
 
   return (
     <motion.div
-      whileHover={{ y: -6, scale: 1.02 }}
-      transition={{ type: "spring", stiffness: 300, damping: 20 }}
-      className="bg-card rounded-xl shadow-elevated border border-border/50 overflow-hidden group card-hover"
+      whileHover={{ y: -8, scale: 1.02 }}
+      transition={{ type: "spring", stiffness: 300, damping: 25 }}
+      className="bg-card rounded-xl shadow-elevated border border-border/50 overflow-hidden group card-hover relative"
     >
       {/* Product Image */}
-      <div className="relative aspect-[3/4] overflow-hidden bg-muted">
+      <div className="relative aspect-[3/4] overflow-hidden bg-gradient-to-br from-muted to-muted/50">
+        {!imageLoaded && (
+          <div className="absolute inset-0 bg-gradient-to-br from-muted via-muted/80 to-muted animate-pulse" />
+        )}
         <img
           src={product.images[0]}
           alt={product.name}
-          className={`w-full h-full object-cover transition-all duration-300 group-hover:scale-105 ${
+          className={`w-full h-full object-cover transition-all duration-500 ease-out group-hover:scale-110 ${
             imageLoaded ? 'opacity-100' : 'opacity-0'
           }`}
           onLoad={() => setImageLoaded(true)}
+          loading="lazy"
         />
+        {/* Image overlay gradient on hover */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/0 via-transparent to-transparent group-hover:from-black/5 transition-all duration-300 pointer-events-none" />
         
         {/* Return Risk Indicator - Updated to use new metrics */}
         {returnRiskScore !== undefined && returnRiskScore > 0 && (
@@ -175,7 +181,7 @@ export const ProductCard = memo(({
         )}
 
         {/* Action Buttons */}
-        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col space-y-2 z-10">
+        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col space-y-2 z-10 backdrop-blur-sm">
           {onToggleWishlist && (
             <TooltipProvider>
               <Tooltip>
@@ -312,8 +318,8 @@ export const ProductCard = memo(({
       </div>
 
       {/* Product Info */}
-      <div className="p-4">
-        <h3 className="font-semibold text-foreground line-clamp-2 mb-1">
+      <div className="p-4 space-y-2">
+        <h3 className="font-semibold text-foreground line-clamp-2 mb-1 group-hover:text-primary transition-colors">
           {product.name}
         </h3>
         <p className="text-sm text-muted-foreground mb-2 line-clamp-1">

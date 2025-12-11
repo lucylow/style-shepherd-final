@@ -156,27 +156,36 @@ const Products = () => {
         {/* Search and Filters */}
         <div className="mb-6 space-y-4">
           <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
+            <div className="flex-1 relative group">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5 group-focus-within:text-primary transition-colors" />
               <Input
                 type="text"
                 placeholder="Search products..."
                 value={searchQuery}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                className="pl-10"
+                className="pl-10 transition-all duration-200 focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
             </div>
             <Button
               variant="outline"
               onClick={() => setIsFilterOpen(!isFilterOpen)}
-              className="relative"
+              className="relative hover:bg-muted/80 transition-all duration-200"
             >
-              <Filter className="w-4 h-4 mr-2" />
+              <Filter className={cn(
+                "w-4 h-4 mr-2 transition-transform duration-200",
+                isFilterOpen && "rotate-90"
+              )} />
               Filters
               {activeFiltersCount > 0 && (
-                <Badge className="ml-2 bg-[#2D8CFF] text-white">
-                  {activeFiltersCount}
-                </Badge>
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  className="ml-2"
+                >
+                  <Badge className="bg-primary text-primary-foreground shadow-sm">
+                    {activeFiltersCount}
+                  </Badge>
+                </motion.div>
               )}
             </Button>
           </div>

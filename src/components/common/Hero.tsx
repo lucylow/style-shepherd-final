@@ -193,13 +193,13 @@ const Hero = () => {
             </motion.div>
           </motion.div>
 
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.9, x: 30 }}
-            animate={{ opacity: 1, scale: 1, x: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="relative"
-          >
-            <div className="bg-white rounded-2xl shadow-2xl p-8 relative z-10 border border-gray-100/50 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, x: 30 }}
+              animate={{ opacity: 1, scale: 1, x: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="relative group"
+            >
+            <div className="bg-white rounded-2xl shadow-2xl p-8 relative z-10 border border-gray-100/50 backdrop-blur-sm hover:shadow-elevated-xl transition-shadow duration-300">
               <div className="text-center mb-6">
                 <motion.div
                   initial={{ scale: 0 }}
