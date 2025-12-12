@@ -1,20 +1,10 @@
 // components/OutfitBuilderDemo.tsx
-
 // Complete Interactive Outfit Builder UI/UX Demo for Style Shepherd
-
 // Production-ready with mock AI data - Copy/Paste ready
 
 import React, { useState, useCallback, useEffect } from "react";
-
 import { motion, AnimatePresence } from "framer-motion";
-
-import { 
-
-  FaSun, FaCloudSun, FaSnowflake, FaUmbrellaBeach, 
-
-  FaSuitcase, FaCocktail, FaRunning, FaUtensils 
-
-} from "react-icons/fa";
+import { Sun, CloudSun, Snowflake, Umbrella, Briefcase, Wine, Dumbbell, UtensilsCrossed } from "lucide-react";
 
 
 
@@ -67,31 +57,18 @@ const INVENTORY = [
 
 
 const WEATHER_ICONS = {
-
-  sunny: FaSun,
-
-  warm: FaCloudSun,
-
-  cold: FaSnowflake,
-
-  beach: FaUmbrellaBeach
-
+  sunny: Sun,
+  warm: CloudSun,
+  cold: Snowflake,
+  beach: Umbrella
 };
 
-
-
 const OCCASIONS = [
-
-  { id: "office", label: "Office", icon: FaSuitcase },
-
-  { id: "dinner", label: "Dinner Date", icon: FaUtensils },
-
-  { id: "night-out", label: "Night Out", icon: FaCocktail },
-
-  { id: "weekend", label: "Weekend", icon: FaRunning },
-
-  { id: "beach", label: "Beach Day", icon: FaUmbrellaBeach }
-
+  { id: "office", label: "Office", icon: Briefcase },
+  { id: "dinner", label: "Dinner Date", icon: UtensilsCrossed },
+  { id: "night-out", label: "Night Out", icon: Wine },
+  { id: "weekend", label: "Weekend", icon: Dumbbell },
+  { id: "beach", label: "Beach Day", icon: Umbrella }
 ];
 
 

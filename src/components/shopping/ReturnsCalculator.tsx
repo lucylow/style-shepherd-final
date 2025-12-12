@@ -1,24 +1,32 @@
-import { useState, useEffect } from "react";
-import { motion, useSpring, useTransform } from "framer-motion";
+import React, { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import { Slider } from "@/components/ui/slider";
 import { TrendingDown, DollarSign, Calendar, Sparkles } from "lucide-react";
 
-const AnimatedCounter = ({ value, duration = 2000, prefix = "", suffix = "" }: { value: number; duration?: number; prefix?: string; suffix?: string }) => {
-  const spring = useSpring(0, { stiffness: 50, damping: 30 });
-  const display = useTransform(spring, (current) =>
-    Math.round(current).toLocaleString()
-  );
+const AnimatedCounter = ({ value, prefix = "", suffix = "" }: { value: number; prefix?: string; suffix?: string }) => {
+  const [displayValue, setDisplayValue] = React.useState(0);
 
-  useEffect(() => {
-    spring.set(value);
-  }, [spring, value]);
+  React.useEffect(() => {
+    const duration = 1500;
+    const startTime = Date.now();
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplayValue(value * eased);
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+    animate();
+  }, [value]);
 
   return (
-    <motion.span>
+    <span>
       {prefix}
-      {display}
+      {Math.round(displayValue).toLocaleString()}
       {suffix}
-    </motion.span>
+    </span>
   );
 };
 

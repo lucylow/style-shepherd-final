@@ -331,7 +331,7 @@ class SizeComparisonEngine {
     let bestVariance = Infinity;
     const sizeCandidates: string[] = [];
 
-    for (const [size, sizeRange] of Object.entries(brandChart.sizes)) {
+    for (const [size, sizeRange] of Object.entries(brandChart.sizes || {})) {
       const distance = this.kernelDistance(body, sizeRange);
       const score = 1 - distance;
       
@@ -345,22 +345,32 @@ class SizeComparisonEngine {
     }
 
     // Calculate measurement variances
-    const bestSizeRange = brandChart.sizes[bestSize];
+    const bestSizeRange = brandChart.sizes?.[bestSize];
     const measurementsMatch: SizeComparisonResult['measurementsMatch'] = {
-      waist: this.getVariance(body.waist, bestSizeRange.waist),
-      hips: this.getVariance(body.hips, bestSizeRange.hips),
+      waist: this.getVariance(body.waist, bestSizeRange?.waist),
+      hips: this.getVariance(body.hips, bestSizeRange?.hips),
     };
 
-    if (body.bust && bestSizeRange.bust) {
+    if (body.bust && bestSizeRange?.bust) {
       measurementsMatch.bust = this.getVariance(body.bust, bestSizeRange.bust);
     }
-    if (body.chest && bestSizeRange.chest) {
+    if (body.chest && bestSizeRange?.chest) {
       measurementsMatch.chest = this.getVariance(body.chest, bestSizeRange.chest);
-    } else if (body.chest && bestSizeRange.bust) {
+    } else if (body.chest && bestSizeRange?.bust) {
       measurementsMatch.chest = this.getVariance(body.chest, bestSizeRange.bust);
     }
 
-    const riskFactors = this.identifyRisks(measurementsMatch, brandChart, bestVariance);
+    // Create a full BrandSizeChart for risk identification
+    const fullBrandChart: BrandSizeChart = {
+      brand: brandChart.brand || product.brand,
+      country: brandChart.country || 'US',
+      sizes: brandChart.sizes || {},
+      vanitySizing: brandChart.vanitySizing || 0,
+      fitProfile: brandChart.fitProfile || 'regular',
+      tolerance: brandChart.tolerance || 2.5,
+    };
+
+    const riskFactors = this.identifyRisks(measurementsMatch, fullBrandChart, bestVariance);
 
     return {
       productId: product.productId,

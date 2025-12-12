@@ -65,7 +65,7 @@ export function useWorkflowProgress(workflowId: string | null): UseWorkflowProgr
     const fetchInitialData = async () => {
       try {
         // Fetch initial workflow state
-        const { data: workflowData, error: workflowError } = await supabase
+        const { data: workflowData, error: workflowError } = await (supabase as any)
           .from('shopping_workflows')
           .select('*')
           .eq('id', workflowId)
@@ -78,7 +78,7 @@ export function useWorkflowProgress(workflowId: string | null): UseWorkflowProgr
         setWorkflow(workflowData as WorkflowState);
 
         // Fetch initial messages
-        const { data: messagesData, error: messagesError } = await supabase
+        const { data: messagesData, error: messagesError } = await (supabase as any)
           .from('agent_messages')
           .select('*')
           .eq('workflow_id', workflowId)
@@ -156,7 +156,7 @@ export function useWorkflowProgress(workflowId: string | null): UseWorkflowProgr
     const completedAgents = messages
       .filter((m) => m.message_type === 'output')
       .map((m) => m.agent_type)
-      .filter((v, i, a) => a.indexOf(v) === i);
+      .filter((v, i, a) => a.indexOf(v) === i) as string[];
 
     const pendingAgents = allAgents.filter((agent) => !completedAgents.includes(agent));
 
