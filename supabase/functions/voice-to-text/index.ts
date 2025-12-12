@@ -157,7 +157,26 @@ Example responses:
     
     const reason = error instanceof Error ? error.message : "Unknown error";
     
-    return createFallbackResponse(userQuery, searchTerms, intent, reason);
+    let fallbackResponse = "I'm sorry, an error occurred. ";
+    
+    if (intent === "product_search" && searchTerms.length > 0) {
+      fallbackResponse += `However, I can still help you search for ${searchTerms.join(", ")}. Here are some options for you.`;
+    } else {
+      fallbackResponse += "Please try again later, or try a simpler query.";
+    }
+    
+    return new Response(
+      JSON.stringify({
+        success: true,
+        text: fallbackResponse,
+        userQuery,
+        searchTerms,
+        intent,
+        fallback: true,
+        reason,
+      }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 });
 

@@ -6,17 +6,22 @@ import { motion, AnimatePresence, useSpring, useTransform } from "framer-motion"
 import { Mail, Users, TrendingUp, Sparkles, CheckCircle2 } from "lucide-react";
 
 const AnimatedStat = ({ value, label, icon: Icon }: { value: number; label: string; icon: any }) => {
-  const spring = useSpring(0, { stiffness: 50, damping: 30 });
-  const display = useTransform(spring, (current) => {
-    if (label.includes("Rating")) {
-      return current.toFixed(1);
-    }
-    return Math.round(current);
-  });
+  const [displayValue, setDisplayValue] = React.useState(0);
 
   React.useEffect(() => {
-    spring.set(value);
-  }, [spring, value]);
+    const duration = 1500;
+    const startTime = Date.now();
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplayValue(value * eased);
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+    animate();
+  }, [value]);
 
   const getSuffix = () => {
     if (label.includes("%")) return "%";
@@ -30,6 +35,10 @@ const AnimatedStat = ({ value, label, icon: Icon }: { value: number; label: stri
     if (label.includes("User Rating")) return "User Rating";
     return label;
   };
+
+  const formattedValue = label.includes("Rating") 
+    ? displayValue.toFixed(1) 
+    : Math.round(displayValue).toLocaleString();
 
   return (
     <motion.div
@@ -47,7 +56,7 @@ const AnimatedStat = ({ value, label, icon: Icon }: { value: number; label: stri
         <Icon className="w-6 h-6 mx-auto" />
       </motion.div>
       <div className="text-3xl font-bold mb-1">
-        {label.includes("Rating") ? display : display.toLocaleString()}
+        {formattedValue}
         {getSuffix()}
       </div>
       <div className="text-sm opacity-90">{getLabelText()}</div>

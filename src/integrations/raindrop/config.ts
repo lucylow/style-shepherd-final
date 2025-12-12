@@ -26,7 +26,8 @@ async function loadOfficialSDK() {
   
   try {
     const module = await import('@liquidmetal-ai/raindrop');
-    officialSDKModule = module.RaindropSDK || module.default || module;
+    // Try different export patterns
+    officialSDKModule = (module as any).RaindropSDK || (module as any).default || null;
     officialSDKLoaded = true;
     return officialSDKModule;
   } catch (error) {
