@@ -29,46 +29,8 @@ Style Shepherd is an enterprise-grade AI fashion assistant that leverages multi-
 | **Technical Innovation** | ✅ Multi-agent AI, real-time learning, voice-first |
 | **Impact** | ✅ Solves $550B returns problem |
 
-## 🏗️ System Architecture
-
-### High-Level Architecture Overview
-
-```mermaid
-graph TB
-    subgraph "Frontend Layer"
-        A[Next.js Web App] --> B[Voice Interface]
-        C[Mobile App] --> B
-        D[Admin Dashboard] --> E[Real-time Analytics]
-    end
-
-    subgraph "Raindrop Platform"
-        F[API Gateway] --> G[SmartMemory - User Profiles]
-        F --> H[SmartBuckets - Product Images]
-        F --> I[SmartSQL - Orders & Analytics]
-        F --> J[SmartInference - AI Models]
-    end
-
-    subgraph "Vultr Infrastructure"
-        K[GPU Cluster] --> L[ML Inference Engine]
-        M[Cloud Compute] --> N[Recommendation API]
-        O[Managed Databases] --> P[Vector Store]
-    end
-
-    subgraph "External Services"
-        Q[ElevenLabs Voice] --> R[Speech Processing]
-        S[Stripe Payments] --> T[Transaction Processing]
-        U[WorkOS Auth] --> V[User Management]
-    end
-
-    B --> F
-    G --> K
-    J --> L
-    L --> G
 
 
-**Vibe. Code. Ship.** ✨
-
-**Status:** 🏆 Hackathon Submission | **Track:** Best Voice Agent (ElevenLabs) + Best Agentic Shopping Experience | **Deadline:** December 12, 2025
 
 ***
 
@@ -114,6 +76,45 @@ graph TB
 - Price comparison across retailers
 
 ***
+
+## 🏗️ System Architecture
+
+### High-Level Architecture Overview
+
+```mermaid
+graph TB
+    subgraph "Frontend Layer"
+        A[Next.js Web App] --> B[Voice Interface]
+        C[Mobile App] --> B
+        D[Admin Dashboard] --> E[Real-time Analytics]
+    end
+
+    subgraph "Raindrop Platform"
+        F[API Gateway] --> G[SmartMemory - User Profiles]
+        F --> H[SmartBuckets - Product Images]
+        F --> I[SmartSQL - Orders & Analytics]
+        F --> J[SmartInference - AI Models]
+    end
+
+    subgraph "Vultr Infrastructure"
+        K[GPU Cluster] --> L[ML Inference Engine]
+        M[Cloud Compute] --> N[Recommendation API]
+        O[Managed Databases] --> P[Vector Store]
+    end
+
+    subgraph "External Services"
+        Q[ElevenLabs Voice] --> R[Speech Processing]
+        S[Stripe Payments] --> T[Transaction Processing]
+        U[WorkOS Auth] --> V[User Management]
+    end
+
+    B --> F
+    G --> K
+    J --> L
+    L --> G
+```
+
+
 
 ## 🏗️ Tech Stack
 
