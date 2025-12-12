@@ -1,0 +1,79 @@
+[
+  {
+    "id": "elevenlabs-tts",
+    "name": "ElevenLabs TTS",
+    "method": "POST",
+    "path": "/functions/v1/elevenlabs-tts",
+    "description": "Convert text to speech using ElevenLabs API with caching and rate limiting"
+  },
+  {
+    "id": "elevenlabs-voices",
+    "name": "ElevenLabs Voices",
+    "method": "GET",
+    "path": "/functions/v1/elevenlabs-voices",
+    "description": "List available ElevenLabs voices"
+  },
+  {
+    "id": "vultr-inference",
+    "name": "Vultr Inference",
+    "method": "POST",
+    "path": "/functions/v1/vultr-inference",
+    "description": "AI inference using Vultr serverless GPU"
+  },
+  {
+    "id": "fashion-assistant",
+    "name": "Fashion Assistant",
+    "method": "POST",
+    "path": "/functions/v1/fashion-assistant",
+    "description": "AI-powered fashion recommendations and styling advice"
+  },
+  {
+    "id": "style-recommendations",
+    "name": "Style Recommendations",
+    "method": "POST",
+    "path": "/functions/v1/style-recommendations",
+    "description": "Get personalized style recommendations based on preferences"
+  },
+  {
+    "id": "size-prediction",
+    "name": "Size Prediction",
+    "method": "POST",
+    "path": "/functions/v1/size-prediction",
+    "description": "Predict optimal size across brands with cross-brand normalization"
+  },
+  {
+    "id": "return-risk-prediction",
+    "name": "Return Risk Prediction",
+    "method": "POST",
+    "path": "/functions/v1/return-risk-prediction",
+    "description": "Predict return risk for purchases using 55+ features"
+  },
+  {
+    "id": "product-search",
+    "name": "Product Search",
+    "method": "POST",
+    "path": "/functions/v1/product-search",
+    "description": "AI-powered semantic product search with intent extraction"
+  },
+  {
+    "id": "outfit-builder",
+    "name": "Outfit Builder",
+    "method": "POST",
+    "path": "/functions/v1/outfit-builder",
+    "description": "Build complete, cohesive outfits from products or suggestions"
+  },
+  {
+    "id": "trend-analysis",
+    "name": "Trend Analysis",
+    "method": "POST",
+    "path": "/functions/v1/trend-analysis",
+    "description": "Analyze current fashion trends and provide market insights"
+  },
+  {
+    "id": "size-comparison",
+    "name": "Size Comparison",
+    "method": "POST",
+    "path": "/functions/v1/size-comparison",
+    "description": "Compare sizes across multiple brands with variance analysis"
+  }
+]

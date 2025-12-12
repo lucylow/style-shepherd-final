@@ -1,0 +1,100 @@
+*** Begin Patch
+*** Update File: package.json
+@@
+   "engines": {
+     "node": ">=18"
+   },
+   "scripts": {
+     "dev": "vite",
+     "build": "vite build",
+     "build:dev": "vite build --mode development",
+     "build:server": "cd server && npm ci && npm run build",
+     "build:all": "npm run build && npm run build:server",
+     "lint": "eslint .",
+     "preview": "vite preview --port 5173",
+-    "start": "node server/index.js || (cd server && npm run build && node dist/index.js)",
++    "start": "node server/index.js",
+     "start:simple": "node server/index.js",
+     "heroku-postbuild": "npm run build:all",
+     "mock:server": "json-server --watch mocks/db.json --port 4000 --host 0.0.0.0",
+     "mock:dev": "npm run mock:server"
+   },
+*** End Patch
+
+*** Begin Patch
+*** Add File: .env.example
++# Environment Variables for Style Shepherd
++# Copy this file to .env and fill in your API keys
++
++NODE_ENV=development
++PORT=3000
++
++# Vultr Serverless Inference API
++VULTR_SERVERLESS_INFERENCE_API_KEY=
++
++# ElevenLabs Text-to-Speech API
++ELEVENLABS_API_KEY=
++
++# Raindrop.io API (for bookmarking)
++RAINDROP_API_KEY=
++
++# Supabase (if using)
++SUPABASE_URL=
++SUPABASE_ANON_KEY=
++
++# Stripe (if using)
++STRIPE_PUBLISHABLE_KEY=
++STRIPE_SECRET_KEY=
++
++# Vite environment variables (prefixed with VITE_)
++VITE_API_BASE_URL=/api
++VITE_DEMO_MODE=true
+*** End Patch
+
+*** Begin Patch
+*** Update File: lovable.yml
+@@
+ build:
+   framework: vite
+   node_version: 18
+   build_command: "npm run build"
+   output_dir: "dist"
+ 
+ deploy:
+   start_command: "npm run start"
+ 
+ environment:
+   VITE_API_BASE_URL: "/api"
+   VITE_DEMO_MODE: "true"
+   NODE_ENV: production
+   PORT: 3000
+ 
+ cdn:
+   enabled: true
+ 
+ mobile_manifest:
+   name: "Style Shepherd"
+   short_name: "Shepherd"
+   theme_color: "#36454F"
+   background_color: "#F7F9FB"
+ 
+ notes:
+   - Vite + React + TypeScript + TailwindCSS application
+   - API calls use relative path /api for Lovable backend integration
+   - Server serves static files from dist/ and provides /health endpoint
+   - Backend API routes available at /api/* endpoints
+   - Set DEMO_MODE=true to run without external services
++  - Health check endpoint: /health (required for Lovable)
++  - Ensure NODE_ENV=production and PORT is set in Lovable environment
+*** End Patch
+
+*** Begin Patch
+*** Update File: README.md
+@@
+ ## Quick local test for Lovable
+ - Install deps: `npm ci` (or `npm install`)
+ - Build: `npm run build` (creates `dist/` for Vite)
+ - Run: `npm start` (starts server shim which serves the build and provides /health)
+ - Healthcheck: `curl http://localhost:3000/health` should return JSON `{"status":"ok"}`
+ - If deploying to Lovable: set NODE env and secrets (VULTR_SERVERLESS_INFERENCE_API_KEY, ELEVENLABS_API_KEY, RAINDROP_API_KEY) in Lovable UI and verify `lovable.yml` build_command/output_dir match your framework.
+*** End Patch

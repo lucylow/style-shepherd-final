@@ -1,0 +1,52 @@
+name: CI / Build and Deploy
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.x"
+          cache: 'npm'
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Run tests
+        run: npm test || true
+
+      - name: Build
+        run: npm run build
+
+      - name: Archive build
+        run: zip -r style-shepherd-release.zip dist || true
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: style-shepherd-build
+          path: |
+            dist
+            style-shepherd-release.zip
+
+  # optional: deploy (requires Lovable CLI available)
+  # Uncomment and configure if you have a Lovable CLI and credentials
+  # deploy:
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Install Lovable CLI
+  #       run: npm i -g lovable-cli || true
+  #     - name: Deploy to Lovable
+  #       env:
+  #         LOVABLE_API_KEY: ${{ secrets.LOVABLE_API_KEY }}
+  #       run: lovable deploy --project my-lovable-project --artifact ./style-shepherd-release.zip

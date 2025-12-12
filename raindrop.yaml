@@ -1,0 +1,40 @@
+version: 1
+services:
+  - name: style-shepherd-web
+    type: web
+    source_dir: .
+    build_command: npm install && npm run build
+    start_command: npm run preview
+    env:
+      - key: VITE_API_BASE_URL
+        from: style-shepherd-server
+      - key: VITE_RAINDROP_API_KEY
+        from_secret: RAINDROP_API_KEY
+      - key: VITE_RAINDROP_PROJECT_ID
+        from_secret: RAINDROP_PROJECT_ID
+      - key: VITE_RAINDROP_BASE_URL
+        value: https://platform.raindrop.ai
+
+  - name: style-shepherd-server
+    type: service
+    source_dir: server
+    build_command: npm install && npm run build
+    start_command: npm start
+    env:
+      - key: RAINDROP_API_KEY
+        from_secret: RAINDROP_API_KEY
+      - key: RAINDROP_PROJECT_ID
+        from_secret: RAINDROP_PROJECT_ID
+      - key: RAINDROP_BASE_URL
+        value: https://platform.raindrop.ai
+    env_file: ../.env
+    health_check:
+      path: /health
+      interval: 30
+      timeout: 5
+      healthy_threshold: 2
+      unhealthy_threshold: 3
+    scaling:
+      min_instances: 1
+      max_instances: 10
+      target_cpu: 70

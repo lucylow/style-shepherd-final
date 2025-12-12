@@ -1,0 +1,61 @@
+# lovable.yml
+
+build:
+  # static framework with Node.js server (start_command will run the server)
+  framework: static
+  node_version: 18
+  build_command: "npm ci && npm run build && (cd server && npm ci && npm run build || true)"
+  output_dir: "dist"
+
+deploy:
+  start_command: "npm run start"
+  # number of instances — autoscale section is best-effort depending on platform
+  autoscale:
+    min_instances: 1
+    max_instances: 3
+  instance_size: "shared-cpu-1x"  # change if you need more CPU/memory
+
+health:
+  path: "/health"
+  interval_seconds: 15
+  timeout_seconds: 3
+  healthy_threshold: 2
+  unhealthy_threshold: 3
+
+environment:
+  NODE_ENV: production
+  PORT: 3000
+  # Demo Mode - set to "true" to run without external services (recommended for demo)
+  DEMO_MODE: ${DEMO_MODE}
+  NEXT_PUBLIC_DEMO_MODE: ${DEMO_MODE}
+  # CORS - allow requests from Lovable domain (wildcard for flexibility)
+  CORS_ORIGIN: "*"
+  # Integration Keys - map Lovable's secret names to runtime env variables (set these in Lovable UI)
+  # Vultr Serverless Inference (primary name, also supports VULTR_API_KEY, VULTR_KEY)
+  VULTR_SERVERLESS_INFERENCE_API_KEY: ${VULTR_SERVERLESS_INFERENCE_API_KEY}
+  VULTR_API_KEY: ${VULTR_API_KEY}
+  # ElevenLabs TTS (also supports ELEVEN_KEY, ELEVEN_LABS_API_KEY)
+  ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY}
+  # Raindrop Memory Platform (also supports RAINDROP_KEY)
+  RAINDROP_API_KEY: ${RAINDROP_API_KEY}
+  RAINDROP_PROJECT_ID: ${RAINDROP_PROJECT_ID}
+  # Optional Configuration
+  VULTR_INFERENCE_BASE_URL: ${VULTR_INFERENCE_BASE_URL}
+  ELEVENLABS_BASE_URL: ${ELEVENLABS_BASE_URL}
+  NEXT_PUBLIC_DEFAULT_VOICE_ID: ${NEXT_PUBLIC_DEFAULT_VOICE_ID}
+
+# OPTIONAL: post-deploy hooks (run in the instance after starting)
+hooks:
+  post_deploy:
+    - name: ensure-mock-data
+      command: "bash ./scripts/ensure-mock.sh"
+      timeout_seconds: 30
+
+logs:
+  # forward stdout/stderr (platform typically streams this automatically)
+  level: info
+  retention_days: 7
+
+monitoring:
+  metrics_path: "/metrics"
+  scrape_interval_seconds: 30
