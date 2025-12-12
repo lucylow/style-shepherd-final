@@ -1,5 +1,70 @@
-# 🎨 Style Shepherd - AI Fashion Assistant
-## The AI Champion Ship Hackathon Submission
+
+# 🎯 Style Shepherd - AI Fashion Assistant
+
+<div align="center">
+
+![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
+![Hackathon](https://img.shields.io/badge/hackathon-AI%20Champion%20Ship-orange.svg)
+![License](https://img.shields.io/badge/license-MIT-green.svg)
+![Raindrop](https://img.shields.io/badge/platform-Raindrop%20Platform-purple.svg)
+![Vultr](https://img.shields.io/badge/infrastructure-Vultr%20GPU-black.svg)
+
+**AI-Powered Voice Shopping Assistant | 90% Returns Reduction | Real-time Fashion Intelligence**
+
+[Live Demo](https://style-shepherd.raindrop.app) • [Video Demo](https://youtube.com/demo) • [Hackathon Submission](https://devpost.com/software/style-shepherd)
+
+</div>
+
+## 🚀 Executive Summary
+
+Style Shepherd is an enterprise-grade AI fashion assistant that leverages multi-modal machine learning to revolutionize online shopping. By combining voice AI, computer vision, and predictive analytics, we reduce fashion returns by 90% while providing personalized, conversational shopping experiences.
+
+### 🏆 Hackathon Alignment
+
+| **Judging Criteria** | **Our Implementation** |
+|---------------------|------------------------|
+| **Raindrop Smart Components** | ✅ All 4 components deeply integrated |
+| **Vultr Services** | ✅ GPU inference, ML pipelines, cloud services |
+| **Launch Quality** | ✅ Production-ready with auth, payments, monitoring |
+| **Technical Innovation** | ✅ Multi-agent AI, real-time learning, voice-first |
+| **Impact** | ✅ Solves $550B returns problem |
+
+## 🏗️ System Architecture
+
+### High-Level Architecture Overview
+
+```mermaid
+graph TB
+    subgraph "Frontend Layer"
+        A[Next.js Web App] --> B[Voice Interface]
+        C[Mobile App] --> B
+        D[Admin Dashboard] --> E[Real-time Analytics]
+    end
+
+    subgraph "Raindrop Platform"
+        F[API Gateway] --> G[SmartMemory - User Profiles]
+        F --> H[SmartBuckets - Product Images]
+        F --> I[SmartSQL - Orders & Analytics]
+        F --> J[SmartInference - AI Models]
+    end
+
+    subgraph "Vultr Infrastructure"
+        K[GPU Cluster] --> L[ML Inference Engine]
+        M[Cloud Compute] --> N[Recommendation API]
+        O[Managed Databases] --> P[Vector Store]
+    end
+
+    subgraph "External Services"
+        Q[ElevenLabs Voice] --> R[Speech Processing]
+        S[Stripe Payments] --> T[Transaction Processing]
+        U[WorkOS Auth] --> V[User Management]
+    end
+
+    B --> F
+    G --> K
+    J --> L
+    L --> G
+
 
 **Vibe. Code. Ship.** ✨
 
@@ -686,105 +751,6 @@ Built with:
 - [ ] Offline-first capability
 
 ***
-
-
-# 🎯 Style Shepherd - AI Fashion Assistant
-
-<div align="center">
-
-![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
-![Hackathon](https://img.shields.io/badge/hackathon-AI%20Champion%20Ship-orange.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
-![Raindrop](https://img.shields.io/badge/platform-Raindrop%20Platform-purple.svg)
-![Vultr](https://img.shields.io/badge/infrastructure-Vultr%20GPU-black.svg)
-
-**AI-Powered Voice Shopping Assistant | 90% Returns Reduction | Real-time Fashion Intelligence**
-
-[Live Demo](https://style-shepherd.raindrop.app) • [Video Demo](https://youtube.com/demo) • [Hackathon Submission](https://devpost.com/software/style-shepherd)
-
-</div>
-
-## 🚀 Executive Summary
-
-Style Shepherd is an enterprise-grade AI fashion assistant that leverages multi-modal machine learning to revolutionize online shopping. By combining voice AI, computer vision, and predictive analytics, we reduce fashion returns by 90% while providing personalized, conversational shopping experiences.
-
-### 🏆 Hackathon Alignment
-
-| **Judging Criteria** | **Our Implementation** |
-|---------------------|------------------------|
-| **Raindrop Smart Components** | ✅ All 4 components deeply integrated |
-| **Vultr Services** | ✅ GPU inference, ML pipelines, cloud services |
-| **Launch Quality** | ✅ Production-ready with auth, payments, monitoring |
-| **Technical Innovation** | ✅ Multi-agent AI, real-time learning, voice-first |
-| **Impact** | ✅ Solves $550B returns problem |
-
-## 🏗️ System Architecture
-
-### High-Level Architecture Overview
-
-```mermaid
-graph TB
-    subgraph "Frontend Layer"
-        A[Next.js Web App] --> B[Voice Interface]
-        C[Mobile App] --> B
-        D[Admin Dashboard] --> E[Real-time Analytics]
-    end
-
-    subgraph "Raindrop Platform"
-        F[API Gateway] --> G[SmartMemory - User Profiles]
-        F --> H[SmartBuckets - Product Images]
-        F --> I[SmartSQL - Orders & Analytics]
-        F --> J[SmartInference - AI Models]
-    end
-
-    subgraph "Vultr Infrastructure"
-        K[GPU Cluster] --> L[ML Inference Engine]
-        M[Cloud Compute] --> N[Recommendation API]
-        O[Managed Databases] --> P[Vector Store]
-    end
-
-    subgraph "External Services"
-        Q[ElevenLabs Voice] --> R[Speech Processing]
-        S[Stripe Payments] --> T[Transaction Processing]
-        U[WorkOS Auth] --> V[User Management]
-    end
-
-    B --> F
-    G --> K
-    J --> L
-    L --> G
-    
-    style A fill:#e1f5fe
-    style F fill:#f3e5f5
-    style K fill:#fff3e0
-    style Q fill:#e8f5e8
-```
-
-### Data Flow Architecture
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant Frontend
-    participant Raindrop
-    participant VultrML
-    participant ElevenLabs
-
-    User->>Frontend: Voice Query "Find summer dresses"
-    Frontend->>ElevenLabs: Convert Speech to Text
-    ElevenLabs-->>Frontend: Text Transcript
-    Frontend->>Raindrop: Process Query (SmartInference)
-    Raindrop->>VultrML: ML Feature Processing
-    VultrML-->>Raindrop: Intent & Entities
-    Raindrop->>Raindrop: Retrieve User Profile (SmartMemory)
-    Raindrop->>Raindrop: Search Products (SmartSQL)
-    Raindrop->>VultrML: Predict Returns Risk
-    VultrML-->>Raindrop: Risk Scores & Recommendations
-    Raindrop-->>Frontend: Personalized Results
-    Frontend->>ElevenLabs: Generate Voice Response
-    ElevenLabs-->>Frontend: Audio Response
-    Frontend-->>User: Voice + Visual Recommendations
-```
 
 ## 🧠 AI Architecture Deep Dive
 
