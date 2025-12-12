@@ -6,6 +6,10 @@ const corsHeaders = {
 };
 
 const ELEVENLABS_API_KEY = Deno.env.get("ELEVENLABS_API_KEY") || "";
+
+// NOTE: This function is for direct TTS calls. The main Voice Agent functionality
+// is now handled by the ElevenLabs Convai widget, which manages its own TTS/STT.
+// This function remains for any legacy or custom TTS needs.
 const DEFAULT_VOICE_ID = "JBFqnCBsd6RMkjVDRZzb"; // George
 const MAX_RETRIES = 3;
 const REQUEST_TIMEOUT_MS = 30000;
@@ -192,7 +196,7 @@ serve(async (req) => {
           error: errorText || `ElevenLabs error ${response.status}`,
           cached: false,
         }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 

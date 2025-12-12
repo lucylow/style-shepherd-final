@@ -1,0 +1,18 @@
+[
+  {
+    "voice_id": "mock-el-001",
+    "name": "Clara (Warm)",
+    "language": "en-US",
+    "gender": "female",
+    "preview_url": "/mocks/audio/clara_preview.mp3",
+    "metadata": { "use_case": ["stylist", "concierge"], "quality": "high" }
+  },
+  {
+    "voice_id": "mock-el-002",
+    "name": "Jon (Calm)",
+    "language": "en-US",
+    "gender": "male",
+    "preview_url": "/mocks/audio/jon_preview.mp3",
+    "metadata": { "use_case": ["ads", "narration"], "quality": "medium" }
+  }
+]

@@ -38,7 +38,8 @@ serve(async (req) => {
     } else if (audio) {
       // Audio blob was provided, but we don't have STT service in edge function
       // For now, use a placeholder since browser speech recognition should handle this
-      // In production, you could add OpenAI Whisper API here for audio transcription
+      // For a production-ready solution, consider using a dedicated STT service like Vultr Inference
+      // or a specialized API (e.g., OpenAI Whisper) for audio transcription.
       console.warn("Audio blob provided but transcription not implemented in edge function. Using browser STT recommended.");
       userQuery = "Hello, I need fashion advice";
     } else {
@@ -53,14 +54,14 @@ serve(async (req) => {
     const intent = detectIntent(userQuery);
 
     // Helper function to create fallback response
-    const createFallbackResponse = (query: string, terms: string[], detectedIntent: string) => {
-      let fallbackResponse = "I'd be happy to help you find what you're looking for!";
+    const createFallbackResponse = (query: string, terms: string[], detectedIntent: string, reason: string) => {
+      let fallbackResponse = "I'm sorry, the full AI service is currently unavailable. ";
       
-      if (terms.length > 0) {
+      if (detectedIntent === "product_search" && terms.length > 0) {
         const termsString = terms.join(", ");
-        fallbackResponse = `Great! I'll help you find ${termsString}. Here are some options for you.`;
-      } else if (detectedIntent === "product_search") {
-        fallbackResponse = "Let me show you some products that match your request.";
+        fallbackResponse += `However, I can still help you search for ${termsString}. Here are some options for you.`;
+      } else {
+        fallbackResponse += "Please try again later, or try a simpler query.";
       }
       
       return new Response(
@@ -71,15 +72,17 @@ serve(async (req) => {
           searchTerms: terms,
           intent: detectedIntent,
           fallback: true, // Flag to indicate this is a fallback response
+          reason: reason,
         }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     };
 
     // If API key is missing, return a fallback response without AI
     if (!LOVABLE_API_KEY) {
-      console.warn("LOVABLE_API_KEY not configured, using fallback response");
-      return createFallbackResponse(userQuery, searchTerms, intent);
+      const reason = "LOVABLE_API_KEY not configured";
+      console.warn(`${reason}, using fallback response`);
+      return createFallbackResponse(userQuery, searchTerms, intent, reason);
     }
 
     // Use Lovable AI to process the fashion query
@@ -126,8 +129,9 @@ Example responses:
       }
       
       // On API error, fall back to basic response
-      console.warn(`AI Gateway error: ${response.status}, using fallback`);
-      return createFallbackResponse(userQuery, searchTerms, intent);
+      const reason = `AI Gateway error: ${response.status}`;
+      console.warn(`${reason}, using fallback`);
+      return createFallbackResponse(userQuery, searchTerms, intent, reason);
     }
 
     const data = await response.json();
@@ -151,24 +155,9 @@ Example responses:
     const searchTerms = extractSearchTerms(userQuery);
     const intent = detectIntent(userQuery);
     
-    let fallbackResponse = "I'd be happy to help you find what you're looking for!";
-    if (searchTerms.length > 0) {
-      const termsString = searchTerms.join(", ");
-      fallbackResponse = `Great! I'll help you find ${termsString}. Here are some options for you.`;
-    }
+    const reason = error instanceof Error ? error.message : "Unknown error";
     
-    return new Response(
-      JSON.stringify({
-        success: true,
-        text: fallbackResponse,
-        userQuery,
-        searchTerms,
-        intent,
-        fallback: true,
-        error: error instanceof Error ? error.message : "Unknown error",
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return createFallbackResponse(userQuery, searchTerms, intent, reason);
   }
 });
 
