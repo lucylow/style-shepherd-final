@@ -96,10 +96,10 @@ export function useErrorMonitoring() {
       });
     };
 
-    const handleError = (event: ErrorEvent) => {
-      const error = event.error || new Error(event.message);
+    const handleGlobalError = (event: ErrorEvent) => {
+      const errorInstance = event.error || new Error(event.message);
       
-      reportError(error, {
+      reportError(errorInstance, {
         action: 'globalError',
       }).catch(() => {
         // Silently fail
@@ -107,11 +107,11 @@ export function useErrorMonitoring() {
     };
 
     window.addEventListener('unhandledrejection', handleUnhandledRejection);
-    window.addEventListener('error', handleError);
+    window.addEventListener('error', handleGlobalError);
 
     return () => {
       window.removeEventListener('unhandledrejection', handleUnhandledRejection);
-      window.removeEventListener('error', handleError);
+      window.removeEventListener('error', handleGlobalError);
     };
   }, [reportError]);
 

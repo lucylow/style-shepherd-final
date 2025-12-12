@@ -6,7 +6,6 @@
  */
 
 import { userMemory } from '@/integrations/raindrop/config';
-import { mockService } from '@/services/mockService';
 
 export interface UserProfile {
   userId: string;
@@ -94,30 +93,9 @@ class UserMemoryService {
    */
   async getUserProfile(userId: string): Promise<UserProfile | null> {
     try {
-      const profile = await userMemory.get(userId);
-      if (!profile) {
-        // Fallback to mock data if no profile exists
-        const mockProfile = mockService.getUserProfile(userId);
-        if (mockProfile) {
-          return {
-            userId: mockProfile.userId,
-            preferences: mockProfile.preferences,
-            bodyMeasurements: mockProfile.measurements,
-          };
-        }
-      }
-      return profile;
+      return await userMemory.get(userId);
     } catch (error) {
       console.error('Failed to get user profile:', error);
-      // Return mock data on error
-      const mockProfile = mockService.getUserProfile(userId);
-      if (mockProfile) {
-        return {
-          userId: mockProfile.userId,
-          preferences: mockProfile.preferences,
-          bodyMeasurements: mockProfile.measurements,
-        };
-      }
       return null;
     }
   }

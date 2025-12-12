@@ -1,20 +1,10 @@
 // components/ProductSearchDemo.tsx
-
 // Complete AI-Powered Semantic Product Search UI/UX Demo
-
 // Production-ready for Style Shepherd - Copy/Paste Ready
 
 import React, { useState, useCallback, useEffect, useRef } from "react";
-
 import { motion, AnimatePresence } from "framer-motion";
-
-import { 
-
-  FaSearch, FaFilter, FaHeart, FaCartPlus, FaSparkles, 
-
-  FaSun, FaCloudRain, FaSnowflake, FaPalette 
-
-} from "react-icons/fa";
+import { Search, Filter, Heart, ShoppingCart, Sparkles, Sun, CloudRain, Snowflake, Palette } from "lucide-react";
 
 // ============================================================================
 
@@ -286,7 +276,7 @@ export default function ProductSearchDemo() {
 
           <div className="inline-flex items-center gap-4 bg-white/90 backdrop-blur-xl px-8 py-5 rounded-3xl shadow-2xl border border-slate-200 mb-8">
 
-            <FaSparkles className="text-3xl text-blue-500 animate-pulse" />
+            <Sparkles className="text-3xl text-blue-500 animate-pulse" />
 
             <h1 className="text-5xl md:text-6xl font-black bg-gradient-to-r from-slate-800 to-blue-600 bg-clip-text text-transparent">
 
@@ -294,7 +284,7 @@ export default function ProductSearchDemo() {
 
             </h1>
 
-            <FaSearch className="text-3xl text-blue-500" />
+            <Search className="text-3xl text-blue-500" />
 
           </div>
 
@@ -322,7 +312,7 @@ export default function ProductSearchDemo() {
 
             <div className="relative">
 
-              <FaSearch className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 text-xl" />
+              <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 text-xl" />
 
               <input
 
@@ -420,7 +410,7 @@ export default function ProductSearchDemo() {
 
                     >
 
-                      <FaFilter className="text-sm" />
+                      <Filter className="text-sm" />
 
                       Clear {activeFilters} filters
 
@@ -544,7 +534,7 @@ export default function ProductSearchDemo() {
 
           >
 
-            <FaSparkles className="text-6xl text-slate-300 mx-auto mb-8 animate-pulse" />
+            <Sparkles className="text-6xl text-slate-300 mx-auto mb-8 animate-pulse" />
 
             <h3 className="text-3xl font-bold text-slate-500 mb-4">No exact matches</h3>
 
@@ -720,7 +710,7 @@ const ProductCard = ({ product, delay = 0, onQuickAdd }: any) => (
 
         >
 
-          <FaCartPlus className="mr-2" /> Quick Add
+          <ShoppingCart className="mr-2" /> Quick Add
 
         </motion.button>
 
@@ -734,7 +724,7 @@ const ProductCard = ({ product, delay = 0, onQuickAdd }: any) => (
 
         >
 
-          <FaHeart />
+          <Heart />
 
         </motion.button>
 

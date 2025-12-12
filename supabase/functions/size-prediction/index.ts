@@ -305,7 +305,11 @@ function fallbackSizePrediction(
       brand: product.brand,
       vanity_sizing_factor: vanityFactor,
       size_mapping: {},
-      measurement_adjustments: adjusted,
+      measurement_adjustments: {
+        bust: adjusted.bust_cm,
+        waist: adjusted.waist_cm,
+        hips: adjusted.hips_cm,
+      },
     },
     fit_recommendation: {
       recommended_fit: vanityFactor > 1.1 ? "size_up" : "true_to_size",

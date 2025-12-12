@@ -45,8 +45,7 @@ async function apiCall<T>(
   const baseUrl = getBaseUrl();
 
   if (!apiKey || !projectId) {
-    console.warn('Raindrop API credentials not configured, using mock mode');
-    return Promise.resolve({} as T);
+    throw new Error('Raindrop API key and project ID are required');
   }
 
   const url = `${baseUrl}${endpoint}`;

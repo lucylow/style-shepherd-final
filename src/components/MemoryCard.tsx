@@ -15,6 +15,7 @@ interface MemoryEntry {
   userId?: string;
   type?: string;
   text: string;
+  message?: string;
   metadata?: Record<string, unknown>;
   createdAt?: string;
   resp?: {
@@ -22,6 +23,7 @@ interface MemoryEntry {
     text?: string;
     createdAt?: string;
     metadata?: Record<string, unknown>;
+    type?: string;
   };
 }
 
@@ -53,7 +55,7 @@ export default function MemoryCard({ memory, onDelete, onCopy, copied = false }:
   const text = entry.text || memory?.resp?.text || memory?.message || '';
   const createdAt = entry.createdAt || memory?.resp?.createdAt || '';
   const metadata = entry.metadata || memory?.resp?.metadata || {};
-  const type = entry.type || memory.type || 'working';
+  const type = entry.type || memory.type || memory?.resp?.type || 'working';
 
   const handleCopy = async () => {
     if (onCopy) {

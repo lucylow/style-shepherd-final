@@ -9,8 +9,7 @@ import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import RouteLoadingIndicator from "@/components/common/RouteLoadingIndicator";
 import { routeConfigs, createRouteElement } from "@/config/routes";
 import { KeyboardShortcutsProvider } from "@/components/KeyboardShortcutsProvider";
-import { initGlobalErrorHandlers } from '@/lib/globalErrorHandler';
-import { DemoBanner } from '@/components/DemoBanner';
+import { initGlobalErrorHandlers } from "@/lib/globalErrorHandler";
 
 // Initialize global error handlers on app startup
 initGlobalErrorHandlers();
@@ -80,7 +79,6 @@ const App = () => {
           <TooltipProvider>
             <BrowserRouter>
               <KeyboardShortcutsProvider>
-                <DemoBanner />
                 <Toaster />
                 <Sonner />
                 <AppRoutes />
