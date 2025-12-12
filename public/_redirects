@@ -1,8 +1,0 @@
-# Netlify Redirects File
-# This file handles SPA routing and API proxying
-
-# SPA fallback - all routes go to index.html
-/*    /index.html   200
-
-# If you have a separate backend, uncomment and update:
-# /api/*  https://your-backend-url.com/api/:splat  200
