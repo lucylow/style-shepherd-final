@@ -28,12 +28,7 @@ export async function streamFashionChat({
   onError?: (error: Error) => void;
 }) {
   try {
-    const { data, error } = await supabase.functions.invoke('fashion-assistant', {
-      body: { messages },
-    });
-
-    if (error) throw error;
-
+    // The streaming logic handles the response directly via fetch, so we skip the initial invoke.
     // For streaming, we need to handle the response differently
     const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fashion-assistant`;
     

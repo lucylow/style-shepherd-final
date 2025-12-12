@@ -74,8 +74,8 @@ class UserMemoryService {
   async saveUserProfile(userId: string, profile: Partial<UserProfile>): Promise<void> {
     try {
       const existing = await this.getUserProfile(userId);
-      const updated = {
-        ...existing,
+      const updated: UserProfile = {
+        ...(existing || { userId }), // Ensure a base object exists
         ...profile,
         userId,
         updatedAt: new Date().toISOString(),
@@ -113,7 +113,7 @@ class UserMemoryService {
    */
   async getConversationHistory(userId: string, limit?: number): Promise<ConversationEntry[]> {
     try {
-      const history = await userMemory.get(`${userId}-conversation`) || [];
+      const history = await userMemory.get(`${userId}-conversation`) as ConversationEntry[] || [];
       const sorted = Array.isArray(history) 
         ? history.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
         : [];
@@ -178,7 +178,7 @@ class UserMemoryService {
       }
 
       const evolutionKey = `${userId}-style-evolution`;
-      const existing = await userMemory.get(evolutionKey) || [];
+      const existing = await userMemory.get(evolutionKey) as StyleEvolutionEntry[] || [];
       
       const profile = await this.getUserProfile(userId);
       const evolutionEntry: StyleEvolutionEntry = {
@@ -282,7 +282,7 @@ class UserMemoryService {
 
       // Update in sessions list
       const sessionKey = `${userId}-sessions`;
-      const sessions = await userMemory.get(sessionKey) || [];
+      const sessions = await userMemory.get(sessionKey) as SessionData[] || [];
       const updatedSessions = Array.isArray(sessions)
         ? sessions.map((s: SessionData) => 
             s.sessionId === updatedSession.sessionId ? updatedSession : s
@@ -306,7 +306,7 @@ class UserMemoryService {
   async getSession(userId: string, sessionId: string): Promise<SessionData | null> {
     try {
       const sessionKey = `${userId}-sessions`;
-      const sessions = await userMemory.get(sessionKey) || [];
+      const sessions = await userMemory.get(sessionKey) as SessionData[] || [];
       const session = Array.isArray(sessions)
         ? sessions.find((s: SessionData) => s.sessionId === sessionId)
         : null;

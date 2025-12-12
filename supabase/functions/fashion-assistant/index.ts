@@ -57,7 +57,7 @@ Be helpful, concise, and focus on reducing returns by ensuring perfect fit and s
       }
       if (response.status === 402) {
         return new Response(
-          JSON.stringify({ error: "AI credits depleted. Please add credits in Settings." }),
+          JSON.stringify({ error: "AI credits depleted. Please check your Lovable AI Gateway subscription or contact support." }),
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }

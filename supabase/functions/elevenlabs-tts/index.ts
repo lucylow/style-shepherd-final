@@ -192,7 +192,7 @@ serve(async (req) => {
           error: errorText || `ElevenLabs error ${response.status}`,
           cached: false,
         }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 

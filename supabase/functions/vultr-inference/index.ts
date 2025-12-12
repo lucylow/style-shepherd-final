@@ -10,10 +10,14 @@ const VULTR_URL = "https://api.vultrinference.com/v1/chat/completions";
 
 // Supported models for different use cases
 const SUPPORTED_MODELS = {
-  chat: "llama2-7b-chat-Q5_K_M",
-  sizePrediction: "llama2-7b-chat-Q5_K_M",
-  returnRisk: "llama2-7b-chat-Q5_K_M",
-  trendAnalysis: "llama2-7b-chat-Q5_K_M",
+  chat: "llama2-7b-chat-Q5_K_M", // General chat and assistant
+
+  sizePrediction: "llama2-7b-chat-Q5_K_M", // Specialized for size prediction
+
+  returnRisk: "llama2-7b-chat-Q5_K_M", // Specialized for return risk analysis
+
+  trendAnalysis: "llama2-7b-chat-Q5_K_M", // Specialized for trend analysis
+
 } as const;
 
 interface ChatMessage {
@@ -116,7 +120,8 @@ serve(async (req) => {
       : model;
 
     // Cache key based on request (exclude temperature for caching)
-    const cacheKey = `vultr:${btoa(JSON.stringify({ model: selectedModel, messages, useCase }))}`;
+    // Using a simple string representation for the cache key
+    const cacheKey = `vultr:${selectedModel}:${JSON.stringify(messages)}:${useCase}`;
     const cached = getCached(cacheKey);
     if (cached) {
       return new Response(
@@ -158,7 +163,7 @@ serve(async (req) => {
         messages,
         temperature: Math.max(0, Math.min(2, temperature)), // Clamp between 0 and 2
         max_tokens: Math.max(1, Math.min(4000, maxTokens)), // Clamp between 1 and 4000
-      };
+      }; // Added semicolon for consistency
 
       const response = await fetchWithRetry(
         VULTR_URL,

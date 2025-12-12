@@ -135,8 +135,10 @@ class FashionAIEngine {
 
     if (userProfile?.preferences?.preferredSizes) {
       const sizes = userProfile.preferences.preferredSizes;
+      const fitConfidence = 0.85; // Placeholder for a more complex size prediction model
+      const returnReduction = 0.65; // Placeholder for a more complex return risk model
       return {
-        text: `Based on your profile, I recommend ${sizes.join(' or ')} size. Our AI predicts a ${Math.round((1 - 0.15) * 100)}% confidence this will fit you perfectly, reducing return risk by 65%.`,
+        text: `Based on your profile, I recommend ${sizes.join(' or ')} size. Our AI predicts a ${Math.round(fitConfidence * 100)}% confidence this will fit you perfectly, reducing return risk by ${Math.round(returnReduction * 100)}%.`,
         confidence,
       };
     }
@@ -194,6 +196,9 @@ class FashionAIEngine {
   }
 
   computeStyleEmbedding(userProfile: UserProfile): number[] {
+    // NOTE: This is a simple, hash-based embedding. For production, this should be replaced
+    // with a proper vector database integration and a pre-trained fashion-specific embedding model.
+    // The current implementation serves as a placeholder for the concept.
     // Simple embedding based on user preferences
     const embedding = new Array(16).fill(0);
     
