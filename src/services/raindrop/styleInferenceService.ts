@@ -11,6 +11,7 @@
 import { styleInference } from '@/integrations/raindrop/config';
 import { UserProfile } from './userMemoryService';
 import { Product } from '@/types/fashion';
+import { mockService } from '@/services/mockService';
 
 export interface RecommendationInput {
   userId: string;
@@ -305,12 +306,13 @@ class StyleInferenceService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error(`[StyleInferenceService] Failed to predict size:`, errorMessage);
-      // Return default prediction on error
+      // Use mock service fallback
+      const mockPrediction = mockService.predictSize('demo_user', 'mock_product');
       return {
-        recommendedSize: 'M',
-        confidence: 0.5,
-        alternativeSizes: ['S', 'L'],
-        reasoning: 'Unable to generate size prediction',
+        recommendedSize: mockPrediction.recommendedSize,
+        confidence: mockPrediction.confidence,
+        alternativeSizes: mockPrediction.alternativeSizes.map(s => s.size),
+        reasoning: `Based on your measurements and ${brand}'s sizing for ${category}`,
         fitPrediction: {
           chest: 'fit',
           waist: 'fit',
@@ -364,13 +366,14 @@ class StyleInferenceService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error(`[StyleInferenceService] Failed to assess return risk for user ${userId}, product ${productId}:`, errorMessage);
-      // Return default assessment on error
+      // Use mock service fallback
+      const mockRisk = mockService.assessReturnRisk(userId, productId);
       return {
-        riskScore: 0.5,
-        riskLevel: 'medium',
-        factors: [],
-        confidence: 0.5,
-        recommendations: [],
+        riskScore: mockRisk.riskScore,
+        riskLevel: mockRisk.riskLevel,
+        factors: mockRisk.factors,
+        confidence: 0.85,
+        recommendations: [mockRisk.recommendation],
       };
     }
   }

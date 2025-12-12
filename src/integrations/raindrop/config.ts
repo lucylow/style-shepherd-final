@@ -105,6 +105,10 @@ class SmartMemoryClient {
   ) {}
 
   async set(key: string, value: any): Promise<void> {
+    if (!this.config.apiKey) {
+      console.warn('[SmartMemory] API key not configured, skipping set operation');
+      return;
+    }
     // Implementation: Store user profile, preferences, history
     const response = await fetch(`${this.config.baseUrl || 'https://platform.raindrop.ai'}/v1/memory/${this.namespace}/${key}`, {
       method: 'PUT',
@@ -118,6 +122,10 @@ class SmartMemoryClient {
   }
 
   async get(key: string): Promise<any> {
+    if (!this.config.apiKey) {
+      console.warn('[SmartMemory] API key not configured, returning null');
+      return null;
+    }
     // Implementation: Retrieve user profile, preferences, history
     const response = await fetch(`${this.config.baseUrl || 'https://platform.raindrop.ai'}/v1/memory/${this.namespace}/${key}`, {
       headers: {
